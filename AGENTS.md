@@ -12,6 +12,39 @@
 - **Providers live only in `providers.toml`.** Secret values live only in fnox
   (`mise run keys:set`) and Worker secrets (`mise run keys:push`).
 
+## Working rules from the owner
+
+These apply to every AI agent working here. They exist because each was broken
+at least once.
+
+- **Nothing outside this repo.** No global Claude Code skills, plugins, memory or
+  settings, and no files left in temp or home directories. Skills, agent rules and
+  settings live in the repo (`.claude/`, `AGENTS.md`, `CLAUDE.md`) and are
+  committed.
+- **Skills are in the repo, pinned, synced by mise, and proven to load.** Invoke
+  the relevant skill before the work it covers: gsx before any `.gsx`, the
+  Cloudflare skills before wrangler config or Durable Objects. GUI work uses only
+  the gsx and gsxui CLIs and patterns from gsxui's own site; never hand-invented
+  components.
+- **Use tools the way their authors document them.** Do not work around a tool's
+  intended path (for example gsx's Vite starter).
+- **Once something works, put it in mise and the plan.** No manual steps, no
+  reminders in chat (such as "restart Claude Code"): a task does it or tells the
+  developer.
+- **It must work for every developer**, who all use mise and fnox. No personal
+  account IDs, URLs or paths in committed files.
+- **Test for real before saying done:** run the actual tasks locally, in workerd,
+  and on Cloudflare, and say plainly what could not be exercised.
+- **Prove a hello world round trip in every topology** before building on it.
+- **Think it through before presenting a plan:** as a new developer on a fresh
+  clone, as an end user in the GUI, and by where the code runs and what it shares,
+  not by incidental tooling.
+- **One routing rule** decides everything: the model's provider prefix, and that
+  provider's runtime (remote, local or browser). The GUI asks for the mode first,
+  then that mode's models.
+- **Commit only files you name.** The owner edits `.plan/` at the same time; never
+  `git add -A` or a whole directory you did not create.
+
 ## Tasks
 
 | Task | Purpose |
