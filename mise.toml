@@ -105,7 +105,7 @@ else
   echo "Enter the value for $name (input is hidden):"
   fnox set -g "$name"
 fi
-fnox exec -- sh -c 'printf %s "$(printenv "$1")" | wrangler secret put "$1"' _ "$name"
+fnox exec -- sh -c 'printf %s "$(printenv "$1")" | wrangler secret put "$1" --env ""' _ "$name"
 echo "Pushed $name to the Worker. Check with: mise run status --worker"
 '''
 
@@ -118,7 +118,7 @@ set -uo pipefail
 missing=0
 while IFS=$'\t' read -r name provider; do
   if fnox get "$name" >/dev/null 2>&1; then
-    fnox exec -- sh -c 'printf %s "$(printenv "$1")" | wrangler secret put "$1"' _ "$name" >/dev/null && echo "pushed  $name"
+    fnox exec -- sh -c 'printf %s "$(printenv "$1")" | wrangler secret put "$1" --env ""' _ "$name" >/dev/null && echo "pushed  $name"
   else
     echo "missing $name -> mise run keys:set $provider"
     missing=1
@@ -172,7 +172,7 @@ echo "Deployed. Check it with: mise run status --worker"
 
 [tasks.logs]
 description = "Stream live logs from the deployed Worker"
-run = "fnox exec -- wrangler tail"
+run = "fnox exec -- wrangler tail --env \"\""
 
 [tasks.setup]
 description = "One-time setup: create the client key if needed, push all keys, and show what is still missing"

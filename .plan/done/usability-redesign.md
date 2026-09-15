@@ -1,6 +1,6 @@
 # Plan: Make the proxy easy to use with many providers
 
-**Status: PROPOSED, awaiting decisions in §6. 2026-09-15**
+**Status: DONE and deployed, 2026-09-15. See §7 for what changed from this plan and how it was verified.**
 
 ## 1. The problem, measured
 
@@ -218,3 +218,53 @@ token withheld from non-xAI hosts, `/openai/v1` joining, and so on) move into
 | 2 | Where provider config lives | `providers.toml` committed and embedded at build. The alternative is KV, editable at runtime through the admin API, which needs no redeploy but is harder to review |
 | 3 | Relationship with dvcrn upstream | Accept that the fork diverges. The env-var fallback keeps their setup working; offer them the router later as a PR if they want it |
 | 4 | MCP tool names | Add `ask` / `list_models` and keep `ask_grok` / `ask_grok_models` as aliases, so existing clients do not break |
+
+## 7. Outcome, 2026-09-15
+
+All phases were done in one pass (commit 89fa994) and deployed as Worker version
+`ac131a8c-9060-4a92-b5e3-b51f3febe522`.
+
+### Decisions taken
+
+Section 6 went with the recommendations, with two changes the user asked for during
+the work:
+
+- **Compatibility with dvcrn/grok-oauth-proxy was dropped.** There is no
+  `UPSTREAM_*` fallback, and the module path is now
+  `github.com/joeblew999/grok-oauth-proxy`.
+- **No `ask_grok` aliases.** The MCP tools are only `ask` and `list_models`.
+
+### Differences from the design above
+
+| Plan | Built | Why |
+|---|---|---|
+| mise tasks call the proxy's HTTP API directly | The CLI has `status`, `models`, `chat`, `login` and `keys` subcommands, and the tasks wrap them | The formatting and fix messages live in Go, tested once; tasks stay one line. `go run` was replaced by a built binary to avoid noise like "exit status 1" |
+| Config only from the embedded file | Embedded file, `--config FILE` for local runs, or the `PROVIDERS_TOML` variable | `dev --mock` and `bench` need another provider set without a rebuild. `status` always prints the source |
+| Admin routes in a separate package | In `internal/proxy` | They share the client key check and error format with the proxy routes |
+| About 12 tasks | 13: `bench` and `models` added, `release` left out | `models` answers "which IDs can I use?" without curl. Releases are not part of this fork's workflow |
+| `mise run login --worker` | Implemented; not exercised live | The deployed provider uses an API key, so there is no Grok login to test against; the device flow is covered by unit tests |
+
+### Verified
+
+- `mise run test`: gofmt, vet (native and wasm), and tests for config, router,
+  proxy, xaiauth and mcp. They cover prefix routing, key errors that name the fix,
+  incremental streaming, xai-oauth refresh on 401, and the MCP tools.
+- `mise run dev --mock` with `status`, `models` and `chat`: both mock providers
+  routed, the `key` provider sent its key, and the `auth = "none"` provider sent
+  none.
+- `mise run bench`: every endpoint returned 200 in local workerd on both Worker
+  builds; TinyGo returned 501 on `/mcp`. This caught a bug the Go tests could not:
+  the Worker's fetch rejects a GET carrying any body, including `http.NoBody`. It is
+  fixed, and the new test fails against the old code.
+- Live Worker: `status --worker` all ok, `models --worker` returned the xAI list, a
+  real `chat --worker` answered, and `/v1/models` without the key returned 401.
+
+### Left for later
+
+- The Worker still holds the old `UPSTREAM_API_KEY` secret, which nothing reads,
+  in case of a rollback to a pre-redesign version. Remove it with
+  `fnox exec -- wrangler secret delete UPSTREAM_API_KEY --env ""`.
+- A model with an unknown prefix (e.g. `groq/x` while no groq provider exists)
+  goes to the default provider, which then reports that the model does not exist.
+  That is correct, because model IDs may contain slashes, but a hint naming the
+  configured providers would be friendlier.
