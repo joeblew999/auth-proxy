@@ -13,6 +13,14 @@ node = "24"
 tinygo = "0.42.0"
 # TinyGo shells out to wasm-opt for every wasm build.
 "aqua:WebAssembly/binaryen" = "121"
+# GUI toolchain, used the way gsx and gsxui document: gsx's Vite starter, with
+# Tailwind through Vite (npm, from the node pinned above). The gsx CLI scaffolds
+# (gsx init); inside the module, builds use go.mod's tool pin (go tool gsx), which
+# must stay the same version. gsxui has no releases, so it is pinned by commit.
+"go:github.com/gsxhq/gsx/cmd/gsx" = "v0.1.1"
+"go:github.com/gsxhq/gsxui/cmd/gsxui" = "5d973c7"
+# Local models: an OpenAI-compatible server on 127.0.0.1:11435.
+"go:github.com/ardanlabs/kronk/cmd/kronk" = "1.32.6"
 
 [env]
 # The deployed Worker; every --worker flag talks to it.
@@ -135,6 +143,53 @@ run = [
   "go vet ./...",
   "GOOS=js GOARCH=wasm go vet ./...",
   "go test ./...",
+  "mise run hello:check",
+]
+
+# --- spikes/hello-world: gsx + gsxui, used exactly as gsx documents ------------
+# Scaffolded with `gsx init --yes` (Vite starter) and `gsxui init` (Vite mode).
+# Order matters: `vite build` empties dist/, and the Go binary embeds dist/, so
+# the npm build must run before any Go build or vet.
+
+[tasks."hello:install"]
+hide = true
+dir = "spikes/hello-world"
+sources = ["package.json", "package-lock.json"]
+outputs = ["node_modules/.package-lock.json"]
+run = "npm ci"
+
+[tasks."hello:dev"]
+description = "gsx dev loop for spikes/hello-world: Vite + Go server with live reload on http://localhost:5173"
+depends = ["hello:install"]
+dir = "spikes/hello-world"
+raw = true
+run = "npm run dev"
+
+[tasks."hello:build"]
+description = "Build spikes/hello-world the documented gsx way: vite build, gsx generate, go build (bin/hello-world)"
+depends = ["hello:install"]
+dir = "spikes/hello-world"
+run = [
+  "npm run build",
+  "go tool gsx generate -q",
+  "go build -o bin/hello-world .",
+]
+
+[tasks."hello:serve"]
+description = "Build and run spikes/hello-world natively on http://localhost:7777"
+depends = ["hello:build"]
+dir = "spikes/hello-world"
+raw = true
+run = "bin/hello-world"
+
+[tasks."hello:check"]
+description = "Check spikes/hello-world: build, gsx formatting, go vet, and a TinyGo wasm build of the components"
+depends = ["hello:build"]
+dir = "spikes/hello-world"
+run = [
+  'test -z "$(go tool gsx fmt -l .)" || { go tool gsx fmt -l .; echo "unformatted .gsx; fix with: go tool gsx fmt -w ."; exit 1; }',
+  "go vet ./...",
+  "tinygo build -o /dev/null -target wasm ./cmd/tinygo-render",
 ]
 
 [tasks.build]

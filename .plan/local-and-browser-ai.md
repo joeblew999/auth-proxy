@@ -281,6 +281,42 @@ successful install.
 | A3 | **No personal values** (§5.1): account from fnox, bindings without IDs, Worker URL computed by `setup`. First check wrangler's automatic provisioning on a throwaway Worker | `mise run setup` + `mise run deploy` work on a second Cloudflare account with no edits |
 | A4 | **CI on a clean runner** (§5.3) | `mise install` + `mise run test` pass on every push |
 
+#### A1 result, 2026-09-15: done and validated
+
+Stages A and B are built in **`spikes/hello-world/`**, a separate Go module in
+this repo (the root module and its tests are untouched). Stage C folds it into
+the root app.
+
+- **Scaffolded the documented way:** `gsx init hello-world --module … --yes` (Vite
+  starter with `@gsxhq/vite-plugin-gsx` and the `github.com/gsxhq/vite` Go module),
+  then `gsxui init` (Vite mode: Tailwind through `@tailwindcss/vite`), then
+  `gsxui add button badge tabs item progress` (also pulls `separator`).
+- **Proven:** a mode and model picker (`views/picker.gsx`) built only from gsxui
+  components renders 14 component slots with its states. It works through
+  `npm run build` → `go tool gsx generate` → `go build` → served page with
+  Vite-built CSS, through the `gsx dev` loop, and under TinyGo (native run and
+  `-target wasm` build).
+- **Tools pinned in mise:** gsx CLI v0.1.1 (same version as the spike's go.mod
+  tool), gsxui `5d973c7`, kronk 1.32.6. Standalone Tailwind was removed: gsxui's
+  documented path is Vite.
+- **Fixed on the way, not skipped:**
+  - `gsx init` writes `go 1.26.0`; aligned to the repo's Go 1.27.
+  - npm 11 blocks install scripts by default: `esbuild` (needed by Vite) and
+    `fsevents` (macOS watcher) are approved in `package.json` `allowScripts`, so
+    `npm ci` runs with no warnings.
+  - `vite build` empties `dist/` (deleting the starter's `dist/.gitkeep`), and the
+    Go binary embeds `dist/`, so any Go build before the npm build fails. The tasks
+    run the documented order.
+  - A `go get -tool` run by hand had bumped `golang.org/x/tools` in the root
+    module; the root `go.mod` was restored.
+- **mise tasks** (`mise tasks | grep hello`): `hello:dev`, `hello:build`,
+  `hello:serve`, `hello:check` (build, `gsx fmt -l`, `go vet`, TinyGo wasm), and
+  hidden `hello:install` (`npm ci`, skipped when the lockfile is unchanged).
+  `mise run test` runs `hello:check`. Each task was run through mise, from a
+  fresh-clone state, with nothing left running.
+- **Still open, moved to A2:** nothing yet keeps the mise gsx pin and the spike's
+  go.mod tool pin in step, and the skills are not installed.
+
 ### Stage B: hello world round trip in every topology
 
 The smallest possible "click → request → Go handler → gsx fragment → swapped into
