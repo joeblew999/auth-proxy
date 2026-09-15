@@ -113,6 +113,19 @@ description = "Push UPSTREAM_API_KEY from fnox to the Worker without prompting"
 run = "fnox exec -- wrangler secret delete UPSTREAM_API_KEY"
 description = "Remove UPSTREAM_API_KEY from the Worker, reverting it to the OAuth flow"
 
+# --- running on API credits instead of a SuperGrok subscription ---------------
+# API credits bill separately from the consumer subscription, so no monthly
+# commitment is needed. Buy them and create a key in the console, validate the key
+# here, then push it to the Worker with cf_secret_upstream_key_sync.
+
+[tasks.xai_console]
+run = "open https://console.x.ai"
+description = "Open the xAI API console, where credits are bought and API keys created"
+
+[tasks.xai_check_key]
+run = "fnox exec -- sh -c 'curl -sS -o /dev/null -w \"HTTP %{http_code}\" -H \"Authorization: Bearer $UPSTREAM_API_KEY\" https://api.x.ai/v1/models; echo'"
+description = "Check UPSTREAM_API_KEY against api.x.ai directly (200 = usable, 401 = bad key; needs fnox set UPSTREAM_API_KEY)"
+
 [tasks.cf_tail]
 run = "fnox exec -- wrangler tail"
 description = "Stream live logs from the deployed Worker"

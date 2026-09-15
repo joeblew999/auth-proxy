@@ -58,6 +58,22 @@ routes (`/admin/auth/start`, `/admin/auth/status`, `/admin/tokens`) return **409
 rather than failing obscurely, and `/admin/status` reports `authMode` alongside
 `configured`.
 
+### Running on API credits instead of a subscription
+
+No SuperGrok subscription is needed. API credits bill separately from the consumer
+subscription, so this avoids any monthly commitment.
+
+| Task | Purpose |
+|---|---|
+| `mise run xai_console` | Open the API console, where credits are bought and keys created |
+| `mise run xai_check_key` | Validate the key against `api.x.ai` before wiring it in |
+| `mise run cf_secret_upstream_key` | Set it on the Worker (prompts) |
+| `mise run cf_secret_upstream_key_sync` | Push it from fnox, non-interactive |
+| `mise run cf_secret_upstream_key_delete` | Revert the Worker to OAuth |
+
+Validate the key before deploying it: a bad key and an unbilled account both look
+like a broken proxy otherwise, and `xai_check_key` tells them apart in one call.
+
 ## Local provider-agnostic testing — free, no xAI account
 
 | Task | Purpose |
