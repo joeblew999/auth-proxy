@@ -148,25 +148,58 @@ Worker, then runs `wrangler deploy`. Static Assets hold the gsxui CSS, the Servi
 Worker wasm and yzma's llama.cpp wasm. COOP/COEP headers apply only to the chat
 page.
 
-## 5. Skills first: the AI must use gsx and gsxui properly
+## 5. Works for every developer, with nothing manual
 
-This comes **before any GUI code**, because it is exactly what went wrong last
-time.
+A new developer runs **`mise install`** and then **`mise run setup`**, and that is
+the whole setup. Nothing in the repo belongs to one person, and every step below
+is a task or a hook, never a README instruction. CI proves it on a fresh machine.
 
-1. `mise.toml` pins gsx (also in `go.mod` as a tool) and gsxui (a `go:` backend,
-   by commit), plus standalone Tailwind.
-2. `mise run skills` copies gsx's `skills/*` at the pinned version into the repo's
-   `.claude/skills/`, and they are committed. **Never global.**
-3. **Restart Claude Code**, then confirm `gsx` and `templ-to-gsx-migration` are in
-   the skill list. No GUI work starts until they are.
-4. AGENTS.md gains the GUI rules proven in go-htmx4: components only via
-   `gsxui add`; `.gsx` generated with `go tool gsx generate` and formatted with
-   `go tool gsx fmt`; never edit `*.x.go`; no hand-written CSS or components;
-   htmx 4 syntax only.
-5. `mise run test` enforces it: gsx formatting, generated files up to date, and a
-   check that the skills in `.claude/skills/` match the pinned gsx version.
-6. gsxui has no skill, so AGENTS.md points agents at its CLI and at
-   `.upstream/gsxui` (a gitignored checkout) as the source for patterns.
+### 5.1 No personal values in the repo
+
+Checked 2026-09-15: the repo currently hard-codes the owner's account ID and KV
+namespace ID in `wrangler.toml` and the owner's `*.gedw99.workers.dev` URLs in
+`mise.toml`. All of that goes.
+
+| Value | From now on |
+|---|---|
+| Cloudflare account | `CLOUDFLARE_ACCOUNT_ID`, provided by fnox; wrangler reads it from the environment |
+| KV namespace, D1, R2 | bindings **without IDs**. Wrangler (4.45+) creates them per account on deploy. Whether it writes IDs back into the committed config needs verifying, and if it does, the deployed config is generated into a gitignored file from a committed template |
+| Worker URL | computed by `setup` from the Worker name and the account's workers.dev subdomain (Cloudflare API), stored in gitignored `mise.local.toml` |
+| Secrets | named in a committed `fnox.toml`, with values in each developer's own fnox provider. `setup` prompts for any that are missing (keychain on macOS, another provider on Linux) |
+| Worker name | a per-developer name for development and one shared production name, see §7 |
+
+### 5.2 Skills: automated, committed, enforced
+
+Last time the AI ignored the gsx and gsxui CLIs because the skills were not
+loaded. So:
+
+1. **Pinned tools:** `mise.toml` pins gsxui (`go:` backend, by commit) and
+   standalone Tailwind. gsx is pinned in `go.mod` as a tool.
+2. **Automatic sync:** a mise `postinstall` hook runs the hidden `skills:sync`
+   task on every `mise install`. It copies gsx's `skills/*` at the pinned version
+   into the repo's `.claude/skills/`. **Never global.**
+3. **Committed:** the skills are in git, so a fresh clone has them before the first
+   Claude Code session. No developer ever has to restart to load them; only the
+   very first creation of the directory, done once here, needs a restart.
+4. **Enforced by tests:** `mise run test` fails when `.claude/skills/` differs from
+   the pinned gsx version, when `.gsx` files are unformatted, or when generated
+   `*.x.go` files are stale.
+5. **Enforced for AI agents:** a committed `.claude/settings.json` hook blocks
+   edits to generated `*.x.go` files and to gsxui components outside `gsxui add`.
+   CLAUDE.md tells agents to invoke the gsx skill before touching `.gsx`. It works
+   the same for every developer's Claude Code.
+6. **Rules:** AGENTS.md carries go-htmx4's proven GUI rules (components only via
+   `gsxui add`, `go tool gsx generate` / `fmt`, htmx 4 syntax, no hand-written CSS).
+   gsxui has no skill, so the rules point at its CLI and at a gitignored
+   `.upstream/gsxui` checkout, fetched by a task, for patterns.
+
+### 5.3 Proven on a clean machine
+
+A CI workflow runs `mise install` and `mise run test` on a fresh Linux runner on
+every push. It installs every tool, syncs the skills and runs all checks,
+including the Service Worker and Worker builds. If a setup step only works on the
+owner's machine, CI fails. Deploys need Cloudflare secrets, so CI stops before
+them.
 
 ## 6. Phases
 
@@ -174,7 +207,7 @@ Spikes come first, so the risky parts are proven or dropped before the refactor.
 
 | # | Phase | Done when |
 |---|---|---|
-| 0 | **Skills and GUI toolchain** (§5), then restart | skills listed; `gsxui add button` works; `mise run test` checks them |
+| 0 | **Every-developer setup** (§5): remove personal values, `fnox.toml`, automated skills sync with test and hook enforcement, CI on a clean runner. Spike wrangler's automatic provisioning on a throwaway Worker first | a fresh clone on the CI runner passes `mise install` + `mise run test`; a second Cloudflare account deploys with `mise run setup` + `mise run deploy` and no edits |
 | 1 | **Spike: Go chat handler in a TinyGo Service Worker**, served by wrangler from Cloudflare, returning a gsx fragment | the same handler answers on the Worker and in the Service Worker |
 | 2 | **Spike: yzma in a Web Worker** driven by that Service Worker, one small model in Chrome | download size, load time and tokens per second measured; go or no-go |
 | 3 | **Spike: browser to localhost** through Local Network Access to kronk or the native binary, streaming | the permission prompt and CORS work end to end, or the local path is native-only |
@@ -192,3 +225,5 @@ Spikes come first, so the risky parts are proven or dropped before the refactor.
 | 3 | Is the Local Network Access prompt acceptable for local models on the hosted GUI? | Yes: one prompt per site. Without it, local models work only through the native binary |
 | 4 | Worker built with Go or TinyGo? | Go for now, because MCP needs it. The Service Worker is TinyGo either way, so all shared code must stay TinyGo-safe (tested) |
 | 5 | Import go-htmx4's `kit/` or copy the parts? | Import `kit/live` and `kit/httpx`; copy only the room Durable Object's JS |
+| 6 | One shared Worker, or one per developer? | Per developer for development (Worker name suffixed with the developer's name, set by `setup`), and one shared production Worker deployed from `main` |
+| 7 | Which platforms must setup support? | macOS and Linux (Windows via WSL); the tasks are bash |
