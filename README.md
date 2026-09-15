@@ -6,6 +6,24 @@ It also provides an MCP server at `/mcp`. Agents can use it to discover the Grok
 
 Use it when a client can connect to an OpenAI-compatible base URL but cannot authenticate with Grok OAuth directly.
 
+> [!WARNING]
+> **TinyGo Worker build: `/mcp` is blocked by TinyGo 0.42.0 bugs** ([tinygo-org/tinygo#5684](https://github.com/tinygo-org/tinygo/issues/5684))
+>
+> The Cloudflare Worker builds with both standard Go and TinyGo. The TinyGo build is 1.5 MB instead of 15 MB and serves each request faster, but it returns **501 on `/mcp`**. Everything else behaves identically.
+>
+> The MCP SDK needs eight things TinyGo 0.42.0 lacks or gets wrong (all reproduced and reported in the issue):
+>
+> 1. `hash/maphash` does not compile on Go 1.27
+> 2. `crypto/rand.Text` is missing
+> 3. `net.Dialer.Control` is missing
+> 4. `http.Transport.DialTLSContext` is missing
+> 5. `os.OpenRoot` is missing
+> 6. `http.CrossOriginProtection` is missing
+> 7. `reflect.NewAt` panics as unimplemented
+> 8. `reflect.VisibleFields` returns fields whose `Type` panics
+>
+> With all eight patched locally, `/mcp` works under TinyGo and returns the same results as the Go build, so nothing else is blocking it. Until TinyGo ships fixes, deploy the standard Go build (`mise run cf_deploy`). Details are in [.plan/tinygo.md](.plan/tinygo.md).
+
 ## Quick start
 
 Install the proxy with npm:
