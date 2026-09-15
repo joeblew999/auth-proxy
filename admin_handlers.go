@@ -23,6 +23,9 @@ func deviceAuthStartHandler(auth *deviceAuth) http.HandlerFunc {
 		if !adminRequestAllowed(w, r, http.MethodPost) || !discardLimitedRequestBody(w, r, 1024) {
 			return
 		}
+		if !requireOAuthMode(w) {
+			return
+		}
 		status, err := auth.Start(r.Context())
 		writeDeviceAuthResponse(w, status, err)
 	}
@@ -31,6 +34,9 @@ func deviceAuthStartHandler(auth *deviceAuth) http.HandlerFunc {
 func deviceAuthStatusHandler(auth *deviceAuth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !adminRequestAllowed(w, r, http.MethodGet, http.MethodPost) {
+			return
+		}
+		if !requireOAuthMode(w) {
 			return
 		}
 		var (
@@ -51,6 +57,9 @@ func deviceAuthStatusHandler(auth *deviceAuth) http.HandlerFunc {
 
 func tokensHandler(w http.ResponseWriter, r *http.Request) {
 	if !adminRequestAllowed(w, r, http.MethodPost) || !requireJSONContentType(w, r) {
+		return
+	}
+	if !requireOAuthMode(w) {
 		return
 	}
 	body, ok := readLimitedRequestBody(w, r, 65536)
@@ -97,10 +106,38 @@ func tokenStatusHandler(w http.ResponseWriter, r *http.Request) {
 	if !adminRequestAllowed(w, r, http.MethodGet) {
 		return
 	}
+	// Report the mode actually in use. In static-key mode the OAuth store is
+	// irrelevant, so judging "configured" by it would report false for a
+	// deployment that is working perfectly well.
+	if staticUpstreamKey() != "" {
+		writeAdminJSON(w, map[string]any{
+			"configured": true,
+			"authMode":   "static-key",
+		})
+		return
+	}
 	tokens, err := loadTokens()
-	writeAdminJSON(w, map[string]bool{
+	writeAdminJSON(w, map[string]any{
 		"configured": err == nil && tokens != nil && tokens.AccessToken != "",
+		"authMode":   "oauth",
 	})
+}
+
+// requireOAuthMode rejects admin endpoints that only make sense with the OAuth
+// device flow.
+//
+// When UPSTREAM_API_KEY is configured the upstream credential is a static key and
+// no OAuth flow exists at all, so without this guard these endpoints would either
+// fail confusingly against auth.x.ai or silently store credentials that nothing
+// ever reads.
+func requireOAuthMode(w http.ResponseWriter) bool {
+	if staticUpstreamKey() != "" {
+		writeAdminError(w,
+			"OAuth device flow is unavailable: UPSTREAM_API_KEY is set, so the upstream credential is a static key",
+			http.StatusConflict)
+		return false
+	}
+	return true
 }
 
 func adminRequestAllowed(w http.ResponseWriter, r *http.Request, methods ...string) bool {

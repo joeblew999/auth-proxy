@@ -53,6 +53,11 @@ OAuth endpoints) must stay behind `isXAIUpstream()` or the OAuth-only code paths
 Because these are read from the environment at call time, tests that exercise the
 OAuth path must pin them with `t.Setenv` to stay hermetic.
 
+With `UPSTREAM_API_KEY` set there is no OAuth flow at all, so the OAuth-only admin
+routes (`/admin/auth/start`, `/admin/auth/status`, `/admin/tokens`) return **409**
+rather than failing obscurely, and `/admin/status` reports `authMode` alongside
+`configured`.
+
 ## Local provider-agnostic testing — free, no xAI account
 
 | Task | Purpose |
