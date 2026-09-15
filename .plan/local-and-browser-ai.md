@@ -264,26 +264,47 @@ them.
 
 ## 6. Phases
 
-Three stages, in order: **tooling** first, so every later step runs the same way
-for every developer; then **spikes**, so the unproven parts are proven or dropped
-before any refactor; then **build**.
+Four stages, strictly in order, and nothing moves on until the stage before it is
+proven: **tooling**, then a **hello world round trip in every topology**, then the
+**spikes**, then **build**.
 
-### Stage A: tooling
+### Stage A: tooling, validated by running it
+
+Every tool is run and proven to work with the others, the way its authors document
+it (gsx's Vite starter, not a Node-free workaround). Nothing is assumed from a
+successful install.
 
 | # | Phase | Done when |
 |---|---|---|
-| A1 | **Toolchain in mise:** gsxui (by commit), gsx (go.mod tool), standalone Tailwind, kronk, and the existing Go, TinyGo, binaryen and wrangler pins | `mise install` on a clean machine installs everything |
-| A2 | **Skills automated** (§5.2): postinstall `skills:sync` into `.claude/skills/`, committed; test check; Claude Code hook; CLAUDE.md and AGENTS.md GUI rules | the gsx skills are listed in a fresh session; `mise run test` fails if they drift |
+| A1 | **Toolchain in mise**, pinned: gsx CLI (same version as go.mod's tool), gsxui (by commit), kronk, plus Go, TinyGo, binaryen, Node and wrangler | each tool runs; the documented flow works end to end: `gsx init --yes` → `gsxui init` (Vite mode) → `gsxui add` → `go tool gsx generate` / `fmt` → `npm run build` → `go build` → page served with components and CSS; the same components render under TinyGo |
+| A2 | **Automation, nothing left behind** (§5.2): a mise `postinstall` hook sets go.mod's gsx tool to the mise gsx pin and syncs the gsx skills into `.claude/skills/`; npm install scripts (esbuild) approved in committed config; `mise run test` fails on any drift | a fresh clone needs only `mise install`; the skills are listed in a fresh Claude Code session and used for all `.gsx` work |
 | A3 | **No personal values** (§5.1): account from fnox, bindings without IDs, Worker URL computed by `setup`. First check wrangler's automatic provisioning on a throwaway Worker | `mise run setup` + `mise run deploy` work on a second Cloudflare account with no edits |
 | A4 | **CI on a clean runner** (§5.3) | `mise install` + `mise run test` pass on every push |
 
-### Stage B: spikes (unproven parts)
+### Stage B: hello world round trip in every topology
+
+The smallest possible "click → request → Go handler → gsx fragment → swapped into
+the page", once per topology the design needs, before anything real is built. A
+topology that cannot round-trip changes the design before code depends on it.
+
+| # | Topology | Round trip that must work |
+|---|---|---|
+| B1 | **Native binary** | browser → Go server → gsx/gsxui fragment (htmx swap), with Vite assets |
+| B2 | **Cloudflare Worker, `wrangler dev`** | the same handler and page on workerd through wrangler, with Vite's built assets served as Workers Static Assets |
+| B3 | **Cloudflare Worker, `wrangler deploy`** | the same round trip on the live URL |
+| B4 | **Room Durable Object** | two browsers: one click publishes through Go → JS Room → WebSocket, and the other browser's page updates |
+| B5 | **Browser Service Worker (TinyGo)** | the same handler answers from the Service Worker, served from Cloudflare, and the page cannot tell the difference |
+| B6 | **Remote engine** | the Worker handler calls a remote provider and returns its hello |
+| B7 | **Local engine** | kronk serves a tiny model; the native binary gets a hello, and the browser on the hosted GUI gets one through Local Network Access |
+| B8 | **Browser engine** | yzma in a Web Worker returns a hello, and the second visit loads the model from our storage without downloading it |
+
+### Stage B2: spikes (depth, after the round trips work)
 
 | # | Spike | Done when |
 |---|---|---|
-| B1 | **Go chat handler in a TinyGo Service Worker**, served by wrangler from Cloudflare, returning a gsx fragment built with `gsxui add` | the same handler answers on the Worker and in the Service Worker; otherwise fall back to a small JS adapter |
-| B2 | **yzma in a Web Worker with persistent model storage**, driven by that Service Worker. Models are stored by the app itself in OPFS or Cache Storage (whichever holds multi-hundred-MB files on Safari), in one of two ways: the Service Worker answers yzma's model fetch cache-first, or our engine loads from storage and hands the model to yzma. Also request `navigator.storage.persist()`, and ship a web app manifest so Safari can install it | **the second visit loads the model without downloading it**, in Safari and Chrome, with load time and tokens per second measured. Installed as a Safari web app, it survives a week without use. Otherwise browser models are a demo only |
-| B3 | **Browser to localhost** through Local Network Access to kronk, streaming | the permission prompt and CORS work end to end; otherwise local models are native-only |
+| S1 | **Service Worker handler at full size**: the real chat handler and gsxui page in TinyGo | size and startup measured; otherwise fall back to a small JS adapter |
+| S2 | **Browser model performance and storage** on Safari and Chrome | load time, tokens per second, and a week of storage on an installed Safari web app measured; go or no-go |
+| S3 | **Local Network Access in practice**: prompt wording, denial, CORS | the local mode's picker states and actions are proven |
 
 ### Stage C: build
 
