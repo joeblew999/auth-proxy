@@ -227,4 +227,4 @@ Spikes come first, so the risky parts are proven or dropped before the refactor.
 | 4 | Worker built with Go or TinyGo? | Go for now, because MCP needs it. The Service Worker is TinyGo either way, so all shared code must stay TinyGo-safe (tested) |
 | 5 | Import go-htmx4's `kit/` or copy the parts? | Import `kit/live` and `kit/httpx`; copy only the room Durable Object's JS |
 | 6 | One shared Worker, or one per developer? | Per developer for development (Worker name suffixed with the developer's name, set by `setup`), and one shared production Worker deployed from `main` |
-| 7 | Which platforms must setup support? | macOS and Linux (Windows via WSL); the tasks are bash |
+| 7 | Which platforms must setup support? | macOS now. **fnox on Linux is deferred** (owner, 2026-09-15), so Linux developers cannot deploy yet. CI on Linux still runs `mise install` + `mise run test`, which need no secrets |
