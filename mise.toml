@@ -98,6 +98,21 @@ description = "Set ADMIN_API_KEY on the deployed Worker (prompts for the value o
 run = "fnox exec -- sh -c 'printf %s \"$ADMIN_API_KEY\" | wrangler secret put ADMIN_API_KEY'"
 description = "Push ADMIN_API_KEY from fnox to the Worker without prompting"
 
+# Switches the deployed Worker from xAI OAuth to a static upstream key, which is
+# how it runs on pay-as-you-go API credits instead of a SuperGrok subscription.
+# Unset it (wrangler secret delete) to go back to OAuth.
+[tasks.cf_secret_upstream_key]
+run = "fnox exec -- wrangler secret put UPSTREAM_API_KEY"
+description = "Set UPSTREAM_API_KEY on the Worker (prompts; runs on API credits instead of OAuth)"
+
+[tasks.cf_secret_upstream_key_sync]
+run = "fnox exec -- sh -c 'printf %s \"$UPSTREAM_API_KEY\" | wrangler secret put UPSTREAM_API_KEY'"
+description = "Push UPSTREAM_API_KEY from fnox to the Worker without prompting"
+
+[tasks.cf_secret_upstream_key_delete]
+run = "fnox exec -- wrangler secret delete UPSTREAM_API_KEY"
+description = "Remove UPSTREAM_API_KEY from the Worker, reverting it to the OAuth flow"
+
 [tasks.cf_tail]
 run = "fnox exec -- wrangler tail"
 description = "Stream live logs from the deployed Worker"

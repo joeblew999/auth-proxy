@@ -69,11 +69,15 @@ Sources:
 - **Break-even:** $30/month of grok-4.20 output credits is ~12M tokens, so the
   subscription wins above that. Driving the API from a subscription rather than
   per-token billing is the point of this proxy.
-- **Unverified:** whether SuperGrok Lite ($10) satisfies the API entitlement, and
-  whether a subscription is needed at all — the observed error
-  `personal-team-blocked:spending-limit` is team semantics and may be a spending
-  limit of 0 rather than a missing subscription. Check
-  https://grok.com/?_s=usage before buying anything.
+- **Confirmed 2026-09-15:** the xAI account page for `gedw99@gmail.com` offers
+  "Get SuperGrok", so the account used for the device flow holds **no
+  subscription**. That is the cause of `personal-team-blocked:spending-limit`, and
+  it also confirms the flow authorised the intended account.
+- **Two ways forward:** subscribe (SuperGrok from $10/mo, though $30 is the safe bet
+  for API entitlement), or skip the subscription and buy **API credits**, then set
+  `UPSTREAM_API_KEY` so the proxy uses a static key instead of OAuth. At $1.25/$2.50
+  per 1M tokens for grok-4.20, credits are by far the cheaper way to test.
+- **Still unverified:** whether SuperGrok Lite ($10) satisfies the API entitlement.
 - **Or pay nothing at all.** The upstream is configurable, so the proxy is not tied
   to xAI: set `UPSTREAM_BASE_URL` and `UPSTREAM_API_KEY` to point it at any
   OpenAI-compatible provider, including a local one. `mise run mock_upstream` plus
