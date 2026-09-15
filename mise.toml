@@ -2,8 +2,16 @@
 go = "1.27"
 fnox = "latest"
 node = "24"
-"npm:wrangler" = "4"
+# Pinned: a looser "4" lets mise keep any older 4.x already installed, and 4.97's
+# local runtime rejects wrangler.toml's compatibility_date.
+"npm:wrangler" = "4.131.1"
 cloudflared = "latest"
+# Pinned to match TINYGO_VERSION in workers-go's Makefile, which is the version its
+# generated wasm_exec_tinygo.js is produced against.
+tinygo = "0.42.0"
+# TinyGo shells out to wasm-opt from binaryen for every wasm build, including -opt=0.
+# Without this the build fails on a missing shim rather than on anything real.
+"aqua:WebAssembly/binaryen" = "121"
 
 [env]
 # Base URL of the deployed Worker, consumed by the cf_auth_* / cf_verify_* tasks.
@@ -25,12 +33,54 @@ description = "Run Go tests"
 run = "gofmt -w *.go"
 description = "Format Go code"
 
+# --- Worker builds: standard Go and TinyGo, side by side ----------------------
+# Each toolchain writes to its own directory, so both can exist at once and be
+# run and compared. wrangler.toml's default environment uses build/go, and its
+# `tinygo` environment uses build/tinygo. The TinyGo build omits /mcp (it
+# returns 501), because TinyGo 0.42 cannot compile the MCP SDK under Go 1.27;
+# see .plan/tinygo.md.
+
 [tasks.go_build_worker]
 run = [
-  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go",
-  "GOOS=js GOARCH=wasm go build -o ./build/app.wasm .",
+  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/go",
+  "GOOS=js GOARCH=wasm go build -o build/go/app.wasm .",
 ]
-description = "Build for Cloudflare Workers"
+description = "Build the Worker with the standard Go toolchain into build/go"
+
+[tasks.go_build_worker_tinygo]
+run = [
+  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=tinygo -o build/tinygo",
+  "tinygo build -o build/tinygo/app.wasm -target wasm -no-debug .",
+]
+description = "Build the Worker with TinyGo into build/tinygo (no /mcp)"
+
+[tasks.build_workers]
+depends = ["go_build_worker", "go_build_worker_tinygo"]
+run = "mise run build_sizes"
+description = "Build the Worker with both toolchains, then compare sizes"
+
+# Cloudflare limits only the uncompressed bundle (64 MiB on every plan, since
+# 2026-09-04); gzip is shown for reference. Size mostly matters through the
+# 1-second Worker startup limit, which a larger wasm module eats into.
+[tasks.build_sizes]
+run = "for f in build/*/app.wasm; do printf '%-26s raw %6s KB   gzip %6s KB\\n' \"$f\" $(( $(wc -c < \"$f\") / 1024 )) $(( $(gzip -9 -c \"$f\" | wc -c) / 1024 )); done"
+description = "Show the raw and gzipped size of each built Worker"
+
+# Both run locally in workerd against the local mock upstream (mise run
+# mock_upstream), so they can be exercised identically at no cost. Go listens on
+# 8791 and TinyGo on 8792, so both can run at once (8787 is often taken by other
+# wrangler dev sessions).
+[tasks.cf_dev_go]
+run = "wrangler dev --port 8791 --var UPSTREAM_BASE_URL:http://127.0.0.1:18080/v1 --var UPSTREAM_API_KEY:mock-key --var ADMIN_API_KEY:mock-admin"
+description = "Run the standard Go Worker locally on :8791 against the local mock upstream"
+
+[tasks.cf_dev_tinygo]
+run = "wrangler dev --env tinygo --port 8792 --var UPSTREAM_BASE_URL:http://127.0.0.1:18080/v1 --var UPSTREAM_API_KEY:mock-key --var ADMIN_API_KEY:mock-admin"
+description = "Run the TinyGo Worker locally on :8792 against the local mock upstream"
+
+[tasks.compare_workers]
+run = "./tools/compare-workers.sh"
+description = "Send identical requests to both local Workers and compare status, size, and latency (RUNS=20 by default)"
 
 # --- provider-agnostic local testing ----------------------------------------
 # Proves the proxy works against any OpenAI-compatible upstream, with no xAI

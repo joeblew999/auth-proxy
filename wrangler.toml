@@ -1,5 +1,5 @@
 name = "grok-oauth-proxy"
-main = "build/worker.mjs"
+main = "build/go/worker.mjs"
 compatibility_date = "2026-09-07"
 # Account-local values. The IDs committed upstream belong to the maintainer and
 # cannot be reused. See .plan/done/cloudflare-workers-deployment.md §5.2.
@@ -32,3 +32,16 @@ enabled = true
 head_sampling_rate = 1
 invocation_logs = true
 persist = true
+
+# The same Worker built with TinyGo (`--env tinygo`), for comparing against the
+# standard Go build. Deploying it creates a separate Worker named
+# grok-oauth-proxy-tinygo. kv_namespaces is not inherited by environments, so it
+# is repeated here.
+[env.tinygo]
+main = "build/tinygo/worker.mjs"
+kv_namespaces = [
+  { binding = "GROK_AUTH", id = "da13e11270bb4d749c73c60dad41c1ea" },
+]
+
+[env.tinygo.build]
+command = "mise run go_build_worker_tinygo"
