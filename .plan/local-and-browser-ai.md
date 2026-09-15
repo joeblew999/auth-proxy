@@ -70,6 +70,38 @@ posts to `/chat/send`.
    the room's Durable Object, which pushes it to every connected browser over
    hibernating WebSockets.
 
+### Choosing a model: one picker, grouped by where it runs
+
+There is **no separate mode switch**. The mode follows from the model, because
+every model belongs to a provider and every provider has a `runtime`. A second
+control would duplicate that and could contradict it. The picker still makes
+**where a model runs** obvious, since that changes privacy, cost and speed.
+
+- **One model picker**, grouped into **Remote**, **Local** and **In browser**, with
+  filter tabs (All, Remote, Local, In browser) and a one-line explanation per
+  group: remote runs at the provider and costs credits; local runs on your
+  machine; in browser is private and runs on this device.
+- **Every model shows its status and the action that makes it usable:**
+
+  | Runtime | Statuses and actions |
+  |---|---|
+  | Remote | ready · provider key missing (admins see the `mise` fix) |
+  | Local | ready · "allow local network access" (triggers Chrome's prompt) · "start kronk" when not reachable |
+  | In browser | downloaded ✓ · "download 639 MB" with progress · "not supported in this browser" (no WebGPU or storage) · "install the app to keep models offline" on Safari |
+
+- **Built from the same routing.** The model list is a fragment request that the
+  Service Worker intercepts: it asks the Worker for remote models, adds local
+  models from kronk's `/v1/models`, and adds browser models from `providers.toml`
+  with their download state from our model store. The Worker-only view, without
+  a Service Worker, simply shows remote models.
+- **Every message is labelled** with its model and where it ran, so a shared room
+  shows that one person asked a remote model and another a model in their browser.
+- **Each user picks their own model** in a shared room. The choice is remembered
+  per device, because local and in-browser models only exist on that device.
+- **Built from gsxui components** added with `gsxui add` (for example tabs, badge,
+  item, dialog and progress), never hand-written. The component set is decided in
+  C2 with the gsx skill loaded.
+
 ### Two engines, not three
 
 | Engine | Used for | Where it runs |
@@ -243,8 +275,8 @@ before any refactor; then **build**.
 | # | Phase | Done when |
 |---|---|---|
 | C1 | **Engine refactor:** `internal/engine/openai`, `runtime` in providers.toml, a local kronk provider | today's tests pass; a local kronk chat works through the native binary |
-| C2 | **GUI on the Worker:** chat page, room Durable Object (JS) through wrangler, streaming for remote models | shared live chat on Cloudflare with xAI |
-| C3 | **Browser and local models in the Service Worker**, as far as B2 and B3 allow | one GUI serves every kind of model that passed its spike |
+| C2 | **GUI on the Worker:** chat page, the grouped model picker (§2), room Durable Object (JS) through wrangler, streaming for remote models | shared live chat on Cloudflare with xAI; the picker lists remote models with status |
+| C3 | **Browser and local models in the Service Worker**, as far as B2 and B3 allow, including their picker groups, statuses and actions (download with progress, allow local network access) | one GUI and one picker serve every kind of model that passed its spike |
 
 ### Later
 
