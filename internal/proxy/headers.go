@@ -1,34 +1,12 @@
-package main
+package proxy
 
 import (
 	"net/http"
-	"net/url"
 	"strings"
 )
 
-// upstreamRequestURL maps an incoming proxy URL onto the configured upstream. A
-// leading /v1 is dropped because the base URL already carries the provider's
-// version path, so both /v1/chat/completions and /chat/completions reach
-// <base>/chat/completions, whether the base ends in /v1, /api/v1, or /openai/v1.
-// The key query parameter is removed because it can carry the admin key.
-//
-// The Worker and the local reverse proxy both use this, so they route identically.
-func upstreamRequestURL(incoming *url.URL) (string, error) {
-	path := incoming.Path
-	if strings.HasPrefix(path, "/v1/") {
-		path = "/" + strings.TrimPrefix(path, "/v1/")
-	}
-	path = strings.TrimPrefix(path, "/")
-	query := incoming.Query()
-	query.Del("key")
-	upstream, err := url.Parse(upstreamBaseURL() + "/" + path)
-	if err != nil {
-		return "", err
-	}
-	upstream.RawQuery = query.Encode()
-	return upstream.String(), nil
-}
-
+// copyRequestHeaders forwards client headers except credentials, hop-by-hop
+// headers, and proxy or Cloudflare metadata.
 func copyRequestHeaders(destination, source http.Header) {
 	for key, values := range source {
 		if isProxyInternalHeader(key) {
@@ -50,7 +28,7 @@ func isProxyInternalHeader(key string) bool {
 
 func copyResponseHeaders(destination, source http.Header) {
 	for key, values := range source {
-		if isHopByHopHeader(key) {
+		if isHopByHopHeader(key) || http.CanonicalHeaderKey(key) == "Content-Length" {
 			continue
 		}
 		for _, value := range values {
@@ -63,7 +41,6 @@ func isHopByHopHeader(key string) bool {
 	switch http.CanonicalHeaderKey(key) {
 	case "Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization", "Te", "Trailer", "Transfer-Encoding", "Upgrade":
 		return true
-	default:
-		return false
 	}
+	return false
 }

@@ -1,342 +1,421 @@
 //go:build !js || !wasm
 
+// Command grok-oauth-proxy is an OpenAI-compatible proxy for many providers.
+// The same handler also runs as a Cloudflare Worker (worker.go).
 package main
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
+	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"sync"
+	"runtime"
+	"strings"
+	"text/tabwriter"
 	"time"
+
+	"github.com/joeblew999/grok-oauth-proxy/internal/config"
+	"github.com/joeblew999/grok-oauth-proxy/internal/mcp"
+	"github.com/joeblew999/grok-oauth-proxy/internal/proxy"
+	"github.com/joeblew999/grok-oauth-proxy/internal/xaiauth"
 )
 
 const (
-	redirectURI = "http://127.0.0.1:56121/callback"
-	authURL     = "https://auth.x.ai/oauth2/authorize"
+	localAddr = "127.0.0.1:56121"
+	localURL  = "http://" + localAddr
+	// The Grok OAuth client only accepts this exact redirect URI.
+	redirectURI = localURL + "/callback"
 )
 
-var (
-	// In-memory store for PKCE verifiers keyed by state
-	stateVerifiers = make(map[string]string)
-	mu             sync.Mutex
+const usage = `grok-oauth-proxy: one OpenAI-compatible endpoint for many model providers.
 
-	isAuthMode   bool
-	authComplete = make(chan bool)
-)
+Commands (usually run through mise; see "mise tasks"):
+  serve  [--config FILE] [--addr ADDR]      run the proxy locally (default command)
+  status [--config FILE] [--url URL]        check providers and print how to fix problems
+  models [--url URL]                        list model IDs across all providers
+  chat   [--url URL] MODEL [PROMPT]         send a prompt and stream the answer
+  login  [--config FILE] [--url URL]        log in to Grok (browser locally, device code for --url)
+  keys   [--config FILE] [PROVIDER|admin]   print the secret names providers.toml needs
 
-func getAuthFilePath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalf("Failed to get home dir: %v", err)
-	}
-	newPath := filepath.Join(home, ".config", "grok-oauth-proxy", "auth.json")
-
-	// Migrate credentials from the pre-rename path so existing users aren't
-	// logged out after upgrading. Only migrate when the new file is absent.
-	if _, err := os.Stat(newPath); os.IsNotExist(err) {
-		oldPath := filepath.Join(home, ".config", "grok-api-proxy", "auth.json")
-		if _, err := os.Stat(oldPath); err == nil {
-			if err := os.MkdirAll(filepath.Dir(newPath), 0700); err == nil {
-				_ = os.Rename(oldPath, newPath)
-			}
-		}
-	}
-
-	return newPath
-}
-
-type fileTokenStore struct{}
-
-func (fileTokenStore) SaveTokens(tokens AuthTokens) error {
-	path := getAuthFilePath()
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(tokens, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0600)
-}
-
-func (fileTokenStore) LoadTokens() (*AuthTokens, error) {
-	path := getAuthFilePath()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var tokens AuthTokens
-	if err := json.Unmarshal(data, &tokens); err != nil {
-		return nil, err
-	}
-	return &tokens, nil
-}
-
-func generateRandomString(n int) (string, error) {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
-}
-
-func generatePKCE() (verifier string, challenge string, err error) {
-	verifier, err = generateRandomString(32)
-	if err != nil {
-		return "", "", err
-	}
-	h := sha256.Sum256([]byte(verifier))
-	return verifier, base64.RawURLEncoding.EncodeToString(h[:]), nil
-}
-
-func handleLogin(w http.ResponseWriter, r *http.Request) {
-	state, err := generateRandomString(16)
-	if err != nil {
-		http.Error(w, "Failed to start OAuth login", http.StatusInternalServerError)
-		return
-	}
-	nonce, err := generateRandomString(16)
-	if err != nil {
-		http.Error(w, "Failed to start OAuth login", http.StatusInternalServerError)
-		return
-	}
-	verifier, challenge, err := generatePKCE()
-	if err != nil {
-		http.Error(w, "Failed to start OAuth login", http.StatusInternalServerError)
-		return
-	}
-
-	mu.Lock()
-	stateVerifiers[state] = verifier
-	mu.Unlock()
-
-	u, _ := url.Parse(authURL)
-	q := u.Query()
-	q.Set("response_type", "code")
-	q.Set("client_id", clientID)
-	q.Set("redirect_uri", redirectURI)
-	q.Set("scope", scope)
-	q.Set("code_challenge", challenge)
-	q.Set("code_challenge_method", "S256")
-	q.Set("state", state)
-	q.Set("nonce", nonce)
-	q.Set("plan", "generic")
-	q.Set("referrer", "hermes-agent")
-	u.RawQuery = q.Encode()
-
-	http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
-}
-
-func handleCallback(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	state := r.URL.Query().Get("state")
-	errDesc := r.URL.Query().Get("error_description")
-
-	if errDesc != "" {
-		http.Error(w, "OAuth Error: "+errDesc, http.StatusBadRequest)
-		return
-	}
-	if code == "" || state == "" {
-		http.Error(w, "Missing code or state", http.StatusBadRequest)
-		return
-	}
-
-	mu.Lock()
-	verifier, exists := stateVerifiers[state]
-	if exists {
-		delete(stateVerifiers, state)
-	}
-	mu.Unlock()
-
-	if !exists {
-		http.Error(w, "Invalid state parameter", http.StatusBadRequest)
-		return
-	}
-
-	tokens, err := requestTokens(r.Context(), url.Values{
-		"grant_type":            {"authorization_code"},
-		"code":                  {code},
-		"redirect_uri":          {redirectURI},
-		"client_id":             {clientID},
-		"code_verifier":         {verifier},
-		"code_challenge_method": {"S256"},
-	}, "")
-	if err != nil {
-		http.Error(w, "Token exchange failed", http.StatusBadGateway)
-		return
-	}
-	if err := saveTokens(*tokens); err != nil {
-		http.Error(w, "Failed to save tokens: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(`<html><body><h1>Login successful!</h1><p>You can now close this tab and use the proxy.</p></body></html>`))
-
-	if isAuthMode {
-		go func() {
-			time.Sleep(1 * time.Second) // give the response time to be sent
-			authComplete <- true
-		}()
-	}
-}
-
-// newUpstreamReverseProxy forwards requests to the configured upstream. The
-// target comes from upstreamRequestURL, the same mapping the Worker uses, so a
-// base URL whose path is not exactly /v1 (such as /api/v1 or /openai/v1) is
-// joined correctly instead of gaining a second /v1.
-func newUpstreamReverseProxy() *httputil.ReverseProxy {
-	return &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			upstream, err := upstreamRequestURL(req.URL)
-			if err == nil {
-				var target *url.URL
-				if target, err = url.Parse(upstream); err == nil {
-					req.URL = target
-					req.Host = target.Host
-				}
-			}
-			if err != nil {
-				// Leaving the relative URL in place makes the transport fail, so
-				// the client gets a 502 rather than a request to the wrong host.
-				log.Printf("build upstream URL: %v", err)
-			}
-			// Match httputil.NewSingleHostReverseProxy: don't let Go add its own
-			// User-Agent when the client sent none.
-			if _, ok := req.Header["User-Agent"]; !ok {
-				req.Header.Set("User-Agent", "")
-			}
-		},
-	}
-}
-
-// requireOAuthRoute serves the browser OAuth routes only when OAuth is usable.
-// With a static key or a non-xAI upstream the resulting tokens would never be
-// used, or would have to be withheld from the upstream anyway.
-func requireOAuthRoute(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if reason := oauthUnavailableReason(); reason != "" {
-			http.Error(w, reason, http.StatusConflict)
-			return
-		}
-		next(w, r)
-	}
-}
-
-func handleProxy(p *httputil.ReverseProxy) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// If it's a request to /login or /callback, it shouldn't hit the proxy.
-		// We handle those directly in main.
-
-		tokens, ok := ensureAccessToken(w)
-		if !ok {
-			return
-		}
-
-		if isModelsListRequest(r) {
-			handleModelsList(w, r, tokens)
-			return
-		}
-
-		headers := make(http.Header)
-		copyRequestHeaders(headers, r.Header)
-		headers.Set("Authorization", "Bearer "+tokens.AccessToken)
-		r.Header = headers
-
-		// Serve the request via proxy
-		p.ServeHTTP(w, r)
-	}
-}
-
-type responseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (rw *responseWriter) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
-}
-
-func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		rw := &responseWriter{w, http.StatusOK}
-
-		next(rw, r)
-
-		duration := time.Since(start)
-		log.Printf("%s %s %d %s", r.Method, r.URL.Path, rw.statusCode, duration)
-	}
-}
+--url talks to a running proxy (such as the deployed Worker) using ADMIN_API_KEY.
+Providers come from providers.toml, built into the binary unless --config is given.
+`
 
 func main() {
-	configureRuntime(fileTokenStore{}, http.DefaultClient)
-
-	if len(os.Args) > 1 && os.Args[1] == "auth" {
-		isAuthMode = true
+	args := os.Args[1:]
+	command := "serve"
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		command, args = args[0], args[1:]
 	}
-
-	if err := validateUpstreamBaseURL(); err != nil {
-		log.Fatal(err)
+	commands := map[string]func([]string) error{
+		"serve": serve, "status": status, "models": models, "chat": chat, "login": login, "keys": keys,
 	}
-	if isAuthMode {
-		if reason := oauthUnavailableReason(); reason != "" {
-			log.Fatal(reason)
+	run, ok := commands[command]
+	switch {
+	case command == "help":
+		fmt.Print(usage)
+		return
+	case !ok:
+		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", command, usage)
+		os.Exit(2)
+	}
+	if err := run(args); err != nil {
+		if !errors.Is(err, errReported) {
+			fmt.Fprintln(os.Stderr, "error:", err)
 		}
+		os.Exit(1)
+	}
+}
+
+// errReported means the command already printed why it failed.
+var errReported = errors.New("reported")
+
+func flags(name string, args []string, define func(*flag.FlagSet)) (*flag.FlagSet, error) {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.Usage = func() { fmt.Fprint(fs.Output(), usage) }
+	define(fs)
+	return fs, fs.Parse(args)
+}
+
+func serve(args []string) error {
+	var configPath, addr string
+	if _, err := flags("serve", args, func(fs *flag.FlagSet) {
+		fs.StringVar(&configPath, "config", "", "providers file")
+		fs.StringVar(&addr, "addr", localAddr, "listen address")
+	}); err != nil {
+		return err
+	}
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+	up, err := localUpstream(cfg, &http.Client{})
+	if err != nil {
+		return err
+	}
+	opts := proxy.Options{Upstream: up, MCP: mcp.NewHandler(up)}
+	if up.XAI != nil {
+		browser := up.XAI.NewBrowserLogin(redirectURI)
+		opts.Public = map[string]http.HandlerFunc{"/login": browser.Start, "/callback": browser.Callback}
 	}
 
-	proxy := newUpstreamReverseProxy()
+	printStatus(os.Stdout, cfg.Source, cfg.Default, cfg.AdminKey != "", up.Status())
+	log.Printf("listening on http://%s (OpenAI base URL: http://%s/v1)", addr, addr)
+	return http.ListenAndServe(addr, proxy.NewHandler(opts))
+}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/login", loggingMiddleware(requireOAuthRoute(handleLogin)))
-	mux.HandleFunc("/callback", loggingMiddleware(requireOAuthRoute(handleCallback)))
-
-	// MCP endpoint. The handler is built once so the tool set is shared across
-	// requests; the session itself is stateless.
-	mcp := loggingMiddleware(adminMiddleware(mcpHandler()))
-	mux.HandleFunc("/mcp", mcp)
-	mux.HandleFunc("/mcp/", mcp)
-
-	// /login and /callback are deliberately left ungated above: the OAuth flow
-	// has to be reachable from the browser before a key can be used.
-	mux.HandleFunc("/", loggingMiddleware(adminMiddleware(handleProxy(proxy))))
-
-	server := &http.Server{
-		Addr:    "127.0.0.1:56121",
-		Handler: mux,
-	}
-
-	if isAuthMode {
-		go func() {
-			log.Println("Starting temporary auth server on http://127.0.0.1:56121")
-			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("Server failed: %v", err)
-			}
-		}()
-
-		log.Println("Opening browser to authenticate...")
-		time.Sleep(500 * time.Millisecond) // Wait a bit for server to start
-		err := exec.Command("open", "http://127.0.0.1:56121/login").Start()
+func localUpstream(cfg *config.Config, client *http.Client) (*proxy.Upstream, error) {
+	up := &proxy.Upstream{Config: cfg, Client: client, LoginFix: "mise run login"}
+	if cfg.OAuthProvider() != nil {
+		store, err := xaiauth.DefaultFileStore()
 		if err != nil {
-			log.Printf("Failed to open browser, please navigate to http://127.0.0.1:56121/login manually")
+			return nil, err
 		}
+		up.XAI = xaiauth.New(store, client)
+	}
+	return up, nil
+}
 
-		<-authComplete
-		log.Println("Authentication successful! Tokens saved.")
-		os.Exit(0)
+func status(args []string) error {
+	var configPath, url string
+	if _, err := flags("status", args, func(fs *flag.FlagSet) {
+		fs.StringVar(&configPath, "config", "", "providers file")
+		fs.StringVar(&url, "url", "", "check a running proxy instead of the local configuration")
+	}); err != nil {
+		return err
+	}
+
+	var (
+		source, def string
+		adminSet    bool
+		providers   []proxy.ProviderStatus
+	)
+	if url == "" {
+		cfg, err := loadConfig(configPath)
+		if err != nil {
+			return err
+		}
+		up, err := localUpstream(cfg, http.DefaultClient)
+		if err != nil {
+			return err
+		}
+		source, def, adminSet, providers = cfg.Source, cfg.Default, cfg.AdminKey != "", up.Status()
 	} else {
-		log.Println("Starting Grok API proxy on http://127.0.0.1:56121")
-		if err := server.ListenAndServe(); err != nil {
-			log.Fatalf("Server failed: %v", err)
+		var report struct {
+			Source    string                 `json:"source"`
+			Default   string                 `json:"default"`
+			Providers []proxy.ProviderStatus `json:"providers"`
+		}
+		if err := callProxy(http.MethodGet, url, "/admin/status", nil, &report); err != nil {
+			return err
+		}
+		source, def, adminSet, providers = url+" ("+report.Source+")", report.Default, true, report.Providers
+	}
+
+	if !printStatus(os.Stdout, source, def, adminSet, providers) {
+		return errReported
+	}
+	return nil
+}
+
+// printStatus writes a readiness table and reports whether everything is ready.
+func printStatus(out io.Writer, source, def string, adminSet bool, providers []proxy.ProviderStatus) bool {
+	ready := adminSet
+	fmt.Fprintf(out, "config:  %s\ndefault: %s\n", source, def)
+	if adminSet {
+		fmt.Fprintln(out, "client key: set")
+	} else {
+		fmt.Fprintf(out, "client key: %s is not set -> mise run keys:set admin\n", config.AdminKeyName)
+	}
+	fmt.Fprintln(out)
+	tw := tabwriter.NewWriter(out, 0, 2, 2, ' ', 0)
+	for _, p := range providers {
+		mark, note := "ok", ""
+		if !p.Ready {
+			mark, note, ready = "!!", p.Problem+" -> "+p.Fix, false
+		}
+		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n", mark, p.Name, p.Auth, p.BaseURL, note)
+	}
+	tw.Flush()
+	return ready
+}
+
+func models(args []string) error {
+	var url string
+	if _, err := flags("models", args, func(fs *flag.FlagSet) {
+		fs.StringVar(&url, "url", localURL, "proxy URL")
+	}); err != nil {
+		return err
+	}
+	var list struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := callProxy(http.MethodGet, url, "/v1/models", nil, &list); err != nil {
+		return err
+	}
+	for _, m := range list.Data {
+		fmt.Println(m.ID)
+	}
+	return nil
+}
+
+func chat(args []string) error {
+	var url string
+	fs, err := flags("chat", args, func(fs *flag.FlagSet) {
+		fs.StringVar(&url, "url", localURL, "proxy URL")
+	})
+	if err != nil {
+		return err
+	}
+	if fs.NArg() < 1 {
+		return errors.New("usage: chat [--url URL] MODEL [PROMPT]; list models with: mise run models")
+	}
+	model, prompt := fs.Arg(0), strings.Join(fs.Args()[1:], " ")
+	if prompt == "" {
+		prompt = "Say hello in one sentence."
+	}
+	body, _ := json.Marshal(map[string]any{
+		"model":    model,
+		"stream":   true,
+		"messages": []any{map[string]string{"role": "user", "content": prompt}},
+	})
+	resp, err := proxyRequest(http.MethodPost, url, "/v1/chat/completions", body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 1<<20), 1<<20)
+	for scanner.Scan() {
+		data, ok := strings.CutPrefix(scanner.Text(), "data: ")
+		if !ok || data == "[DONE]" {
+			continue
+		}
+		var chunk struct {
+			Choices []struct {
+				Delta struct {
+					Content string `json:"content"`
+				} `json:"delta"`
+			} `json:"choices"`
+		}
+		if json.Unmarshal([]byte(data), &chunk) == nil && len(chunk.Choices) > 0 {
+			fmt.Print(chunk.Choices[0].Delta.Content)
 		}
 	}
+	fmt.Println()
+	return scanner.Err()
+}
+
+func login(args []string) error {
+	var configPath, url string
+	if _, err := flags("login", args, func(fs *flag.FlagSet) {
+		fs.StringVar(&configPath, "config", "", "providers file")
+		fs.StringVar(&url, "url", "", "log in a running proxy (such as the Worker) with the device code flow")
+	}); err != nil {
+		return err
+	}
+	if url != "" {
+		return deviceLogin(url)
+	}
+
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+	up, err := localUpstream(cfg, http.DefaultClient)
+	if err != nil {
+		return err
+	}
+	if up.XAI == nil {
+		return fmt.Errorf("no provider in %s uses auth = \"xai-oauth\", so there is nothing to log in to", cfg.Source)
+	}
+	browser := up.XAI.NewBrowserLogin(redirectURI)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/login", browser.Start)
+	mux.HandleFunc("/callback", browser.Callback)
+	server := &http.Server{Addr: localAddr, Handler: mux}
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- server.ListenAndServe() }()
+
+	fmt.Printf("Opening %s/login in your browser...\n", localURL)
+	openBrowser(localURL + "/login")
+	select {
+	case <-browser.Done():
+		store, _ := xaiauth.DefaultFileStore()
+		fmt.Println("Logged in to Grok. Tokens saved to", store.TokensPath())
+		time.Sleep(500 * time.Millisecond) // let the browser receive the success page
+		return nil
+	case err := <-serveErr:
+		return fmt.Errorf("cannot listen on %s (%v); if the proxy is running, open %s/login instead", localAddr, err, localURL)
+	}
+}
+
+func deviceLogin(url string) error {
+	var state xaiauth.DeviceStatus
+	if err := callProxy(http.MethodPost, url, "/admin/auth/start", nil, &state); err != nil {
+		return err
+	}
+	if state.Status == "pending" {
+		fmt.Printf("Open %s and enter code %s\n", state.VerificationURL, state.UserCode)
+		openBrowser(state.VerificationURL)
+	}
+	for !state.Terminal() {
+		time.Sleep(time.Duration(max(state.RetryAfterSeconds, 1)) * time.Second)
+		if err := callProxy(http.MethodPost, url, "/admin/auth/status", nil, &state); err != nil {
+			return err
+		}
+	}
+	if state.Status != "authenticated" {
+		return fmt.Errorf("Grok login %s; run it again: mise run login --worker", state.Status)
+	}
+	fmt.Println("Logged in to Grok on", url)
+	return nil
+}
+
+func keys(args []string) error {
+	var configPath string
+	fs, err := flags("keys", args, func(fs *flag.FlagSet) {
+		fs.StringVar(&configPath, "config", "", "providers file")
+	})
+	if err != nil {
+		return err
+	}
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+	if fs.NArg() == 0 {
+		fmt.Printf("%s\tadmin\n", config.AdminKeyName)
+		for _, p := range cfg.Providers {
+			if p.Auth == config.AuthKey {
+				fmt.Printf("%s\t%s\n", p.KeyName, p.Name)
+			}
+		}
+		return nil
+	}
+	name := fs.Arg(0)
+	if name == "admin" {
+		fmt.Println(config.AdminKeyName)
+		return nil
+	}
+	p := cfg.Provider(name)
+	switch {
+	case p == nil:
+		return fmt.Errorf("no provider %q in %s (providers: %s, or admin for the client key)", name, cfg.Source, strings.Join(cfg.Names(), ", "))
+	case p.Auth == config.AuthXAIOAuth:
+		return fmt.Errorf("provider %s uses the Grok login, not a key; run: mise run login", name)
+	case p.Auth == config.AuthNone:
+		return fmt.Errorf("provider %s uses auth = \"none\" and needs no key", name)
+	}
+	fmt.Println(p.KeyName)
+	return nil
+}
+
+// proxyRequest calls a running proxy with ADMIN_API_KEY and turns proxy errors
+// into their message and fix.
+func proxyRequest(method, baseURL, path string, body []byte) (*http.Response, error) {
+	key := os.Getenv(config.AdminKeyName)
+	if key == "" {
+		return nil, fmt.Errorf("%s is not set; run this through mise so fnox provides it, or set it with: mise run keys:set admin", config.AdminKeyName)
+	}
+	req, err := http.NewRequest(method, strings.TrimRight(baseURL, "/")+path, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("cannot reach %s: %v (is it running? locally: mise run dev)", baseURL, err)
+	}
+	if resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+		var perr struct {
+			Error struct {
+				Message string `json:"message"`
+				Fix     string `json:"fix"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(raw, &perr) == nil && perr.Error.Message != "" {
+			if perr.Error.Fix != "" && !strings.Contains(perr.Error.Message, perr.Error.Fix) {
+				return nil, fmt.Errorf("%s (HTTP %d) -> %s", perr.Error.Message, resp.StatusCode, perr.Error.Fix)
+			}
+			return nil, fmt.Errorf("%s (HTTP %d)", perr.Error.Message, resp.StatusCode)
+		}
+		return nil, fmt.Errorf("%s%s returned HTTP %d: %s", baseURL, path, resp.StatusCode, strings.TrimSpace(string(raw)))
+	}
+	return resp, nil
+}
+
+func callProxy(method, baseURL, path string, body []byte, out any) error {
+	resp, err := proxyRequest(method, baseURL, path, body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	_ = cmd.Start()
 }

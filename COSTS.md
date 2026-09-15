@@ -74,8 +74,8 @@ Sources:
   subscription**. That is the cause of `personal-team-blocked:spending-limit`, and
   it also confirms the flow authorised the intended account.
 - **Two ways forward:** subscribe (SuperGrok from $10/mo, though $30 is the safe bet
-  for API entitlement), or skip the subscription and buy **API credits**, then set
-  `UPSTREAM_API_KEY` so the proxy uses a static key instead of OAuth. At $1.25/$2.50
+  for API entitlement), or skip the subscription and buy **API credits**, then give the
+  xAI provider a `key` in providers.toml so the proxy uses a static key instead of OAuth. At $1.25/$2.50
   per 1M tokens for grok-4.20, credits are by far the cheaper way to test.
 - **Still unverified:** whether SuperGrok Lite ($10) satisfies the API entitlement.
 - **Two separate credit systems — verified 2026-09-15.** Adding $5 of API credits at
@@ -83,14 +83,13 @@ Sources:
   `personal-team-blocked:spending-limit`, and that error links to `grok.com`, not the
   API console. The OAuth path impersonates the Grok CLI, so it consumes *consumer*
   entitlement and needs a subscription regardless of API credits. API credits serve
-  the **API-key** path only, which is what `UPSTREAM_API_KEY` switches on.
-- **Confirmed working 2026-09-15:** with `UPSTREAM_API_KEY` set, the deployed Worker
+  the **API-key** path only (a provider with `key = "XAI_API_KEY"`).
+- **Confirmed working 2026-09-15:** with a static xAI API key, the deployed Worker
   returns live xAI models and real streaming completions. **$5 of API credits was
   enough to prove the entire path**, with no subscription. That is the cheapest route
   to a working endpoint, and it needs no SuperGrok commitment.
-- **Or pay nothing at all.** The upstream is configurable, so the proxy is not tied
-  to xAI: set `UPSTREAM_BASE_URL` and `UPSTREAM_API_KEY` to point it at any
-  OpenAI-compatible provider, including a local one. `mise run mock_upstream` plus
-  `mise run proxy_local_mock` exercises the whole path for **$0**, and a local
+- **Or pay nothing at all.** Providers are configured in providers.toml, so the proxy
+  is not tied to xAI: any OpenAI-compatible provider works, including a local one
+  with `auth = "none"`. `mise run dev --mock` exercises the whole path for **$0**, and a local
   Ollama/llama.cpp or a free-tier hosted provider costs nothing to run. See
   `.plan/done/any-provider-support.md`.

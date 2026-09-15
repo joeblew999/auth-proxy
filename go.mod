@@ -1,8 +1,9 @@
-module github.com/dvcrn/grok-oauth-proxy
+module github.com/joeblew999/grok-oauth-proxy
 
 go 1.27.0
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/syumai/workers-go v0.35.0
 )

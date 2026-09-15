@@ -1,0 +1,41 @@
+# Providers this proxy serves. Clients pick one with a prefix on the model name,
+# e.g. "xai/grok-4.3" or "groq/llama-3.3-70b-versatile". A model without a prefix
+# goes to `default`.
+#
+# Only secret NAMES go here, never values. Set a value with
+#   mise run keys:set <provider>
+# then check everything with `mise run status` and ship with `mise run deploy`.
+#
+# Per provider:
+#   base_url  OpenAI-compatible base URL, including the version path
+#   key       secret name holding the API key            (auth = "key", the default)
+#   auth      "xai-oauth" for a SuperGrok login           (then: mise run login)
+#             "none" for servers without auth, e.g. Ollama
+#   headers   extra headers sent on every request
+
+default = "xai"
+
+[providers.xai]
+base_url = "https://api.x.ai/v1"
+key = "XAI_API_KEY"
+
+# [providers.groq]
+# base_url = "https://api.groq.com/openai/v1"
+# key = "GROQ_API_KEY"
+
+# [providers.openrouter]
+# base_url = "https://openrouter.ai/api/v1"
+# key = "OPENROUTER_API_KEY"
+
+# [providers.ollama]
+# base_url = "http://127.0.0.1:11434/v1"
+# auth = "none"
+
+# Cloudflare AI Gateway's model IDs already contain a provider, so they are used
+# as "cloudflare/openai/gpt-5.5".
+# [providers.cloudflare]
+# base_url = "https://api.cloudflare.com/client/v4/accounts/<account_id>/ai/v1"
+# key = "CLOUDFLARE_AI_TOKEN"
+
+[aliases]
+# fast = "groq/llama-3.1-8b-instant"

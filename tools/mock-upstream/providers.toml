@@ -1,0 +1,11 @@
+# Two providers backed by the same local mock (mise run dev --mock), so routing,
+# prefixes and both auth modes can be exercised without real keys.
+default = "mock"
+
+[providers.mock]
+base_url = "http://127.0.0.1:18080/v1"
+key = "MOCK_API_KEY"
+
+[providers.local]
+base_url = "http://127.0.0.1:18080/v1"
+auth = "none"

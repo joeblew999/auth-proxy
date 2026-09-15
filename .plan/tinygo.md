@@ -56,10 +56,10 @@ The wasm was 2,738 KB raw and 929 KB gzip.
 Not carried in the repo: a jsonschema-go fork, a go-sdk fork that changes JSON
 semantics, and a patched TinyGo stdlib are too much to maintain for one endpoint.
 
-Workaround in place: `mcp_handler.go` and its tests are `//go:build !tinygo`, and
-`mcp_handler_tinygo.go` serves 501 on `/mcp`. The standard Go build is unchanged.
+Workaround in place: `internal/mcp` is `//go:build !tinygo`, and its TinyGo stub
+returns no handler, so the proxy serves 501 on `/mcp`. The standard Go build is unchanged.
 
-## Measurements (local workerd, wrangler 4.131.1, against `mock_upstream`)
+## Measurements (local workerd, wrangler 4.131.1, against the mock upstream; before the multi-provider redesign)
 
 | | Go 1.27.1 | TinyGo 0.42.0 | TinyGo + 8 local patches |
 |---|---|---|---|
@@ -85,17 +85,14 @@ and CPU per request are the real argument.
 1. **TinyGo fixes the 8 gaps.** Tracked in tinygo-org/tinygo#5684: the issue
    covers gap 1, and a comment covers all 8 with repros. Gap 8 comes with a
    ready-made fix.
-2. When a TinyGo release lands, retest with `mise run go_build_worker_tinygo`
-   after removing the `!tinygo` tags and `mcp_handler_tinygo.go`. Gap 7 may also
+2. When a TinyGo release lands, retest with `mise run bench`
+   after removing `internal/mcp/mcp_tinygo.go` and the `!tinygo` tags. Gap 7 may also
    need segmentio/encoding to work on TinyGo, which is untested.
 
-Until then, `cf_deploy` ships the standard Go build.
+Until then, `mise run deploy` ships the standard Go build.
 
 ## Tasks
 
-- `mise run build_workers`: build both, then `build_sizes`
-- `mise run go_build_worker` builds to `build/go`, and `mise run go_build_worker_tinygo` to `build/tinygo`
-- `mise run mock_upstream`, then `cf_dev_go` (:8791) and `cf_dev_tinygo` (:8792)
-- `mise run compare_workers`: identical requests to both, side by side
-- `wrangler.toml` `[env.tinygo]`: `wrangler deploy --env tinygo` would create a
-  separate `grok-oauth-proxy-tinygo` Worker (not deployed yet)
+- `mise run build --tinygo`: build both Workers and compare sizes
+- `mise run bench`: run both Workers locally in workerd against the mock and compare every endpoint
+- `mise run deploy --tinygo`: deploy the TinyGo build as the separate `grok-oauth-proxy-tinygo` Worker

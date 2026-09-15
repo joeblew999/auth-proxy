@@ -3,11 +3,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"syscall/js"
@@ -16,42 +13,70 @@ import (
 	"github.com/syumai/workers-go/cloudflare"
 	"github.com/syumai/workers-go/cloudflare/fetch"
 	"github.com/syumai/workers-go/cloudflare/kv"
+
+	"github.com/joeblew999/grok-oauth-proxy/internal/mcp"
+	"github.com/joeblew999/grok-oauth-proxy/internal/proxy"
+	"github.com/joeblew999/grok-oauth-proxy/internal/xaiauth"
 )
 
 const (
-	workerCredentialsKey = "oauth-credentials"
-	workerDeviceAuthKey  = "device-auth"
-	workerRequestLimit   = 32 << 20
+	tokensKey  = "oauth-credentials"
+	sessionKey = "device-auth"
 )
+
+func main() {
+	cfg, err := loadConfig("")
+	if err != nil {
+		// Deploy validates providers.toml first, so this means a bad
+		// PROVIDERS_TOML variable. Details go to the logs only.
+		log.Printf("config: %v", err)
+		workers.Serve(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{
+				"message": "proxy configuration is invalid; see the Worker logs",
+				"fix":     "mise run logs",
+			}})
+		}))
+		return
+	}
+
+	client := newWorkersHTTPClient()
+	up := &proxy.Upstream{Config: cfg, Client: client, LoginFix: "mise run login --worker"}
+	if cfg.OAuthProvider() != nil {
+		store, err := newKVStore()
+		if err != nil {
+			log.Printf("Grok login unavailable: %v", err)
+		} else {
+			up.XAI = xaiauth.New(store, client)
+		}
+	}
+	workers.Serve(proxy.NewHandler(proxy.Options{Upstream: up, MCP: mcp.NewHandler(up)}))
+}
 
 type workersHTTPClient struct {
 	client *fetch.Client
 }
 
-// newWorkersHTTPClient builds the client used for every upstream and OAuth
-// request.
-//
-// Direct Worker egress to api.x.ai was measured to work (see
-// .plan/done/cloudflare-workers-deployment.md §4.1), so the GROK_EGRESS
-// Workers VPC tunnel is optional. When the binding is present we still route
-// through it, so existing tunneled deployments behave exactly as before; when it
-// is absent we use the Worker's own fetch, which lets a deployment drop the
-// binding and the always-on cloudflared host that a tunnel requires.
+// newWorkersHTTPClient uses the Worker's own fetch, or the optional GROK_EGRESS
+// Workers VPC binding when one is configured in wrangler.toml.
 func newWorkersHTTPClient() *workersHTTPClient {
 	binding := cloudflare.GetBinding("GROK_EGRESS")
 	if binding.IsUndefined() || binding.IsNull() {
-		log.Printf("GROK_EGRESS is not bound; using direct Worker fetch to %s", upstreamBaseURL())
 		return &workersHTTPClient{client: fetch.NewClient()}
 	}
 	namespace := js.Global().Get("Object").New()
 	namespace.Set("fetch", binding.Get("fetch").Call("bind", binding))
-	return &workersHTTPClient{
-		client: fetch.NewClient(fetch.WithBinding(namespace)),
-	}
+	return &workersHTTPClient{client: fetch.NewClient(fetch.WithBinding(namespace))}
 }
 
 func (c *workersHTTPClient) Do(req *http.Request) (*http.Response, error) {
-	fetchReq, err := fetch.NewRequest(req.Context(), req.Method, req.URL.String(), req.Body)
+	// fetch throws on a GET or HEAD request with any body, and http.NoBody counts.
+	body := req.Body
+	if body == http.NoBody {
+		body = nil
+	}
+	fetchReq, err := fetch.NewRequest(req.Context(), req.Method, req.URL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -63,147 +88,52 @@ func (c *workersHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return c.client.Do(fetchReq, &fetch.RequestInit{Redirect: fetch.RedirectModeManual})
 }
 
-type workersTokenStore struct {
+// kvStore keeps the Grok login in the GROK_AUTH KV namespace.
+type kvStore struct {
 	kv *kv.Namespace
 }
 
-func newWorkersTokenStore() (*workersTokenStore, error) {
+func newKVStore() (*kvStore, error) {
 	namespace, err := kv.NewNamespace("GROK_AUTH")
 	if err != nil {
-		return nil, fmt.Errorf("initialize GROK_AUTH: %w", err)
+		return nil, fmt.Errorf("KV binding GROK_AUTH: %w", err)
 	}
-	return &workersTokenStore{kv: namespace}, nil
+	return &kvStore{kv: namespace}, nil
 }
 
-func (s *workersTokenStore) LoadTokens() (*AuthTokens, error) {
-	encoded, err := s.kv.GetString(workerCredentialsKey, nil)
+func (s *kvStore) get(key string) ([]byte, error) {
+	value, err := s.kv.GetString(key, nil)
 	if err != nil {
-		return nil, fmt.Errorf("load OAuth credentials: %w", err)
+		return nil, fmt.Errorf("read %s from KV: %w", key, err)
 	}
-	if encoded == "" || encoded == "<null>" {
-		return nil, errors.New("no credentials found in KV")
+	if value == "" || value == "<null>" {
+		return nil, nil
 	}
-	var tokens AuthTokens
-	if err := json.Unmarshal([]byte(encoded), &tokens); err != nil {
-		return nil, fmt.Errorf("decode OAuth credentials: %w", err)
+	return []byte(value), nil
+}
+
+func (s *kvStore) LoadTokens() (*xaiauth.Tokens, error) {
+	raw, err := s.get(tokensKey)
+	if err != nil || raw == nil {
+		return nil, err
+	}
+	var tokens xaiauth.Tokens
+	if err := json.Unmarshal(raw, &tokens); err != nil {
+		return nil, fmt.Errorf("decode stored Grok tokens: %w", err)
 	}
 	return &tokens, nil
 }
 
-func (s *workersTokenStore) SaveTokens(tokens AuthTokens) error {
-	encoded, err := json.Marshal(tokens)
+func (s *kvStore) SaveTokens(tokens xaiauth.Tokens) error {
+	raw, err := json.Marshal(tokens)
 	if err != nil {
-		return fmt.Errorf("encode OAuth credentials: %w", err)
-	}
-	if err := s.kv.PutString(workerCredentialsKey, string(encoded), nil); err != nil {
-		return fmt.Errorf("save OAuth credentials: %w", err)
-	}
-	return nil
-}
-
-func (s *workersTokenStore) LoadDeviceAuthSession() ([]byte, error) {
-	encoded, err := s.kv.GetString(workerDeviceAuthKey, nil)
-	if err != nil {
-		return nil, fmt.Errorf("load device auth session: %w", err)
-	}
-	if encoded == "" || encoded == "<null>" {
-		return nil, nil
-	}
-	return []byte(encoded), nil
-}
-
-func (s *workersTokenStore) SaveDeviceAuthSession(session []byte) error {
-	if err := s.kv.PutString(workerDeviceAuthKey, string(session), nil); err != nil {
-		return fmt.Errorf("save device auth session: %w", err)
-	}
-	return nil
-}
-
-func (s *workersTokenStore) CompleteDeviceAuth(tokens AuthTokens) error {
-	if err := s.SaveTokens(tokens); err != nil {
 		return err
 	}
-	return s.SaveDeviceAuthSession([]byte(`{"status":"authenticated"}`))
+	return s.kv.PutString(tokensKey, string(raw), nil)
 }
 
-func main() {
-	if err := validateUpstreamBaseURL(); err != nil {
-		log.Fatal(err)
-	}
-	store, err := newWorkersTokenStore()
-	if err != nil {
-		log.Fatalf("initialize credentials: %v", err)
-	}
-	client := newWorkersHTTPClient()
-	configureRuntime(store, client)
-	auth := newDeviceAuth(store, client)
+func (s *kvStore) LoadDeviceSession() ([]byte, error) { return s.get(sessionKey) }
 
-	mux := http.NewServeMux()
-	registerAdminRoutes(mux, auth)
-	mcp := adminMiddleware(mcpHandler())
-	mux.HandleFunc("/mcp", mcp)
-	mux.HandleFunc("/mcp/", mcp)
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		writeAdminJSON(w, map[string]string{"status": "ok"})
-	})
-	mux.HandleFunc("/", adminMiddleware(workerProxyHandler))
-	workers.Serve(mux)
-}
-
-func workerProxyHandler(w http.ResponseWriter, r *http.Request) {
-	tokens, ok := ensureAccessToken(w)
-	if !ok {
-		return
-	}
-	if isModelsListRequest(r) {
-		handleModelsList(w, r, tokens)
-		return
-	}
-
-	body, ok := readLimitedRequestBody(w, r, workerRequestLimit)
-	if !ok {
-		return
-	}
-	upstream, err := upstreamRequestURL(r.URL)
-	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, errorResponse{Error: "Invalid upstream request"})
-		return
-	}
-	resp, err := sendWorkerUpstreamRequest(r, upstream, body, tokens.AccessToken)
-	if err != nil {
-		log.Printf("upstream request failed: %v", err)
-		writeJSONError(w, http.StatusBadGateway, errorResponse{Error: "Upstream request failed"})
-		return
-	}
-	if resp.StatusCode == http.StatusUnauthorized {
-		resp.Body.Close()
-		tokens, err = forceRefreshToken(tokens.AccessToken)
-		if err != nil {
-			log.Printf("refresh after upstream rejection failed: %v", err)
-			writeJSONError(w, http.StatusUnauthorized, tokenExpiredResponse)
-			return
-		}
-		resp, err = sendWorkerUpstreamRequest(r, upstream, body, tokens.AccessToken)
-		if err != nil {
-			log.Printf("upstream retry failed: %v", err)
-			writeJSONError(w, http.StatusBadGateway, errorResponse{Error: "Upstream request failed"})
-			return
-		}
-	}
-	defer resp.Body.Close()
-	copyResponseHeaders(w.Header(), resp.Header)
-	w.WriteHeader(resp.StatusCode)
-	if _, err := io.Copy(w, resp.Body); err != nil {
-		log.Printf("copy upstream response: %v", err)
-	}
-}
-
-func sendWorkerUpstreamRequest(incoming *http.Request, upstream string, body []byte, accessToken string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(incoming.Context(), incoming.Method, upstream, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	copyRequestHeaders(req.Header, incoming.Header)
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	return runtimeClient.Do(req)
+func (s *kvStore) SaveDeviceSession(session []byte) error {
+	return s.kv.PutString(sessionKey, string(session), nil)
 }

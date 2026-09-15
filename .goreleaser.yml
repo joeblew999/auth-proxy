@@ -41,7 +41,7 @@ checksum:
 
 release:
   github:
-    owner: dvcrn
+    owner: joeblew999
     name: grok-oauth-proxy
   replace_existing_artifacts: true
 

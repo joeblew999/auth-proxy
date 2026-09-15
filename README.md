@@ -1,236 +1,138 @@
-# Grok OAuth Proxy
+# grok-oauth-proxy
 
-Grok OAuth Proxy lets OpenAI-compatible clients use the xAI API through a SuperGrok subscription. It runs on your machine, handles the browser login and token refresh, and forwards requests to `api.x.ai` with the current OAuth token.
+One OpenAI-compatible endpoint for many model providers. Clients pick the provider
+through the model name: `xai/grok-4.3`, `groq/llama-3.3-70b-versatile`,
+`openrouter/...`. The proxy adds each provider's credentials, so clients only
+ever hold one key.
 
-It also provides an MCP server at `/mcp`. Agents can use it to discover the Grok model IDs exposed by the proxy and send one-shot prompts without configuring an OpenAI API client.
-
-Use it when a client can connect to an OpenAI-compatible base URL but cannot authenticate with Grok OAuth directly.
-
-> [!WARNING]
-> **TinyGo Worker build: `/mcp` is blocked by TinyGo 0.42.0 bugs** ([tinygo-org/tinygo#5684](https://github.com/tinygo-org/tinygo/issues/5684))
->
-> The Cloudflare Worker builds with both standard Go and TinyGo. The TinyGo build is 1.5 MB instead of 15 MB and serves each request faster, but it returns **501 on `/mcp`**. Everything else behaves identically.
->
-> The MCP SDK needs eight things TinyGo 0.42.0 lacks or gets wrong (all reproduced and reported in the issue):
->
-> 1. `hash/maphash` does not compile on Go 1.27
-> 2. `crypto/rand.Text` is missing
-> 3. `net.Dialer.Control` is missing
-> 4. `http.Transport.DialTLSContext` is missing
-> 5. `os.OpenRoot` is missing
-> 6. `http.CrossOriginProtection` is missing
-> 7. `reflect.NewAt` panics as unimplemented
-> 8. `reflect.VisibleFields` returns fields whose `Type` panics
->
-> With all eight patched locally, `/mcp` works under TinyGo and returns the same results as the Go build, so nothing else is blocking it. Until TinyGo ships fixes, deploy the standard Go build (`mise run cf_deploy`). Details are in [.plan/tinygo.md](.plan/tinygo.md).
+It runs locally or as a Cloudflare Worker from the same code. It can use a
+SuperGrok subscription login for xAI, and it serves MCP tools at `/mcp`.
 
 ## Quick start
 
-Install the proxy with npm:
+You need [mise](https://mise.jdx.dev) and [fnox](https://github.com/jdx/fnox).
+Then:
 
 ```bash
-npm install -g grok-oauth-proxy
+mise install
+mise run setup          # creates the client key, pushes keys, shows what is missing
+mise run status         # every provider: ok, or the exact command that fixes it
 ```
 
-Other installation options:
+`mise tasks` lists everything else. There is nothing more to remember.
 
-```bash
-# mise
-mise use -g go:github.com/dvcrn/grok-oauth-proxy@latest
+## Adding a provider
 
-# Go
-go install github.com/dvcrn/grok-oauth-proxy@latest
-```
+1. Add it to [`providers.toml`](providers.toml). It contains commented examples.
 
-Complete the browser login once:
+   ```toml
+   [providers.groq]
+   base_url = "https://api.groq.com/openai/v1"
+   key = "GROQ_API_KEY"          # the secret's name, never its value
+   ```
 
-```bash
-grok-oauth-proxy auth
-```
+2. Store the key, which pushes it to the Worker too, then deploy:
 
-If the browser does not open, visit `http://127.0.0.1:56121/login`. The proxy saves credentials to `~/.config/grok-oauth-proxy/auth.json`.
+   ```bash
+   mise run keys:set groq
+   mise run deploy
+   ```
 
-Start the server with a key of your choice:
+3. Use it:
 
-```bash
-ADMIN_API_KEY="replace-with-a-long-random-value" grok-oauth-proxy
-```
+   ```bash
+   mise run chat groq/llama-3.3-70b-versatile "hello" --worker
+   ```
 
-The proxy listens on `http://127.0.0.1:56121`. Send requests to its `/v1` base URL and use the admin key as the API key:
+| Setting | Meaning |
+|---|---|
+| `base_url` | OpenAI-compatible base URL including the version path |
+| `key` | name of the secret holding the API key |
+| `auth = "xai-oauth"` | use a SuperGrok subscription instead of a key; then run `mise run login` (only for `api.x.ai`) |
+| `auth = "none"` | no credential, e.g. a local Ollama |
+| `headers` | extra headers on every request |
+| `default` (top level) | provider for model names without a prefix |
+| `[aliases]` | short names, e.g. `fast = "groq/llama-3.1-8b-instant"` |
 
-```bash
-curl http://127.0.0.1:56121/v1/chat/completions \
-  -H "Authorization: Bearer replace-with-your-admin-key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "grok-composer-2.5-fast",
-    "messages": [{"role": "user", "content": "Say hello in one sentence."}],
-    "stream": false
-  }'
-```
+Mistakes such as an unknown setting, a key value pasted where its name belongs,
+or a missing default fail `mise run status`, `test` and `deploy` with a message
+saying what to change.
 
-List the model IDs available to the signed-in account:
+## Running it
 
-```bash
-curl http://127.0.0.1:56121/v1/models \
-  -H "Authorization: Bearer replace-with-your-admin-key"
-```
+| Where | Start | Base URL |
+|---|---|---|
+| Locally | `mise run dev` | `http://127.0.0.1:56121/v1` |
+| Locally, no real keys | `mise run dev --mock` | `http://127.0.0.1:56121/v1` |
+| Cloudflare | `mise run deploy` | `$PROXY_URL/v1` (set in `mise.toml`) |
 
-## Client setup
-
-Point OpenAI-compatible clients at `http://127.0.0.1:56121/v1`. For example, an OpenCode provider can use:
+Clients use the base URL with the client key (`ADMIN_API_KEY`, created by
+`mise run setup`) as their API key. For example, OpenCode:
 
 ```json
 {
   "provider": {
-    "xai": {
-      "options": {
-        "baseURL": "http://127.0.0.1:56121/v1",
-        "apiKey": "replace-with-your-admin-key"
-      }
+    "proxy": {
+      "options": { "baseURL": "http://127.0.0.1:56121/v1", "apiKey": "<ADMIN_API_KEY>" }
     }
   }
 }
 ```
 
-## Authentication
+`GET /v1/models` lists every provider's models with their prefixes. With a single
+provider, IDs are left unprefixed.
 
-`grok-oauth-proxy auth` uses OAuth 2.0 with PKCE. The local callback stores the access token, refresh token, and expiry time in `~/.config/grok-oauth-proxy/auth.json`. While serving requests, the proxy refreshes the access token shortly before it expires.
+## MCP
 
-`ADMIN_API_KEY` is separate from the Grok OAuth token. It controls access to the local proxy and MCP endpoint. Clients may send it as a bearer token, an `X-API-Key` header, or the `key` query parameter.
-
-The local server binds to loopback only. Requests to `/login` and `/callback` remain available without the admin key so the browser flow can complete.
-
-## Cloudflare Workers
-
-Workers deployments store OAuth credentials in KV and call the upstream API over direct egress — no tunnel and no always-on host required. Install Go 1.27 or newer, [mise](https://mise.jdx.dev/), and Wrangler 4, then run `mise install`. Cloudflare credentials come from fnox, not `wrangler login`. The account and namespace IDs checked into `wrangler.toml` belong to the maintainer deployment and must be replaced for another Cloudflare account.
-
-Everything below is a mise task; run `mise tasks` for the full list.
-
-1. Create a KV namespace with `mise run cf_kv_create`.
-2. Set your account ID and the returned KV ID in `wrangler.toml`:
-
-   ```toml
-   account_id = "<ACCOUNT_ID>"
-   kv_namespaces = [
-     { binding = "GROK_AUTH", id = "<KV_NAMESPACE_ID>" }
-   ]
-   ```
-
-   No `vpc_networks` entry is needed. Direct Worker egress to `api.x.ai` is verified to work, so a tunnel would only add a host to maintain and pay for. Re-add the block if you ever want a fixed, non-Cloudflare egress identity.
-
-3. Deploy and set the client-facing key:
-
-   ```bash
-   mise run cf_deploy
-   mise run cf_secret_admin_key
-   ```
-
-4. Optional: add a [Workers Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) to `wrangler.toml`. Do not create a CNAME to `workers.dev`:
-
-   ```toml
-   routes = [
-     { pattern = "grok.example.com", custom_domain = true }
-   ]
-   ```
-
-   Run `mise run cf_deploy` again after adding the route.
-
-### Using another provider
-
-The upstream is configurable, so xAI is not required.
-
-| Variable | Effect |
-|---|---|
-| `UPSTREAM_BASE_URL` | Upstream OpenAI-compatible base URL, including the provider's version path, e.g. `https://openrouter.ai/api/v1` or `https://api.groq.com/openai/v1`. Defaults to `https://api.x.ai/v1` |
-| `UPSTREAM_API_KEY` | Static bearer token. When set, the OAuth device flow is bypassed entirely and no token refresh is ever attempted |
-
-With neither set, behaviour is exactly xAI-with-OAuth as before, so existing deployments are unaffected.
-
-Any provider other than xAI **requires** `UPSTREAM_API_KEY`. Grok OAuth credentials are only ever sent to `api.x.ai`, so a non-xAI `UPSTREAM_BASE_URL` without a key fails closed: requests return 500 "Upstream misconfigured", and the OAuth login and admin routes return 409. On Workers, put `UPSTREAM_BASE_URL` in `[vars]` and `UPSTREAM_API_KEY` in a secret — never the reverse. Locally, export them or run `mise run proxy_local_mock` to exercise the whole path against a bundled mock upstream for free.
-
-Start xAI device authorization with the protected admin API:
-
-```bash
-BASE_URL="https://grok-oauth-proxy.<SUBDOMAIN>.workers.dev"
-
-curl -X POST "$BASE_URL/admin/auth/start" \
-  -H "Authorization: Bearer $ADMIN_API_KEY"
-```
-
-Open the returned `verificationUrl` and enter `userCode` if prompted. Poll no faster than `retryAfterSeconds`, and stop on `authenticated`, `denied`, `expired`, or `failed`. The session expires automatically at the provider-supplied `expiresAt` time:
-
-```bash
-curl -X POST "$BASE_URL/admin/auth/status" \
-  -H "Authorization: Bearer $ADMIN_API_KEY"
-
-curl "$BASE_URL/admin/status" \
-  -H "Authorization: Bearer $ADMIN_API_KEY"
-```
-
-`POST /admin/tokens` supports manual setup with `accessToken`, `refreshToken`, and `expiresAt` in Unix milliseconds. Access tokens are refreshed five minutes before expiry and saved back to KV. All admin routes accept either the bearer header or `X-API-Key`.
-
-## Endpoints
-
-The proxy forwards xAI API paths, including:
-
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /v1/chat/completions` | OpenAI-compatible chat completions |
-| `GET /v1/models` | Upstream models plus proxy-provided model entries |
-| `POST /mcp` | Stateless MCP server with `ask_grok` and `ask_grok_models` |
-| `GET /login` | Start the browser login |
-| `GET /callback` | Complete the local OAuth callback |
-| `POST /admin/auth/start` | Start Workers xAI device authorization |
-| `GET /admin/auth/status` | Read the Workers authorization state |
-| `POST /admin/auth/status` | Poll xAI and store approved tokens |
-| `POST /admin/tokens` | Store OAuth tokens manually in Workers KV |
-| `GET /admin/status` | Check whether Workers credentials are configured |
-| `GET /health` | Workers health check |
-
-## MCP clients
-
-The `/mcp` endpoint uses stateless streamable HTTP with JSON responses. It keeps no conversation or session state between calls.
-
-MCP requests use the proxy's Grok OAuth credentials upstream and the same `ADMIN_API_KEY` as the proxied API. No separate xAI API key is required.
-
-MCP configuration varies by client. Configure a streamable HTTP server with:
-
-| Setting | Value |
-| --- | --- |
-| URL | `http://127.0.0.1:56121/mcp` |
-| Header | `Authorization: Bearer replace-with-your-admin-key` |
-
-For clients that use an `mcpServers` JSON object:
+`/mcp` is a stateless streamable-HTTP MCP server behind the same client key:
 
 ```json
 {
   "mcpServers": {
-    "ask-grok": {
+    "models": {
       "type": "http",
       "url": "http://127.0.0.1:56121/mcp",
-      "headers": {
-        "Authorization": "Bearer replace-with-your-admin-key"
-      }
+      "headers": { "Authorization": "Bearer <ADMIN_API_KEY>" }
     }
   }
 }
 ```
 
-The client discovers these tools after it connects:
-
 | Tool | Input | Result |
-| --- | --- | --- |
-| `ask_grok_models` | None | Upstream model IDs plus proxy-provided entries, with owner when present |
-| `ask_grok` | `model`, `prompt` | The requested model, model that served the request, and response text |
+|---|---|---|
+| `list_models` | none | model IDs across all providers |
+| `ask` | `model`, `prompt` | the answer text; one-shot, no history |
 
-Call `ask_grok_models` first when the model ID is not already known. Its results combine the xAI model list with the extra model entries supplied by the proxy.
+## Endpoints
 
-`ask_grok` is one-shot. It does not retain conversation history, so `prompt` must include all context needed for that call. The returned `model` may differ from `requested_model` when xAI resolves an alias.
+| Endpoint | Purpose |
+|---|---|
+| `POST /v1/chat/completions` and other `/v1/*` | proxied to the provider chosen by `model` |
+| `GET /v1/models` | all providers' models |
+| `POST /mcp` | MCP tools |
+| `GET /admin/status` | provider readiness with fixes (what `mise run status --worker` shows) |
+| `POST /admin/auth/start`, `GET`/`POST /admin/auth/status` | Grok device login (what `mise run login --worker` drives) |
+| `POST /admin/tokens` | store Grok tokens manually |
+| `GET /health` | public liveness check |
+| `GET /login`, `GET /callback` | local browser Grok login |
+
+Everything except `/health` and the local login requires the client key, sent as
+`Authorization: Bearer`, `X-API-Key`, or `?key=`.
+
+## TinyGo
+
+The Worker also builds with TinyGo (`mise run build --tinygo`, `mise run bench`).
+That build is about 1.9 MB instead of 15 MB, but serves 501 on `/mcp`, because the
+MCP SDK needs eight things TinyGo 0.42 lacks or gets wrong
+([tinygo-org/tinygo#5684](https://github.com/tinygo-org/tinygo/issues/5684)).
+Details are in [.plan/tinygo.md](.plan/tinygo.md). Deploy the standard build
+until TinyGo fixes them.
 
 ## Development
 
 ```bash
-mise run test
-mise run build
+mise run test     # gofmt, vet (native and wasm), all tests
+mise run bench    # both Worker builds in local workerd against the mock
 ```
+
+The code layout and the rules that keep it simple are in [AGENTS.md](AGENTS.md).

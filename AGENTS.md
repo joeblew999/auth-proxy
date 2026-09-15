@@ -1,105 +1,67 @@
-- Repo: dvcrn/grok-oauth-proxy
+- Repo: joeblew999/grok-oauth-proxy
 
 # Development instructions
 
-## Rule zero: use mise
+## Rule zero: nothing to remember
 
-**Every workflow goes through a mise task.** Do not call `go`, `wrangler`,
-`cloudflared`, or `fnox` directly — the tasks pin toolchain versions and inject
-credentials consistently, and a bare command will not have them. Run `mise tasks`
-for the live list; if something a dev needs is missing, add a task rather than
-documenting a raw command.
+- **Every workflow is a mise task.** `mise tasks` lists them. Do not document or
+  rely on raw `go`, `wrangler` or `fnox` commands; if a workflow is missing, add a
+  task.
+- **Every error names its fix.** A config error names the setting, a missing key
+  prints `mise run keys:set <provider>`, and so on. Keep it that way in new code.
+- **Providers live only in `providers.toml`.** Secret values live only in fnox
+  (`mise run keys:set`) and Worker secrets (`mise run keys:push`).
 
-## Go
-
-| Task | Purpose |
-|---|---|
-| `mise run go_format` | gofmt |
-| `mise run go_test` | unit tests |
-| `mise run go_build` | native binary at `bin/grok-oauth-proxy` |
-| `mise run go_build_worker` | Cloudflare Workers WASM build |
-
-Run format, test, and build after Go changes.
-
-## Cloudflare
+## Tasks
 
 | Task | Purpose |
 |---|---|
-| `mise run cf_deploy` / `cf_deploy_dry` | deploy, or validate the build without uploading |
-| `mise run cf_tail` | stream live Worker logs |
-| `mise run cf_kv_create` | create the `GROK_AUTH` KV namespace |
-| `mise run cf_secret_admin_key` | set `ADMIN_API_KEY` on the Worker |
-| `mise run cf_auth_start` / `cf_auth_status` / `cf_auth_wait` | xAI device-flow login |
-| `mise run cf_verify_status` / `cf_verify_models` / `cf_verify_chat` | verify a deployment |
+| `mise run dev` / `dev --mock` | local proxy on `127.0.0.1:56121` (real providers, or the bundled mock) |
+| `mise run status` / `status --worker` | every provider's readiness, with the fix for each problem |
+| `mise run models` / `chat <model> [prompt]` | list models, stream a prompt (`--worker` for the deployed Worker) |
+| `mise run login` / `login --worker` | SuperGrok login for `auth = "xai-oauth"` providers |
+| `mise run keys:set <provider>` / `keys:push` | store a key in fnox and push it; push everything |
+| `mise run test` | gofmt check, vet (native and wasm), all tests |
+| `mise run build` / `build --tinygo` | local binary and Worker; optionally TinyGo plus sizes |
+| `mise run deploy` / `deploy --tinygo` | validate `providers.toml`, then deploy |
+| `mise run logs`, `setup`, `bench` | Worker logs, one-time setup, Go vs TinyGo comparison |
 
-Credentials come from **fnox**, not `wrangler login` state, and are never committed.
-The Cloudflare tasks wrap `fnox exec --`, so they do not prompt and leave nothing on
-disk. `wrangler secret put` reads the value from **stdin**, so pipe it — its hidden
-TTY prompt fails inside the mise/fnox layers (see `cf_secret_admin_key_sync`).
+Run `mise run test` after every Go change.
 
-## Upstream provider
+## Code layout
 
-The upstream is configurable, so the proxy is **not** xAI-only:
-
-- `UPSTREAM_BASE_URL` — upstream OpenAI-compatible base URL. Defaults to
-  `https://api.x.ai/v1`, so leaving it unset preserves xAI behaviour exactly.
-- `UPSTREAM_API_KEY` — static bearer token. When set, the OAuth device flow is
-  bypassed entirely and no refresh is ever attempted. Leave unset to keep OAuth.
-
-Do not reintroduce a hardcoded upstream host: always resolve through
-`upstreamBaseURL()` in `upstream.go`. Anything xAI-specific (extra model aliases,
-OAuth endpoints) must stay behind `isXAIUpstream()` or the OAuth-only code paths.
-
-**Grok OAuth tokens are only ever sent to xAI.** `currentAccessToken()` and
-`forceRefreshToken()` return `errOAuthUpstreamNotXAI` when there is no static key
-and the upstream is not xAI, so a stored subscription token can never reach
-another provider. `oauthUnavailableReason()` is the single rule for when OAuth is
-usable (no static key and an xAI upstream); reuse it rather than re-deriving it.
-
-Both runtimes build upstream URLs with `upstreamRequestURL()` in
-`proxy_helpers.go`, so the Worker and the local reverse proxy route identically.
-Base URLs carry the provider's version path (`/v1`, `/api/v1`, `/openai/v1`); test
-new routing against more than plain `/v1`.
-
-Because these are read from the environment at call time, tests that exercise the
-OAuth path must call `pinXAIOAuthUpstream(t)` to stay hermetic.
-
-When OAuth is unusable, the OAuth-only admin routes (`/admin/auth/start`,
-`/admin/auth/status`, `/admin/tokens`) and the local `/login` and `/callback`
-return **409**, `grok-oauth-proxy auth` exits with the reason, and `/admin/status`
-reports `authMode` (`oauth`, `static-key`, or `misconfigured`) alongside
-`configured`.
-
-### Running on API credits instead of a subscription
-
-No SuperGrok subscription is needed. API credits bill separately from the consumer
-subscription, so this avoids any monthly commitment.
-
-| Task | Purpose |
+| Path | Owns |
 |---|---|
-| `mise run xai_console` | Open the API console, where credits are bought and keys created |
-| `mise run xai_check_key` | Validate the key against `api.x.ai` before wiring it in |
-| `mise run cf_secret_upstream_key` | Set it on the Worker (prompts) |
-| `mise run cf_secret_upstream_key_sync` | Push it from fnox, non-interactive |
-| `mise run cf_secret_upstream_key_delete` | Revert the Worker to OAuth |
+| `providers.toml` | the providers, built into every binary and the Worker |
+| `internal/config` | parsing and validating providers, resolving secrets; **the only code that reads the environment** (through the `getenv` it is given) |
+| `internal/router` | model name → provider, URL joining, model rewriting, merged `/v1/models`; no I/O |
+| `internal/proxy` | the HTTP handler used by **both** runtimes: client key, routing, provider auth, streaming, admin routes |
+| `internal/xaiauth` | the Grok login: browser PKCE, device flow, refresh, token stores |
+| `internal/mcp` | MCP tools `ask` and `list_models` (excluded from TinyGo builds) |
+| `main.go` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
+| `worker.go` | Worker entry point: fetch client, KV token store |
+| `config.go` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
+| `tools/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
 
-Validate the key before deploying it: a bad key and an unbilled account both look
-like a broken proxy otherwise, and `xai_check_key` tells them apart in one call.
+Rules that keep the design working:
 
-## Local provider-agnostic testing — free, no xAI account
-
-| Task | Purpose |
-|---|---|
-| `mise run mock_upstream` | local OpenAI-compatible mock on `127.0.0.1:18080` |
-| `mise run proxy_local_mock` | proxy in static-key mode pointed at that mock |
-
-This path is verified and exercises routing, streaming, and the admin middleware
-without touching xAI. Prefer it over spending anything to test a change.
+- **One handler.** Never add runtime-specific proxy logic to `main.go` or
+  `worker.go`; they only supply an HTTP client and a token store. The Worker and
+  the local proxy drifted apart before this layout existed.
+- **No package globals and no env reads outside `internal/config`.** Tests build a
+  `config.Config` with `config.Load` and a fake `getenv`.
+- **Grok tokens only go to api.x.ai.** `config.Load` rejects `auth = "xai-oauth"`
+  on any other host; do not add paths around that check.
+- **Provider base URLs carry their version path** (`/v1`, `/api/v1`,
+  `/openai/v1`). Test routing against more than plain `/v1`.
+- **Requests without a body get a nil body.** The Worker's fetch throws on a GET
+  with any body, even an empty one, and Go's own client hides this in tests.
+- **Check Worker behaviour in workerd, not only with `go test`.** `mise run bench`
+  runs both Worker builds locally against the mock.
 
 ## Rules
 
-- Keep OAuth tokens and `ADMIN_API_KEY` out of source, logs, and commits.
-- Use the repository's npm lockfile and npm for changes under `npm/`.
-- Preserve the local proxy's loopback-only browser login while keeping Workers authentication routes behind the admin middleware.
-- Workers provider and OAuth traffic must use the `GROK_EGRESS` VPC binding **when one is configured**. The binding is optional: with no binding the Worker falls back to direct egress, which is verified to reach `api.x.ai`.
-
+- Keep API keys, Grok tokens and `ADMIN_API_KEY` out of source, logs and commits.
+- Cloudflare credentials come from fnox; tasks wrap `fnox exec --`.
+- The TinyGo build has no `/mcp` until TinyGo fixes the gaps in
+  `.plan/tinygo.md` (tinygo-org/tinygo#5684).

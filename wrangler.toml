@@ -1,31 +1,27 @@
 name = "grok-oauth-proxy"
 main = "build/go/worker.mjs"
 compatibility_date = "2026-09-07"
-# Account-local values. The IDs committed upstream belong to the maintainer and
-# cannot be reused. See .plan/done/cloudflare-workers-deployment.md §5.2.
 account_id = "7384af54e33b8a54ff240371ea368440"
 workers_dev = true
 compatibility_flags = [
   "streams_enable_constructors",
 ]
+# Holds the Grok login for providers with auth = "xai-oauth".
 kv_namespaces = [
   { binding = "GROK_AUTH", id = "da13e11270bb4d749c73c60dad41c1ea" },
 ]
 
-# No vpc_networks binding, deliberately.
-#
-# Direct Worker egress to api.x.ai was verified working (see
-# .plan/done/cloudflare-workers-deployment.md §4.1), so the GROK_EGRESS tunnel
-# is no longer required and no always-on cloudflared host is needed. worker.go
-# falls back to the Worker's own fetch when the binding is
-# absent, so re-adding a tunnel is a config-only change:
-#
+# Providers come from providers.toml, built into the Worker; secrets are pushed
+# with `mise run keys:push`. Nothing provider-specific belongs in this file.
+
+# Optional: route upstream traffic through a Cloudflare Tunnel instead of the
+# Worker's own fetch.
 # vpc_networks = [
 #   { binding = "GROK_EGRESS", tunnel_id = "<YOUR_TUNNEL_ID>", remote = true },
 # ]
 
 [build]
-command = "mise run go_build_worker"
+command = "mise run build:worker"
 
 [observability.logs]
 enabled = true
@@ -33,10 +29,9 @@ head_sampling_rate = 1
 invocation_logs = true
 persist = true
 
-# The same Worker built with TinyGo (`--env tinygo`), for comparing against the
-# standard Go build. Deploying it creates a separate Worker named
-# grok-oauth-proxy-tinygo. kv_namespaces is not inherited by environments, so it
-# is repeated here.
+# The same Worker built with TinyGo (mise run deploy --tinygo), deployed as
+# grok-oauth-proxy-tinygo. It serves 501 on /mcp; see .plan/tinygo.md.
+# kv_namespaces is not inherited by environments, so it is repeated.
 [env.tinygo]
 main = "build/tinygo/worker.mjs"
 kv_namespaces = [
@@ -44,4 +39,4 @@ kv_namespaces = [
 ]
 
 [env.tinygo.build]
-command = "mise run go_build_worker_tinygo"
+command = "mise run build:worker-tinygo"
