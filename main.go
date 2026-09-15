@@ -277,7 +277,7 @@ func login(args []string) error {
 		return err
 	}
 	if up.XAI == nil {
-		return fmt.Errorf("no provider in %s uses auth = \"xai-oauth\", so there is nothing to log in to", cfg.Source)
+		return fmt.Errorf("no provider in %s uses auth = \"xai-oauth\", so there is nothing to log in to; for a SuperGrok subscription, set auth = \"xai-oauth\" (instead of key) on the api.x.ai provider", cfg.Source)
 	}
 	browser := up.XAI.NewBrowserLogin(redirectURI)
 	mux := http.NewServeMux()

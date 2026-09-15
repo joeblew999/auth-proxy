@@ -49,6 +49,15 @@ func TestResolve(t *testing.T) {
 			t.Errorf("Resolve(%q) = %s, %q; want %s, %q", tc.model, route.Provider.Name, route.Model, tc.provider, tc.upstreamModel)
 		}
 	}
+
+	if got := Resolve(cfg, "meta-llama/llama-3-8b").UnknownPrefix; got != "meta-llama" {
+		t.Errorf("UnknownPrefix = %q, want meta-llama", got)
+	}
+	for _, model := range []string{"groq/llama", "grok-4.3", "fast"} {
+		if got := Resolve(cfg, model).UnknownPrefix; got != "" {
+			t.Errorf("Resolve(%q).UnknownPrefix = %q, want none", model, got)
+		}
+	}
 }
 
 // Real providers put their version path under a prefix. The incoming /v1 must be

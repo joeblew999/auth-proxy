@@ -17,12 +17,15 @@ tinygo = "0.42.0"
 [env]
 # The deployed Worker; every --worker flag talks to it.
 PROXY_URL = "https://grok-oauth-proxy.gedw99.workers.dev"
+# The TinyGo build, deployed by `mise run deploy --tinygo`.
+PROXY_URL_TINYGO = "https://grok-oauth-proxy-tinygo.gedw99.workers.dev"
 
 # --- daily use ---------------------------------------------------------------
 
 [tasks.dev]
 description = "Run the proxy locally on http://127.0.0.1:56121/v1 (--mock: against the bundled mock, no real keys)"
 depends = ["build:cli"]
+raw = true
 usage = 'flag "--mock" help="Serve tools/mock-upstream/providers.toml against a local mock upstream"'
 run = '''
 #!/usr/bin/env bash
@@ -76,6 +79,7 @@ exec fnox exec -- bin/grok-oauth-proxy chat --url "$url" "$usage_model" "$usage_
 [tasks.login]
 description = "Log in to a SuperGrok subscription for providers with auth = \"xai-oauth\" (--worker: log the Worker in)"
 depends = ["build:cli"]
+raw = true
 usage = 'flag "--worker" help="Log the deployed Worker in with a device code"'
 run = '''
 #!/usr/bin/env bash
@@ -94,38 +98,33 @@ usage = '''
 arg "<provider>" help="Provider name from providers.toml, or admin for the proxy's client key"
 flag "--generate" help="Generate a random value instead of prompting (for admin)"
 '''
+raw = true
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
 name=$(bin/grok-oauth-proxy keys "$usage_provider")
 if [ "${usage_generate:-false}" = "true" ]; then
-  openssl rand -hex 32 | fnox set -g "$name"
-  echo "Generated $name and stored it in fnox."
+  value=$(openssl rand -hex 32)
 else
-  echo "Enter the value for $name (input is hidden):"
-  fnox set -g "$name"
+  [ -t 0 ] && printf 'Value for %s (input hidden): ' "$name"
+  IFS= read -rs value || true
+  [ -t 0 ] && echo
 fi
-fnox exec -- sh -c 'printf %s "$(printenv "$1")" | wrangler secret put "$1" --env ""' _ "$name"
+if [ -z "$value" ]; then
+  echo "No value given for $name; nothing was changed." >&2
+  exit 1
+fi
+printf %s "$value" | fnox set -g "$name" >/dev/null
+unset value
+echo "Stored $name in fnox."
+fnox exec -- sh -c 'printf %s "$(printenv "$1")" | wrangler secret put "$1" --env ""' _ "$name" >/dev/null
 echo "Pushed $name to the Worker. Check with: mise run status --worker"
 '''
 
 [tasks."keys:push"]
 description = "Push every secret providers.toml needs from fnox to the Worker, and list any that are missing"
 depends = ["build:cli"]
-run = '''
-#!/usr/bin/env bash
-set -uo pipefail
-missing=0
-while IFS=$'\t' read -r name provider; do
-  if fnox get "$name" >/dev/null 2>&1; then
-    fnox exec -- sh -c 'printf %s "$(printenv "$1")" | wrangler secret put "$1" --env ""' _ "$name" >/dev/null && echo "pushed  $name"
-  else
-    echo "missing $name -> mise run keys:set $provider"
-    missing=1
-  fi
-done < <(bin/grok-oauth-proxy keys)
-exit $missing
-'''
+run = "tools/push-keys.sh"
 
 # --- build and deploy ----------------------------------------------------------
 
@@ -155,7 +154,7 @@ fi
 '''
 
 [tasks.deploy]
-description = "Validate providers.toml, then build and deploy the Worker (--tinygo: the separate TinyGo Worker)"
+description = "Validate providers.toml, then build and deploy the Worker (--tinygo: the separate TinyGo Worker, with its keys pushed)"
 depends = ["build:cli"]
 usage = 'flag "--tinygo" help="Deploy the TinyGo build as grok-oauth-proxy-tinygo (no /mcp)"'
 run = '''
@@ -164,10 +163,19 @@ set -euo pipefail
 bin/grok-oauth-proxy keys >/dev/null
 if [ "${usage_tinygo:-false}" = "true" ]; then
   fnox exec -- wrangler deploy --env tinygo
+  tools/push-keys.sh tinygo
+  # A first deploy creates a new workers.dev hostname, which answers Cloudflare
+  # error 1042 for a short while.
+  for _ in $(seq 24); do
+    [ "$(curl -s -o /dev/null -w '%{http_code}' "$PROXY_URL_TINYGO/health")" = 200 ] && break
+    echo "waiting for $PROXY_URL_TINYGO to come online..."
+    sleep 5
+  done
+  fnox exec -- bin/grok-oauth-proxy status --url "$PROXY_URL_TINYGO"
 else
   fnox exec -- wrangler deploy --env ""
+  echo "Deployed. Check it with: mise run status --worker"
 fi
-echo "Deployed. Check it with: mise run status --worker"
 '''
 
 [tasks.logs]

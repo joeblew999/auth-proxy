@@ -15,6 +15,10 @@ import (
 type Route struct {
 	Provider *config.Provider
 	Model    string // model name as the provider knows it; empty when the request had none
+	// UnknownPrefix is set when the model looked prefixed ("groq/x") but no such
+	// provider exists, so it went to the default provider unchanged. If that
+	// provider rejects the model, the error can say why.
+	UnknownPrefix string
 }
 
 // Resolve maps a client model name to a provider.
@@ -29,12 +33,14 @@ func Resolve(cfg *config.Config, model string) Route {
 	if target, ok := cfg.Aliases[model]; ok {
 		model = target
 	}
+	route := Route{Provider: cfg.Provider(cfg.Default), Model: model}
 	if prefix, rest, ok := strings.Cut(model, "/"); ok && rest != "" {
 		if p := cfg.Provider(prefix); p != nil {
 			return Route{Provider: p, Model: rest}
 		}
+		route.UnknownPrefix = prefix
 	}
-	return Route{Provider: cfg.Provider(cfg.Default), Model: model}
+	return route
 }
 
 // UpstreamURL maps an incoming proxy URL onto a provider. A leading /v1 is

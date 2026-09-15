@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -146,6 +147,17 @@ func (h *handler) proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
+	if route.UnknownPrefix != "" && resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		writeError(w, &Error{
+			Status:   resp.StatusCode,
+			Provider: route.Provider.Name,
+			Message: fmt.Sprintf("model %q went to the default provider because %q is not a configured provider (providers: %s); it answered %d: %s",
+				requested, route.UnknownPrefix, strings.Join(h.config().Names(), ", "), resp.StatusCode, snippet(detail)),
+			Fix: fmt.Sprintf("use an ID from mise run models, or add [providers.%s] to providers.toml", route.UnknownPrefix),
+		})
+		return
+	}
 	copyResponseHeaders(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	if err := copyFlushing(w, resp.Body); err != nil {

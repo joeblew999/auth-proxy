@@ -162,3 +162,25 @@ func TestAskRejectsBlankInput(t *testing.T) {
 		}
 	}
 }
+
+// With one provider, ask reports the served model unprefixed, matching
+// list_models.
+func TestAskSingleProviderModelIsUnprefixed(t *testing.T) {
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"model":"grok-4.3","choices":[{"message":{"content":"ok"}}]}`)
+	}))
+	defer provider.Close()
+	cfg, err := config.Load([]byte(fmt.Sprintf("[providers.xai]\nbase_url = %q\nauth = \"none\"", provider.URL+"/v1")), "test",
+		func(k string) string { return map[string]string{"ADMIN_API_KEY": clientKey}[k] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	up := &proxy.Upstream{Config: cfg, Client: http.DefaultClient}
+	server := httptest.NewServer(proxy.NewHandler(proxy.Options{Upstream: up, MCP: NewHandler(up)}))
+	defer server.Close()
+
+	_, resp := call(t, server, clientKey, toolCall("ask", map[string]any{"model": "grok-4.3", "prompt": "hi"}))
+	if got := result(t, resp)["structuredContent"].(map[string]any)["model"]; got != "grok-4.3" {
+		t.Errorf("model = %v, want grok-4.3", got)
+	}
+}

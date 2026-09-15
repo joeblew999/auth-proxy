@@ -138,6 +138,34 @@ func TestRoutesByModelPrefixAliasAndDefault(t *testing.T) {
 	}
 }
 
+// A model like "mistral/x" with no mistral provider goes to the default provider.
+// When that provider rejects it, the error must explain the prefix, not just echo
+// "model does not exist".
+func TestUnknownPrefixRejectionExplainsWhy(t *testing.T) {
+	h, main, _ := twoProviders(t)
+	main.handle = func(w http.ResponseWriter, r *http.Request, _ []byte) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = io.WriteString(w, `{"error":"The model mistral/large does not exist"}`)
+	}
+
+	w := do(t, h, http.MethodPost, "/v1/chat/completions", `{"model":"mistral/large"}`, clientKey)
+	var body struct {
+		Error map[string]string `json:"error"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &body)
+	msg, fix := body.Error["message"], body.Error["fix"]
+	if w.Code != http.StatusNotFound || !strings.Contains(msg, `"mistral" is not a configured provider`) ||
+		!strings.Contains(msg, "groq, main") || !strings.Contains(msg, "does not exist") || !strings.Contains(fix, "[providers.mistral]") {
+		t.Errorf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+
+	// A successful answer from the default provider passes through untouched.
+	main.handle = nil
+	if w := do(t, h, http.MethodPost, "/v1/chat/completions", `{"model":"meta-llama/llama-3"}`, clientKey); w.Code != http.StatusOK {
+		t.Errorf("slash model accepted by the default provider: status = %d, body = %s", w.Code, w.Body.String())
+	}
+}
+
 func TestMissingProviderKeyNamesTheFix(t *testing.T) {
 	upstream := newFakeProvider(t, `{"data":[]}`)
 	cfg := loadConfig(t, fmt.Sprintf(`[providers.groq]

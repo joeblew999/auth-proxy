@@ -152,9 +152,14 @@ func (t tools) ask(ctx context.Context, in AskInput) (AskOutput, error) {
 	if text.Len() == 0 {
 		return AskOutput{}, fmt.Errorf("model %s returned no text", requested)
 	}
+	// Report the served model in the same form list_models uses: prefixed only
+	// when more than one provider is configured.
 	served := requested
 	if completion.Model != "" {
-		served = route.Provider.Name + "/" + completion.Model
+		served = completion.Model
+		if len(t.up.Config.Providers) > 1 {
+			served = route.Provider.Name + "/" + completion.Model
+		}
 	}
 	log.Printf("MCP ask: model=%s provider=%s duration=%s", requested, route.Provider.Name, time.Since(start))
 	return AskOutput{RequestedModel: requested, Model: served, Text: text.String()}, nil
