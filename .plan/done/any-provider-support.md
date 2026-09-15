@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | COMPLETE — §5.1–5.5 implemented and tested, §6 step 3 closed by §6.2, §8 all met. Nothing outstanding |
+| **Status** | COMPLETE, with two defects found and fixed in the §9 audit — §5.1–5.5 implemented and tested, §6 step 3 closed by §6.2, §8 all met. Nothing outstanding |
 | **Created** | 2026-09-15 |
 | **Repo** | `joeblew999/grok-oauth-proxy` (fork of `dvcrn/grok-oauth-proxy`) |
 | **Goal** | Point the proxy at any OpenAI-compatible provider without forking auth code |
@@ -78,7 +78,7 @@ Behaviour:
 | unset (default) | xAI OAuth | `GROK_AUTH` KV / `auth.json`, device flow + refresh as today |
 | set | Static bearer | The env var itself; no OAuth, no refresh |
 
-`UPSTREAM_BASE_URL` overrides the base URL in both modes. Defaulting to the current
+`UPSTREAM_BASE_URL` overrides the base URL in both modes. **Superseded by §9:** OAuth mode is xAI-only, and a non-xAI base URL requires `UPSTREAM_API_KEY`. Defaulting to the current
 value means an existing xAI deployment is byte-for-byte unchanged with no env vars set.
 
 **Why an env var rather than reusing `POST /admin/tokens`:** injecting a token works
@@ -290,3 +290,29 @@ deterministic, needs no download, and still exercises SSE streaming.
 One correction to the original wording: this criterion said "the $0 Ollama path".
 The practical equivalent turned out to be the bundled mock, which needs no download
 and is a permanent test fixture rather than an optional local install.
+
+---
+
+## 9. Post-completion audit — two defects fixed, 2026-09-15
+
+An audit after this plan was marked complete found two defects that its tests could
+not catch, because every test and mock run used xAI OAuth or a base URL of exactly
+`/v1`. Both were reproduced against `tools/mock-upstream` before being fixed.
+
+| # | Defect | Cause | Fix |
+|---|---|---|---|
+| 1 | **Grok OAuth tokens sent to other providers.** A non-xAI `UPSTREAM_BASE_URL` without `UPSTREAM_API_KEY` forwarded the stored subscription token as the bearer. On a 401 it refreshed against `auth.x.ai` and sent the new token too. Affected the Worker and the local proxy | §4 deliberately let `UPSTREAM_BASE_URL` apply "in both modes" | `currentAccessToken()` / `forceRefreshToken()` fail closed with `errOAuthUpstreamNotXAI`. Requests return 500 "Upstream misconfigured", and the OAuth admin and login routes and `auth` refuse via `oauthUnavailableReason()`. `/admin/status` reports `authMode: misconfigured` |
+| 2 | **Local proxy doubled the version path** for base URLs not ending in exactly `/v1`: `…/openai/v1` produced `/openai/v1/v1/chat/completions`. `/v1/models` still worked, which hid it. The Worker was unaffected | §5.1 made the base URL configurable but left `main.go`'s single-host director join, which only worked for `/v1` | The local proxy now uses `upstreamRequestURL()`, the Worker's mapping |
+
+Also fixed: OAuth browser routes and `grok-oauth-proxy auth` now refuse when OAuth is
+unusable, an invalid `UPSTREAM_BASE_URL` fails at startup, and six tests that
+depended on the ambient environment now pin it. Three of those already failed with
+an exported `UPSTREAM_API_KEY` before this audit.
+
+The regression tests (`TestOAuthCredentialsNeverSentToNonXAIUpstream`,
+`TestLocalProxyWithholdsOAuthTokenFromNonXAIUpstream`,
+`TestLocalProxyJoinsNonV1BasePath`) were confirmed to fail against the previous
+logic.
+
+The §4 statement "`UPSTREAM_BASE_URL` overrides the base URL in both modes" is
+superseded: OAuth mode is xAI-only.

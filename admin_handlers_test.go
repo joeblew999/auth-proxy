@@ -10,6 +10,7 @@ import (
 )
 
 func TestDeviceAuthHandlers(t *testing.T) {
+	pinXAIOAuthUpstream(t)
 	t.Setenv("ADMIN_API_KEY", testAdminKey)
 	store := &memoryTokenStore{}
 	configureRuntime(store, testHTTPClientFunc(func(_ *http.Request) (*http.Response, error) {
@@ -45,6 +46,7 @@ func TestDeviceAuthHandlers(t *testing.T) {
 }
 
 func TestTokensAndStatusHandlers(t *testing.T) {
+	pinXAIOAuthUpstream(t)
 	t.Setenv("ADMIN_API_KEY", testAdminKey)
 	store := &memoryTokenStore{}
 	configureRuntime(store, http.DefaultClient)
@@ -72,6 +74,7 @@ func TestTokensAndStatusHandlers(t *testing.T) {
 }
 
 func TestTokensHandlerRejectsUnknownFields(t *testing.T) {
+	pinXAIOAuthUpstream(t)
 	t.Setenv("ADMIN_API_KEY", testAdminKey)
 	store := &memoryTokenStore{}
 	configureRuntime(store, http.DefaultClient)

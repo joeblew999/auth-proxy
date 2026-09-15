@@ -135,6 +135,10 @@ var (
 		Error:   "Token expired",
 		Message: "Failed to refresh the Grok OAuth token.",
 	}
+	upstreamMisconfiguredResponse = errorResponse{
+		Error:   "Upstream misconfigured",
+		Message: "UPSTREAM_BASE_URL is not xAI, so Grok OAuth credentials will not be sent to it. Set UPSTREAM_API_KEY for that provider.",
+	}
 	errNotAuthenticated   = errors.New("no stored credentials")
 	errTokenRefreshFailed = errors.New("failed to refresh token")
 )
@@ -144,6 +148,11 @@ func currentAccessToken() (*AuthTokens, error) {
 	// is nothing to load and never anything to refresh.
 	if key := staticUpstreamKey(); key != "" {
 		return &AuthTokens{AccessToken: key}, nil
+	}
+	// Fail closed before loading anything: stored OAuth tokens belong to a Grok
+	// subscription and must never reach another provider.
+	if !isXAIUpstream() {
+		return nil, errOAuthUpstreamNotXAI
 	}
 	tokens, err := loadTokens()
 	if err != nil {
@@ -175,6 +184,11 @@ func forceRefreshToken(failedAccessToken string) (*AuthTokens, error) {
 	if key := staticUpstreamKey(); key != "" {
 		return &AuthTokens{AccessToken: key}, nil
 	}
+	// A refresh would contact auth.x.ai and hand the new token to the same
+	// non-xAI upstream, so refuse here too.
+	if !isXAIUpstream() {
+		return nil, errOAuthUpstreamNotXAI
+	}
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 	tokens, err := loadTokens()
@@ -200,6 +214,11 @@ func refreshAndSave(tokens *AuthTokens) (*AuthTokens, error) {
 
 func ensureAccessToken(w http.ResponseWriter) (*AuthTokens, bool) {
 	tokens, err := currentAccessToken()
+	if errors.Is(err, errOAuthUpstreamNotXAI) {
+		log.Printf("%v (UPSTREAM_BASE_URL=%s)", err, upstreamBaseURL())
+		writeJSONError(w, http.StatusInternalServerError, upstreamMisconfiguredResponse)
+		return nil, false
+	}
 	if errors.Is(err, errTokenRefreshFailed) {
 		log.Printf("Failed to refresh token: %v", err)
 		writeJSONError(w, http.StatusUnauthorized, tokenExpiredResponse)

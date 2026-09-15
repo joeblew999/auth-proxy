@@ -142,10 +142,12 @@ The upstream is configurable, so xAI is not required.
 
 | Variable | Effect |
 |---|---|
-| `UPSTREAM_BASE_URL` | Upstream OpenAI-compatible base URL. Defaults to `https://api.x.ai/v1` |
+| `UPSTREAM_BASE_URL` | Upstream OpenAI-compatible base URL, including the provider's version path, e.g. `https://openrouter.ai/api/v1` or `https://api.groq.com/openai/v1`. Defaults to `https://api.x.ai/v1` |
 | `UPSTREAM_API_KEY` | Static bearer token. When set, the OAuth device flow is bypassed entirely and no token refresh is ever attempted |
 
-With neither set, behaviour is exactly xAI-with-OAuth as before, so existing deployments are unaffected. On Workers, put `UPSTREAM_BASE_URL` in `[vars]` and `UPSTREAM_API_KEY` in a secret — never the reverse. Locally, export them or run `mise run proxy_local_mock` to exercise the whole path against a bundled mock upstream for free.
+With neither set, behaviour is exactly xAI-with-OAuth as before, so existing deployments are unaffected.
+
+Any provider other than xAI **requires** `UPSTREAM_API_KEY`. Grok OAuth credentials are only ever sent to `api.x.ai`, so a non-xAI `UPSTREAM_BASE_URL` without a key fails closed: requests return 500 "Upstream misconfigured", and the OAuth login and admin routes return 409. On Workers, put `UPSTREAM_BASE_URL` in `[vars]` and `UPSTREAM_API_KEY` in a secret — never the reverse. Locally, export them or run `mise run proxy_local_mock` to exercise the whole path against a bundled mock upstream for free.
 
 Start xAI device authorization with the protected admin API:
 

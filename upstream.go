@@ -1,9 +1,16 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 )
+
+// errOAuthUpstreamNotXAI is returned instead of OAuth credentials when the
+// upstream is not xAI. The stored tokens are a Grok subscription credential, so
+// sending them anywhere else would hand that account to a third party.
+var errOAuthUpstreamNotXAI = errors.New("refusing to send Grok OAuth credentials to a non-xAI upstream; set UPSTREAM_API_KEY for that provider")
 
 // defaultUpstreamBaseURL is xAI. Keeping it as the default means a deployment
 // with no UPSTREAM_* configuration behaves exactly as it did before upstreams
@@ -32,15 +39,42 @@ func staticUpstreamKey() string {
 	return strings.TrimSpace(getenv("UPSTREAM_API_KEY"))
 }
 
+// validateUpstreamBaseURL reports a configuration error when the upstream base
+// URL is not an absolute http or https URL, so a typo fails at startup rather
+// than on every request.
+func validateUpstreamBaseURL() error {
+	base := upstreamBaseURL()
+	parsed, err := url.Parse(base)
+	if err != nil {
+		return fmt.Errorf("invalid UPSTREAM_BASE_URL %q: %w", base, err)
+	}
+	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return fmt.Errorf("invalid UPSTREAM_BASE_URL %q: want an absolute http or https URL", base)
+	}
+	return nil
+}
+
 // isXAIUpstream reports whether the configured upstream is xAI.
 //
-// Used to decide whether xAI-only model aliases should be merged into
-// /v1/models responses. Advertising them against another provider would claim
-// models it does not serve.
+// It gates everything xAI-specific: OAuth credentials are only ever sent to
+// xAI, and xAI-only model aliases are only merged into /v1/models for xAI.
 func isXAIUpstream() bool {
 	parsed, err := url.Parse(upstreamBaseURL())
 	if err != nil {
 		return false
 	}
 	return strings.EqualFold(parsed.Hostname(), "api.x.ai")
+}
+
+// oauthUnavailableReason explains why the xAI OAuth flow cannot be used with the
+// current configuration, or returns "" when it can. OAuth needs both no static
+// key and an xAI upstream.
+func oauthUnavailableReason() string {
+	switch {
+	case staticUpstreamKey() != "":
+		return "OAuth is unavailable: UPSTREAM_API_KEY is set, so the upstream credential is a static key"
+	case !isXAIUpstream():
+		return "OAuth is unavailable: UPSTREAM_BASE_URL is not xAI, and Grok OAuth credentials are only sent to api.x.ai; set UPSTREAM_API_KEY for that provider"
+	}
+	return ""
 }

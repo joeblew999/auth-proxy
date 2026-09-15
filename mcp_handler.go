@@ -79,7 +79,9 @@ func upstreamAuthBlurb() string {
 		return "Requests are served by " + upstreamName() + " using the stored Grok OAuth " +
 			"credentials, so no separate xAI API key is involved."
 	default:
-		return "Requests are served by " + upstreamName() + " using the stored OAuth credentials."
+		// OAuth credentials are never sent to a non-xAI upstream, so without a
+		// static key every call fails until one is configured.
+		return "Requests to " + upstreamName() + " fail until an API key for it is configured."
 	}
 }
 

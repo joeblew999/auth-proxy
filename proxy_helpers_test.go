@@ -14,13 +14,13 @@ func TestWorkerUpstreamURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse incoming URL: %v", err)
 	}
-	got, err := workerUpstreamURL(incoming)
+	got, err := upstreamRequestURL(incoming)
 	if err != nil {
-		t.Fatalf("workerUpstreamURL() error = %v", err)
+		t.Fatalf("upstreamRequestURL() error = %v", err)
 	}
 	want := "https://api.x.ai/v1/chat/completions?foo=bar"
 	if got != want {
-		t.Errorf("workerUpstreamURL() = %q, want %q", got, want)
+		t.Errorf("upstreamRequestURL() = %q, want %q", got, want)
 	}
 }
 

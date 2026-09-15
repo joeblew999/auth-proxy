@@ -83,7 +83,7 @@ func TestAdminStatusReportsStaticKeyMode(t *testing.T) {
 // With no static key the endpoints behave as before and the mode is reported as
 // oauth.
 func TestOAuthModeIsUnchangedWithoutStaticKey(t *testing.T) {
-	t.Setenv("UPSTREAM_API_KEY", "")
+	pinXAIOAuthUpstream(t)
 	t.Setenv("ADMIN_API_KEY", testAdminKey)
 
 	r := httptest.NewRequest(http.MethodGet, "/admin/status", nil)

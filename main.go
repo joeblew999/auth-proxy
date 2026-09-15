@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
@@ -190,6 +189,48 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// newUpstreamReverseProxy forwards requests to the configured upstream. The
+// target comes from upstreamRequestURL, the same mapping the Worker uses, so a
+// base URL whose path is not exactly /v1 (such as /api/v1 or /openai/v1) is
+// joined correctly instead of gaining a second /v1.
+func newUpstreamReverseProxy() *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			upstream, err := upstreamRequestURL(req.URL)
+			if err == nil {
+				var target *url.URL
+				if target, err = url.Parse(upstream); err == nil {
+					req.URL = target
+					req.Host = target.Host
+				}
+			}
+			if err != nil {
+				// Leaving the relative URL in place makes the transport fail, so
+				// the client gets a 502 rather than a request to the wrong host.
+				log.Printf("build upstream URL: %v", err)
+			}
+			// Match httputil.NewSingleHostReverseProxy: don't let Go add its own
+			// User-Agent when the client sent none.
+			if _, ok := req.Header["User-Agent"]; !ok {
+				req.Header.Set("User-Agent", "")
+			}
+		},
+	}
+}
+
+// requireOAuthRoute serves the browser OAuth routes only when OAuth is usable.
+// With a static key or a non-xAI upstream the resulting tokens would never be
+// used, or would have to be withheld from the upstream anyway.
+func requireOAuthRoute(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reason := oauthUnavailableReason(); reason != "" {
+			http.Error(w, reason, http.StatusConflict)
+			return
+		}
+		next(w, r)
+	}
+}
+
 func handleProxy(p *httputil.ReverseProxy) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// If it's a request to /login or /callback, it shouldn't hit the proxy.
@@ -244,35 +285,20 @@ func main() {
 		isAuthMode = true
 	}
 
-	target, _ := url.Parse(upstreamBaseURL())
-	proxy := httputil.NewSingleHostReverseProxy(target)
-
-	// Update the request to match the target host
-	originalDirector := proxy.Director
-	proxy.Director = func(req *http.Request) {
-		originalDirector(req)
-		req.Host = target.Host
-		query := req.URL.Query()
-		query.Del("key")
-		req.URL.RawQuery = query.Encode()
-
-		// Normalize paths that start with /v1 so that tools which send
-		// /v1/models or /v1/chat/completions still work correctly.
-		if strings.HasPrefix(req.URL.Path, "/v1/") {
-			req.URL.Path = "/" + strings.TrimPrefix(req.URL.Path, "/v1/")
-		}
-
-		// Ensure the path is properly formatted:
-		// Target path is /v1. If request path is /chat/completions,
-		// we want /v1/chat/completions
-		if !strings.HasPrefix(req.URL.Path, target.Path) {
-			req.URL.Path = strings.TrimSuffix(target.Path, "/") + "/" + strings.TrimPrefix(req.URL.Path, "/")
+	if err := validateUpstreamBaseURL(); err != nil {
+		log.Fatal(err)
+	}
+	if isAuthMode {
+		if reason := oauthUnavailableReason(); reason != "" {
+			log.Fatal(reason)
 		}
 	}
 
+	proxy := newUpstreamReverseProxy()
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/login", loggingMiddleware(handleLogin))
-	mux.HandleFunc("/callback", loggingMiddleware(handleCallback))
+	mux.HandleFunc("/login", loggingMiddleware(requireOAuthRoute(handleLogin)))
+	mux.HandleFunc("/callback", loggingMiddleware(requireOAuthRoute(handleCallback)))
 
 	// MCP endpoint. The handler is built once so the tool set is shared across
 	// requests; the session itself is stateless.

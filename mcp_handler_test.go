@@ -17,6 +17,7 @@ const testAdminKey = "test-admin-key"
 // the admin middleware and the MCP handler together.
 func newMCPTestMux(t *testing.T) *http.ServeMux {
 	t.Helper()
+	pinXAIOAuthUpstream(t)
 	t.Setenv("ADMIN_API_KEY", testAdminKey)
 
 	mux := http.NewServeMux()

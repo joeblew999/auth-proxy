@@ -127,6 +127,9 @@ func (s *workersTokenStore) CompleteDeviceAuth(tokens AuthTokens) error {
 }
 
 func main() {
+	if err := validateUpstreamBaseURL(); err != nil {
+		log.Fatal(err)
+	}
 	store, err := newWorkersTokenStore()
 	if err != nil {
 		log.Fatalf("initialize credentials: %v", err)
@@ -161,7 +164,7 @@ func workerProxyHandler(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	upstream, err := workerUpstreamURL(r.URL)
+	upstream, err := upstreamRequestURL(r.URL)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, errorResponse{Error: "Invalid upstream request"})
 		return

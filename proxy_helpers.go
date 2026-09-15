@@ -6,7 +6,14 @@ import (
 	"strings"
 )
 
-func workerUpstreamURL(incoming *url.URL) (string, error) {
+// upstreamRequestURL maps an incoming proxy URL onto the configured upstream. A
+// leading /v1 is dropped because the base URL already carries the provider's
+// version path, so both /v1/chat/completions and /chat/completions reach
+// <base>/chat/completions, whether the base ends in /v1, /api/v1, or /openai/v1.
+// The key query parameter is removed because it can carry the admin key.
+//
+// The Worker and the local reverse proxy both use this, so they route identically.
+func upstreamRequestURL(incoming *url.URL) (string, error) {
 	path := incoming.Path
 	if strings.HasPrefix(path, "/v1/") {
 		path = "/" + strings.TrimPrefix(path, "/v1/")

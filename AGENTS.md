@@ -50,12 +50,24 @@ Do not reintroduce a hardcoded upstream host: always resolve through
 `upstreamBaseURL()` in `upstream.go`. Anything xAI-specific (extra model aliases,
 OAuth endpoints) must stay behind `isXAIUpstream()` or the OAuth-only code paths.
 
-Because these are read from the environment at call time, tests that exercise the
-OAuth path must pin them with `t.Setenv` to stay hermetic.
+**Grok OAuth tokens are only ever sent to xAI.** `currentAccessToken()` and
+`forceRefreshToken()` return `errOAuthUpstreamNotXAI` when there is no static key
+and the upstream is not xAI, so a stored subscription token can never reach
+another provider. `oauthUnavailableReason()` is the single rule for when OAuth is
+usable (no static key and an xAI upstream); reuse it rather than re-deriving it.
 
-With `UPSTREAM_API_KEY` set there is no OAuth flow at all, so the OAuth-only admin
-routes (`/admin/auth/start`, `/admin/auth/status`, `/admin/tokens`) return **409**
-rather than failing obscurely, and `/admin/status` reports `authMode` alongside
+Both runtimes build upstream URLs with `upstreamRequestURL()` in
+`proxy_helpers.go`, so the Worker and the local reverse proxy route identically.
+Base URLs carry the provider's version path (`/v1`, `/api/v1`, `/openai/v1`); test
+new routing against more than plain `/v1`.
+
+Because these are read from the environment at call time, tests that exercise the
+OAuth path must call `pinXAIOAuthUpstream(t)` to stay hermetic.
+
+When OAuth is unusable, the OAuth-only admin routes (`/admin/auth/start`,
+`/admin/auth/status`, `/admin/tokens`) and the local `/login` and `/callback`
+return **409**, `grok-oauth-proxy auth` exits with the reason, and `/admin/status`
+reports `authMode` (`oauth`, `static-key`, or `misconfigured`) alongside
 `configured`.
 
 ### Running on API credits instead of a subscription

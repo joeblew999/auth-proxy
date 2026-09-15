@@ -116,6 +116,16 @@ func tokenStatusHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	// A non-xAI upstream without a static key cannot work: OAuth credentials are
+	// never sent there. Say so rather than reporting whatever the store holds.
+	if !isXAIUpstream() {
+		writeAdminJSON(w, map[string]any{
+			"configured": false,
+			"authMode":   "misconfigured",
+			"error":      oauthUnavailableReason(),
+		})
+		return
+	}
 	tokens, err := loadTokens()
 	writeAdminJSON(w, map[string]any{
 		"configured": err == nil && tokens != nil && tokens.AccessToken != "",
@@ -126,15 +136,13 @@ func tokenStatusHandler(w http.ResponseWriter, r *http.Request) {
 // requireOAuthMode rejects admin endpoints that only make sense with the OAuth
 // device flow.
 //
-// When UPSTREAM_API_KEY is configured the upstream credential is a static key and
-// no OAuth flow exists at all, so without this guard these endpoints would either
-// fail confusingly against auth.x.ai or silently store credentials that nothing
-// ever reads.
+// OAuth is unusable when UPSTREAM_API_KEY is set (the credential is a static key)
+// or when the upstream is not xAI (OAuth tokens are never sent there). Without
+// this guard these endpoints would either fail confusingly against auth.x.ai or
+// silently store credentials that nothing ever reads.
 func requireOAuthMode(w http.ResponseWriter) bool {
-	if staticUpstreamKey() != "" {
-		writeAdminError(w,
-			"OAuth device flow is unavailable: UPSTREAM_API_KEY is set, so the upstream credential is a static key",
-			http.StatusConflict)
+	if reason := oauthUnavailableReason(); reason != "" {
+		writeAdminError(w, reason, http.StatusConflict)
 		return false
 	}
 	return true
