@@ -7,7 +7,7 @@
  *
  *     client -> proxy Worker -> upstream -> back
  *
- * which is the one thing left open in .plan/any-provider-support.md §6 step 3.
+ * which was the last open item in .plan/done/any-provider-support.md §6 step 3.
  * A localhost upstream is unreachable from a Worker, so the mock itself has to
  * be deployed.
  *

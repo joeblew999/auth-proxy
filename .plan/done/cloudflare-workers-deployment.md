@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | COMPLETE — infrastructure done and verified. §5.5 remains, blocked on an **external** xAI account entitlement issue, not on code. Continued in `.plan/any-provider-support.md` |
+| **Status** | COMPLETE — infrastructure done and verified, and §5.5 resolved in §5.5a by running on API credits. Continued in `.plan/done/any-provider-support.md` |
 | **Created** | 2026-09-15 |
 | **Repo** | `joeblew999/grok-oauth-proxy` (fork of `dvcrn/grok-oauth-proxy`) |
 | **Goal** | Access Grok from anywhere via Cloudflare Workers |
@@ -328,7 +328,7 @@ The cheap escape is already built: buy **API credits** instead of subscribing, t
 set `UPSTREAM_API_KEY` on the Worker (`mise run cf_secret_upstream_key`) so the proxy
 uses a static key and skips OAuth. API credits bill separately from the consumer
 subscription, so no $30/mo commitment is needed to test. See
-`.plan/any-provider-support.md`.
+`.plan/done/any-provider-support.md`.
 
 ### 5.5a RESOLVED 2026-09-15 — running on API credits
 

@@ -93,4 +93,4 @@ Sources:
   OpenAI-compatible provider, including a local one. `mise run mock_upstream` plus
   `mise run proxy_local_mock` exercises the whole path for **$0**, and a local
   Ollama/llama.cpp or a free-tier hosted provider costs nothing to run. See
-  `.plan/any-provider-support.md`.
+  `.plan/done/any-provider-support.md`.

@@ -1,7 +1,7 @@
 # Throwaway OpenAI-compatible provider Worker.
 #
 # Deployed purely so the *deployed* proxy Worker has a publicly reachable
-# upstream, which is what closes .plan/any-provider-support.md §6 step 3:
+# upstream, which is what closed .plan/done/any-provider-support.md §6 step 3:
 # streaming through Cloudflare, end to end, at no cost.
 #
 # Delete when done: `mise run e2e_mock_delete`.
