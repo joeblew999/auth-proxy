@@ -95,7 +95,20 @@ Checked 2026-09-15.
   driven by TinyGo from a dedicated Web Worker. Backends: WebGPU (Chrome/Edge 137+),
   multi-threaded CPU (needs COOP/COEP), or single-threaded CPU. No OpenAI API,
   only JS globals and `postMessage` tokens. Models of 220–770 MB come from Hugging
-  Face; whether they stay cached is unverified.
+  Face.
+- **Browser models are not cached (seen by the owner in Safari; explained by the
+  code).** yzma's `pkg/llamawasm/fs.go` `FetchModelFile` fetches with
+  `cache: "no-store"` on purpose, because Firefox's HTTP cache aborts the stream
+  for files that large. It then streams the model into Emscripten's in-memory file
+  system, so every page load downloads the model again in every browser. yzma also
+  has `WriteModelFile(name, data)`, so a model can be supplied from our own
+  storage.
+- **Safari storage** (WebKit, Safari 17+): up to 60% of the disk per origin and 80%
+  overall. Cache API, IndexedDB, Service Worker and file-system storage are evicted
+  together per origin, least recently used, under storage pressure or after a
+  period without user interaction (MDN: 7 days). `navigator.storage.persist()`
+  exempts an origin, and WebKit grants it mainly to sites installed as a web app
+  (Home Screen on iOS, Add to Dock on macOS).
 - **Go in a Service Worker:** nlepage/go-wasm-http-server runs a Go
   `http.Handler` in a Service Worker and supports TinyGo (410 stars, MIT, no
   releases, last push 2026-04). The handler code is the same `net/http` code the
@@ -222,7 +235,7 @@ before any refactor; then **build**.
 | # | Spike | Done when |
 |---|---|---|
 | B1 | **Go chat handler in a TinyGo Service Worker**, served by wrangler from Cloudflare, returning a gsx fragment built with `gsxui add` | the same handler answers on the Worker and in the Service Worker; otherwise fall back to a small JS adapter |
-| B2 | **yzma in a Web Worker**, driven by that Service Worker, one small model in Chrome | download size, caching, load time and tokens per second measured; go or no-go |
+| B2 | **yzma in a Web Worker with persistent model storage**, driven by that Service Worker. Models are stored by the app itself in OPFS or Cache Storage (whichever holds multi-hundred-MB files on Safari), in one of two ways: the Service Worker answers yzma's model fetch cache-first, or our engine loads from storage and hands the model to yzma. Also request `navigator.storage.persist()`, and ship a web app manifest so Safari can install it | **the second visit loads the model without downloading it**, in Safari and Chrome, with load time and tokens per second measured. Installed as a Safari web app, it survives a week without use. Otherwise browser models are a demo only |
 | B3 | **Browser to localhost** through Local Network Access to kronk, streaming | the permission prompt and CORS work end to end; otherwise local models are native-only |
 
 ### Stage C: build
@@ -249,4 +262,5 @@ before any refactor; then **build**.
 | 4 | Worker built with Go or TinyGo? | Go for now, because MCP needs it. The Service Worker is TinyGo either way, so all shared code must stay TinyGo-safe (tested) |
 | 5 | Import go-htmx4's `kit/` or copy the parts? | Import `kit/live` and `kit/httpx`; copy only the room Durable Object's JS |
 | 6 | One shared Worker, or one per developer? | Per developer for development (Worker name suffixed with the developer's name, set by `setup`), and one shared production Worker deployed from `main` |
+| 8 | Should browser models require installing the app (Add to Dock or Home Screen) for reliable caching on Safari? | Recommend it rather than require it: cache in the browser tab too, and show a "keep models offline" prompt that explains installation |
 | 7 | Which platforms must setup support? | macOS now. **fnox on Linux is deferred** (owner, 2026-09-15), so Linux developers cannot deploy yet. CI on Linux still runs `mise install` + `mise run test`, which need no secrets |
