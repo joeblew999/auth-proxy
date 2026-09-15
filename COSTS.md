@@ -84,6 +84,10 @@ Sources:
   API console. The OAuth path impersonates the Grok CLI, so it consumes *consumer*
   entitlement and needs a subscription regardless of API credits. API credits serve
   the **API-key** path only, which is what `UPSTREAM_API_KEY` switches on.
+- **Confirmed working 2026-09-15:** with `UPSTREAM_API_KEY` set, the deployed Worker
+  returns live xAI models and real streaming completions. **$5 of API credits was
+  enough to prove the entire path**, with no subscription. That is the cheapest route
+  to a working endpoint, and it needs no SuperGrok commitment.
 - **Or pay nothing at all.** The upstream is configurable, so the proxy is not tied
   to xAI: set `UPSTREAM_BASE_URL` and `UPSTREAM_API_KEY` to point it at any
   OpenAI-compatible provider, including a local one. `mise run mock_upstream` plus
