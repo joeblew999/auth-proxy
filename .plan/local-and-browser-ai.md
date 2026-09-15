@@ -149,8 +149,10 @@ A chat page and handler are added:
 
 ### 3.5 Skills, so the AI working on it does not "fuck it all up"
 
-A mise task `skills` copies gsx's `skills/*` at the pinned gsx version into
-`.claude/skills/`, and the result is committed. `mise run setup` runs it, and
+A mise task `skills` copies gsx's `skills/*` at the pinned gsx version into the
+repo's own `.claude/skills/`, and the result is committed. **Never install them
+globally** (`~/.claude/skills/`): a global copy is invisible to other machines and
+other agents, and drifts from the gsx version the repo pins. `mise run setup` runs it, and
 `status` warns when the skills are missing or out of date. After the first run,
 restart Claude Code once.
 
