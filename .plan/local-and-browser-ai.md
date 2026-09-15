@@ -70,37 +70,46 @@ posts to `/chat/send`.
    the room's Durable Object, which pushes it to every connected browser over
    hibernating WebSockets.
 
-### Choosing a model: one picker, grouped by where it runs
+### Choosing a model: pick the mode, then the model
 
-There is **no separate mode switch**. The mode follows from the model, because
-every model belongs to a provider and every provider has a `runtime`. A second
-control would duplicate that and could contradict it. The picker still makes
-**where a model runs** obvious, since that changes privacy, cost and speed.
+Each mode has its own models, so the GUI asks in that order:
 
-- **One model picker**, grouped into **Remote**, **Local** and **In browser**, with
-  filter tabs (All, Remote, Local, In browser) and a one-line explanation per
-  group: remote runs at the provider and costs credits; local runs on your
-  machine; in browser is private and runs on this device.
-- **Every model shows its status and the action that makes it usable:**
+1. **Mode:** a three-way choice, **Remote**, **Local** or **In browser**, each with a
+   one-line explanation: remote runs at the provider and costs credits; local runs
+   on your machine; in browser is private and runs on this device. The mode itself
+   shows whether it can be used here, and the action if not:
 
-  | Runtime | Statuses and actions |
-  |---|---|
-  | Remote | ready · provider key missing (admins see the `mise` fix) |
-  | Local | ready · "allow local network access" (triggers Chrome's prompt) · "start kronk" when not reachable |
-  | In browser | downloaded ✓ · "download 639 MB" with progress · "not supported in this browser" (no WebGPU or storage) · "install the app to keep models offline" on Safari |
+   | Mode | Unavailable when | Shown action |
+   |---|---|---|
+   | Remote | never on the hosted GUI (a missing provider key shows per model) | none |
+   | Local | kronk not reachable, or local network access not allowed | "allow local network access" (Chrome's prompt) · "start kronk" |
+   | In browser | no WebGPU and no usable storage | "not supported in this browser, try Chrome" |
 
-- **Built from the same routing.** The model list is a fragment request that the
-  Service Worker intercepts: it asks the Worker for remote models, adds local
-  models from kronk's `/v1/models`, and adds browser models from `providers.toml`
-  with their download state from our model store. The Worker-only view, without
-  a Service Worker, simply shows remote models.
-- **Every message is labelled** with its model and where it ran, so a shared room
-  shows that one person asked a remote model and another a model in their browser.
-- **Each user picks their own model** in a shared room. The choice is remembered
-  per device, because local and in-browser models only exist on that device.
-- **Built from gsxui components** added with `gsxui add` (for example tabs, badge,
-  item, dialog and progress), never hand-written. The component set is decided in
-  C2 with the gsx skill loaded.
+2. **Model:** the list shows **only that mode's models**, each with its own status
+   and action:
+
+   | Mode | Model statuses and actions |
+   |---|---|
+   | Remote | ready · provider key missing (admins see the `mise` fix) |
+   | Local | ready · "pull with kronk" when the model is not downloaded |
+   | In browser | downloaded ✓ · "download 639 MB" with progress · "install the app to keep models offline" on Safari |
+
+Because a model can only be picked inside its mode, the two choices can never
+disagree. Underneath it is still one routing rule: the mode is the provider's
+`runtime`, and the chosen model ID carries the provider prefix.
+
+- **Defaults:** Remote on first visit, because it works everywhere. Mode and model
+  are remembered per device, since local and in-browser models only exist there.
+- **Built from the same routing:** each mode's model list is a fragment request.
+  Remote lists come from the Worker; the Service Worker answers Local (kronk's
+  `/v1/models`) and In browser (`providers.toml` plus our model store's download
+  state). Without a Service Worker, only Remote is offered.
+- **Every message is labelled** with its mode and model, so a shared room shows that
+  one person asked a remote model and another a model in their browser.
+- **Each user picks their own mode and model** in a shared room.
+- **Built from gsxui components** added with `gsxui add` (for example tabs or a
+  toggle group for the mode, and item, badge, dialog and progress for models),
+  never hand-written. The component set is decided in C2 with the gsx skill loaded.
 
 ### Two engines, not three
 
@@ -275,8 +284,8 @@ before any refactor; then **build**.
 | # | Phase | Done when |
 |---|---|---|
 | C1 | **Engine refactor:** `internal/engine/openai`, `runtime` in providers.toml, a local kronk provider | today's tests pass; a local kronk chat works through the native binary |
-| C2 | **GUI on the Worker:** chat page, the grouped model picker (§2), room Durable Object (JS) through wrangler, streaming for remote models | shared live chat on Cloudflare with xAI; the picker lists remote models with status |
-| C3 | **Browser and local models in the Service Worker**, as far as B2 and B3 allow, including their picker groups, statuses and actions (download with progress, allow local network access) | one GUI and one picker serve every kind of model that passed its spike |
+| C2 | **GUI on the Worker:** chat page, the mode and model pickers (§2), room Durable Object (JS) through wrangler, streaming for remote models | shared live chat on Cloudflare with xAI; the Remote mode lists its models with status |
+| C3 | **Browser and local models in the Service Worker**, as far as B2 and B3 allow, including their modes, statuses and actions (download with progress, allow local network access) | one GUI serves every mode that passed its spike |
 
 ### Later
 
