@@ -98,6 +98,12 @@ Because a model can only be picked inside its mode, the two choices can never
 disagree. Underneath it is still one routing rule: the mode is the provider's
 `runtime`, and the chosen model ID carries the provider prefix.
 
+- **When a mode stops working mid-chat** (kronk shut down, a browser download
+  fails, a provider key is revoked), the message fails in place with the same
+  status and action the pickers show ("start kronk", "retry download"). The
+  conversation is kept, and the user can switch mode or model and resend. The
+  same routing rule produces these errors in every runtime, so they read the same
+  everywhere.
 - **Defaults:** Remote on first visit, because it works everywhere. Mode and model
   are remembered per device, since local and in-browser models only exist there.
 - **Built from the same routing:** each mode's model list is a fragment request.
