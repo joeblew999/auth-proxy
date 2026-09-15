@@ -150,8 +150,9 @@ page.
 
 ## 5. Works for every developer, with nothing manual
 
-A new developer runs **`mise install`** and then **`mise run setup`**, and that is
-the whole setup. Nothing in the repo belongs to one person, and every step below
+Every developer uses **mise** and **fnox**; nothing else is assumed. A new
+developer runs **`mise install`** and then **`mise run setup`**, and that is the
+whole setup. Nothing in the repo belongs to one person, and every step below
 is a task or a hook, never a README instruction. CI proves it on a fresh machine.
 
 ### 5.1 No personal values in the repo
@@ -165,7 +166,7 @@ namespace ID in `wrangler.toml` and the owner's `*.gedw99.workers.dev` URLs in
 | Cloudflare account | `CLOUDFLARE_ACCOUNT_ID`, provided by fnox; wrangler reads it from the environment |
 | KV namespace, D1, R2 | bindings **without IDs**. Wrangler (4.45+) creates them per account on deploy. Whether it writes IDs back into the committed config needs verifying, and if it does, the deployed config is generated into a gitignored file from a committed template |
 | Worker URL | computed by `setup` from the Worker name and the account's workers.dev subdomain (Cloudflare API), stored in gitignored `mise.local.toml` |
-| Secrets | named in a committed `fnox.toml`, with values in each developer's own fnox provider. `setup` prompts for any that are missing (keychain on macOS, another provider on Linux) |
+| Secrets | fnox, as today. Each developer keeps their own values; `setup` prompts for any that fnox does not have |
 | Worker name | a per-developer name for development and one shared production name, see §7 |
 
 ### 5.2 Skills: automated, committed, enforced
