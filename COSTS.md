@@ -1,0 +1,82 @@
+# Costs
+
+Last checked 2026-09-15. Prices change — verify at the links below.
+
+## Summary
+
+| Component | Cost |
+|---|---|
+| Cloudflare Workers + KV | **$0/month** (free plan) |
+| xAI | **$30/month** SuperGrok, or pay-per-token API credits |
+
+No VPC tunnel and no always-on host, so nothing to rent.
+
+## Cloudflare
+
+| | Free | Paid ($5/mo) |
+|---|---|---|
+| Worker requests | 100,000/day | 10M/mo included, then $0.30/M |
+| CPU time | 10 ms per invocation | 30M CPU-ms/mo included, then $0.02/M |
+| KV reads | 100,000/day | 10M/mo included, then $0.50/M |
+| KV writes | 1,000/day | 1M/mo included, then $5.00/M |
+
+Personal use fits the free plan.
+
+Sources:
+- https://developers.cloudflare.com/workers/platform/pricing/
+
+## xAI
+
+### Subscription
+
+| Tier | Price |
+|---|---|
+| SuperGrok Lite | $10/mo |
+| **SuperGrok** | **$30/mo** |
+| SuperGrok Plus | $100/mo |
+| SuperGrok Heavy | $300/mo |
+| Business | $30/mo per user |
+
+### API credits (alternative to a subscription)
+
+Per million tokens.
+
+| Model | Input | Cached input | Output |
+|---|---|---|---|
+| grok-4.6 | $2.00 | $0.50 | $6.00 |
+| grok-4.5 | $2.00 | $0.30 | $6.00 |
+| grok-4.3 | $1.25 | $0.20 | $2.50 |
+| grok-4.20-0309-non-reasoning | $1.25 | $0.20 | $2.50 |
+| grok-4.20-0309-reasoning | $1.25 | $0.20 | $2.50 |
+| grok-4.20-multi-agent-0309 | $1.25 | $0.20 | $2.50 |
+| grok-build-0.1 | $1.00 | $0.20 | $2.00 |
+
+Prompts reaching 200k tokens are billed at double for all tokens in the request.
+
+Sources:
+- https://grok.com/supergrok
+- https://docs.x.ai/docs/models
+
+## Notes
+
+- **Why infrastructure is free:** an earlier plan budgeted $3–5/month for a VPS to
+  run `cloudflared` for the Workers VPC tunnel. Direct Worker egress to `api.x.ai`
+  was measured to work, so the tunnel was dropped and that cost disappeared. See
+  `.plan/done/cloudflare-workers-deployment.md` §4.1.
+- **Possible $5/month:** the Worker is a 10.9 MB Go/WASM bundle. Startup time is not
+  billed as CPU time and proxying is mostly I/O, but if per-request CPU exceeds the
+  free plan's 10 ms the account needs Workers Paid. Check the Worker's metrics.
+- **Break-even:** $30/month of grok-4.20 output credits is ~12M tokens, so the
+  subscription wins above that. Driving the API from a subscription rather than
+  per-token billing is the point of this proxy.
+- **Unverified:** whether SuperGrok Lite ($10) satisfies the API entitlement, and
+  whether a subscription is needed at all — the observed error
+  `personal-team-blocked:spending-limit` is team semantics and may be a spending
+  limit of 0 rather than a missing subscription. Check
+  https://grok.com/?_s=usage before buying anything.
+- **Or pay nothing at all.** The upstream is configurable, so the proxy is not tied
+  to xAI: set `UPSTREAM_BASE_URL` and `UPSTREAM_API_KEY` to point it at any
+  OpenAI-compatible provider, including a local one. `mise run mock_upstream` plus
+  `mise run proxy_local_mock` exercises the whole path for **$0**, and a local
+  Ollama/llama.cpp or a free-tier hosted provider costs nothing to run. See
+  `.plan/any-provider-support.md`.

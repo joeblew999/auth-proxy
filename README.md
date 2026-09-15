@@ -85,30 +85,30 @@ The local server binds to loopback only. Requests to `/login` and `/callback` re
 
 ## Cloudflare Workers
 
-Workers deployments store OAuth credentials in KV and send xAI traffic through a [Workers VPC](https://developers.cloudflare.com/workers-vpc/) tunnel. Install Go 1.25.5 or newer, [mise](https://mise.jdx.dev/), and Wrangler 4, then run `mise install` and `wrangler login`. The account, namespace, and tunnel IDs checked into `wrangler.toml` belong to the maintainer deployment and must be replaced for another Cloudflare account.
+Workers deployments store OAuth credentials in KV and call the upstream API over direct egress — no tunnel and no always-on host required. Install Go 1.27 or newer, [mise](https://mise.jdx.dev/), and Wrangler 4, then run `mise install`. Cloudflare credentials come from fnox, not `wrangler login`. The account and namespace IDs checked into `wrangler.toml` belong to the maintainer deployment and must be replaced for another Cloudflare account.
 
-1. Create a tunnel in **Cloudflare Dashboard > Workers VPC > Tunnels** and run `cloudflared` on a machine with normal Internet access.
-2. Create a KV namespace with `wrangler kv namespace create GROK_OAUTH_PROXY_KV`.
-3. Set your account ID, the returned KV ID, and the tunnel UUID in `wrangler.toml`:
+Everything below is a mise task; run `mise tasks` for the full list.
+
+1. Create a KV namespace with `mise run cf_kv_create`.
+2. Set your account ID and the returned KV ID in `wrangler.toml`:
 
    ```toml
    account_id = "<ACCOUNT_ID>"
    kv_namespaces = [
      { binding = "GROK_AUTH", id = "<KV_NAMESPACE_ID>" }
    ]
-   vpc_networks = [
-     { binding = "GROK_EGRESS", tunnel_id = "<TUNNEL_ID>", remote = true }
-   ]
    ```
 
-4. Deploy and set the client-facing key at Wrangler's secure prompt:
+   No `vpc_networks` entry is needed. Direct Worker egress to `api.x.ai` is verified to work, so a tunnel would only add a host to maintain and pay for. Re-add the block if you ever want a fixed, non-Cloudflare egress identity.
+
+3. Deploy and set the client-facing key:
 
    ```bash
-   wrangler deploy
-   wrangler secret put ADMIN_API_KEY
+   mise run cf_deploy
+   mise run cf_secret_admin_key
    ```
 
-5. Optional: add a [Workers Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) to `wrangler.toml`. Do not create a CNAME to `workers.dev`:
+4. Optional: add a [Workers Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) to `wrangler.toml`. Do not create a CNAME to `workers.dev`:
 
    ```toml
    routes = [
@@ -116,7 +116,18 @@ Workers deployments store OAuth credentials in KV and send xAI traffic through a
    ]
    ```
 
-   Run `wrangler deploy` again after adding the route. See Cloudflare's [tunnel setup](https://developers.cloudflare.com/workers-vpc/configuration/tunnel/) and [VPC Networks guide](https://developers.cloudflare.com/workers-vpc/configuration/vpc-networks/).
+   Run `mise run cf_deploy` again after adding the route.
+
+### Using another provider
+
+The upstream is configurable, so xAI is not required.
+
+| Variable | Effect |
+|---|---|
+| `UPSTREAM_BASE_URL` | Upstream OpenAI-compatible base URL. Defaults to `https://api.x.ai/v1` |
+| `UPSTREAM_API_KEY` | Static bearer token. When set, the OAuth device flow is bypassed entirely and no token refresh is ever attempted |
+
+With neither set, behaviour is exactly xAI-with-OAuth as before, so existing deployments are unaffected. On Workers, put `UPSTREAM_BASE_URL` in `[vars]` and `UPSTREAM_API_KEY` in a secret — never the reverse. Locally, export them or run `mise run proxy_local_mock` to exercise the whole path against a bundled mock upstream for free.
 
 Start xAI device authorization with the protected admin API:
 
