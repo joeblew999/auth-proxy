@@ -229,30 +229,41 @@ namespace ID in `wrangler.toml` and the owner's `*.gedw99.workers.dev` URLs in
 | Secrets | fnox, as today. Each developer keeps their own values; `setup` prompts for any that fnox does not have |
 | Worker name | a per-developer name for development and one shared production name, see §7 |
 
-### 5.2 Skills: automated, committed, enforced
+### 5.2 Skills: in the repo, automated, verified, enforced
 
 Last time the AI ignored the gsx and gsxui CLIs because the skills were not
-loaded. So:
+loaded. So **every skill this project relies on lives in the repo**, pinned, and is
+proven to load. Nothing comes from a global or plugin install on someone's
+machine.
 
-1. **Pinned tools:** `mise.toml` pins gsxui (`go:` backend, by commit) and
-   standalone Tailwind. gsx is pinned in `go.mod` as a tool.
-2. **Automatic sync:** a mise `postinstall` hook runs the hidden `skills:sync`
-   task on every `mise install`. It copies gsx's `skills/*` at the pinned version
-   into the repo's `.claude/skills/`. **Never global.**
-3. **Committed:** the skills are in git, so a fresh clone has them before the first
-   Claude Code session. No developer ever has to restart to load them; only the
-   very first creation of the directory, done once here, needs a restart.
-4. **Enforced by tests:** `mise run test` fails when `.claude/skills/` differs from
-   the pinned gsx version, when `.gsx` files are unformatted, or when generated
-   `*.x.go` files are stale.
-5. **Enforced for AI agents:** a committed `.claude/settings.json` hook blocks
-   edits to generated `*.x.go` files and to gsxui components outside `gsxui add`.
-   CLAUDE.md tells agents to invoke the gsx skill before touching `.gsx`. It works
-   the same for every developer's Claude Code.
-6. **Rules:** AGENTS.md carries go-htmx4's proven GUI rules (components only via
-   `gsxui add`, `go tool gsx generate` / `fmt`, htmx 4 syntax, no hand-written CSS).
-   gsxui has no skill, so the rules point at its CLI and at a gitignored
-   `.upstream/gsxui` checkout, fetched by a task, for patterns.
+| Skills | Source, pinned | Checked 2026-09-15 |
+|---|---|---|
+| `gsx`, `templ-to-gsx-migration` | `skills/` in github.com/gsxhq/gsx at go.mod's gsx version | the only skills in the gsxhq org; gsxui, gsxhq/vite and vite-plugin-gsx ship none |
+| `wrangler`, `durable-objects`, `workers-best-practices` (and others as needed) | `skills/` in github.com/cloudflare/skills at a pinned commit | today they reach this machine only through a global plugin install last updated 2026-03-26, which is stale and not in the repo |
+
+1. **`skills:sync`, run by a mise `postinstall` hook,** copies exactly those skills
+   at their pinned versions into `.claude/skills/`, and the result is committed.
+   **Never global.** When it adds or changes a skill, the task itself tells the
+   developer to restart Claude Code, so no one has to remember it.
+2. **`skills:verify` proves they load:** it runs a fresh headless Claude Code
+   session (`claude -p`) in the repo, asks which skills are available, and fails
+   unless every pinned skill is listed. `mise run test` runs it; CI runs the
+   file-level check (skills present and matching their pins), since CI has no
+   Claude login.
+3. **Enforced by tests:** `mise run test` fails when `.claude/skills/` differs from
+   the pins, when `.gsx` files are unformatted, or when generated `*.x.go` files
+   are stale.
+4. **Enforced for AI agents:** a committed `.claude/settings.json` hook blocks edits
+   to generated `*.x.go` files. CLAUDE.md requires invoking the gsx skill before
+   touching `.gsx`, and the Cloudflare skills before touching wrangler config or
+   Durable Objects.
+5. **GUI rules** in AGENTS.md follow gsxui's own site and gsx's test corpus
+   (`internal/corpus/testdata`), which the gsx skill names as the canonical
+   reference: components only via `gsxui add`, compositions copied from gsxui's
+   site, never invented.
+6. **The spike's current picker is removed.** It was written without the gsx skill
+   loaded or gsxui's patterns, so it proved only that the toolchain compiles. GUI
+   work in the spike restarts after `skills:verify` passes.
 
 ### 5.3 Proven on a clean machine
 
@@ -315,7 +326,8 @@ the root app.
   `mise run test` runs `hello:check`. Each task was run through mise, from a
   fresh-clone state, with nothing left running.
 - **Still open, moved to A2:** nothing yet keeps the mise gsx pin and the spike's
-  go.mod tool pin in step, and the skills are not installed.
+  go.mod tool pin in step, and no skills are installed. The picker was written
+  without the gsx skill loaded and is to be removed (§5.2).
 
 ### Stage B: hello world round trip in every topology
 
