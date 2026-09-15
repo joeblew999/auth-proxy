@@ -259,12 +259,39 @@ the work:
 - Live Worker: `status --worker` all ok, `models --worker` returned the xAI list, a
   real `chat --worker` answered, and `/v1/models` without the key returned 401.
 
-### Left for later
+### Leftovers, fixed 2026-09-15
 
-- The Worker still holds the old `UPSTREAM_API_KEY` secret, which nothing reads,
-  in case of a rollback to a pre-redesign version. Remove it with
-  `fnox exec -- wrangler secret delete UPSTREAM_API_KEY --env ""`.
-- A model with an unknown prefix (e.g. `groq/x` while no groq provider exists)
-  goes to the default provider, which then reports that the model does not exist.
-  That is correct, because model IDs may contain slashes, but a hint naming the
-  configured providers would be friendlier.
+- The unused `UPSTREAM_API_KEY` Worker secret is deleted; the Worker holds only
+  `ADMIN_API_KEY` and `XAI_API_KEY`.
+- A model with an unknown prefix (`mistral/large` without a mistral provider)
+  still goes to the default provider, because real model IDs contain slashes. If
+  that provider rejects it, the error now says the prefix is not a configured
+  provider, lists the providers, and suggests `[providers.mistral]`.
+- `keys:set` reads the value itself and refuses an empty one before anything is
+  stored. `raw = true` gives it, `dev` and `login` a real terminal.
+- `deploy --tinygo` pushes the secrets to the TinyGo Worker and waits for a new
+  workers.dev hostname to come online (Cloudflare answers 1042 at first).
+- MCP `ask` reports the served model unprefixed when there is one provider,
+  matching `list_models`.
+
+### Every task, tested 2026-09-15
+
+| Task | Result |
+|---|---|
+| `test` | green (it also caught a formatting slip during this work) |
+| `build`, `build --tinygo` | Go 15.6 MB, TinyGo 1.9 MB |
+| `dev` with real xAI, then `models`, `chat` | 13 models, real answer |
+| `dev --mock`, then `models`, `chat` | both mock providers routed with the right credential |
+| `status`, `status --worker` | all ok |
+| `models --worker`, `chat --worker` | real xAI list and answer; unknown prefix shows the new explanation |
+| `keys:set` | unknown provider names the valid ones; empty value changes nothing; a real re-set kept the key identical (fingerprint checked) |
+| `keys:push`, `setup` | both keys pushed; setup is safe to re-run |
+| `login` | clear error, since no provider uses the Grok login |
+| `login --worker` | 409 naming the fix. Against a local proxy with an `xai-oauth` provider the device flow ran for real: xAI issued a code, polling ran, and the pending session was stored. Approving in a browser needs a person |
+| `deploy`, `deploy --tinygo` | both live and verified, including chat through the TinyGo Worker. The test TinyGo Worker was deleted afterwards; `deploy --tinygo` recreates it |
+| `logs` | streamed the live Worker's requests, including the MCP ask |
+| `bench` | every endpoint 200 on both builds in local workerd; TinyGo 501 on `/mcp` |
+| MCP on the live Worker | `tools/list` shows `ask` and `list_models`; both work |
+
+Not exercised: finishing a Grok login in a browser, because no one approved the
+device code. The browser (PKCE) start and callback are unit tested.

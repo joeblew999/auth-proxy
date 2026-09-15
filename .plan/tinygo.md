@@ -72,9 +72,19 @@ returns no handler, so the proxy serves 501 on `/mcp`. The standard Go build is 
 | `POST` chat stream (mock paces chunks ~150 ms) | 770.9 ms | 766.7 ms | |
 | `/mcp` | 200 | 501 | 200 |
 
+Deployed on Cloudflare (2026-09-15, after the multi-provider redesign, measured
+from Thailand, mean of 20):
+
+| | Go (15.6 MB) | TinyGo (1.9 MB) |
+|---|---|---|
+| `GET /health` | 77 ms | 70 ms |
+| `GET /admin/status` | 77 ms | 68 ms |
+| `GET /v1/models` (includes xAI) | 318 ms | 302 ms |
+
+TinyGo is about 10% faster end to end; network time dominates both.
+
 workers-go instantiates the wasm module on every request, so the latency gap is
-mostly per-request startup. It should matter more on Cloudflare than locally; the
-deployed numbers are not measured yet.
+mostly per-request startup. Deployed, the gap is small (table above).
 
 Cloudflare limits (since 2026-09-04): 64 MiB uncompressed on all plans, with no
 compressed limit, and 1 s startup. Size alone does not force TinyGo; startup time
