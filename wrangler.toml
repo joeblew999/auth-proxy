@@ -1,20 +1,31 @@
 name = "grok-oauth-proxy"
 main = "build/worker.mjs"
 compatibility_date = "2026-09-07"
-account_id = "02c07a2514d9a25f58c78a180bb8c6f3"
+# Account-local values. The IDs committed upstream belong to the maintainer and
+# cannot be reused. See .plan/done/cloudflare-workers-deployment.md §5.2.
+account_id = "7384af54e33b8a54ff240371ea368440"
 workers_dev = true
 compatibility_flags = [
   "streams_enable_constructors",
 ]
 kv_namespaces = [
-  { binding = "GROK_AUTH", id = "6e88518749224302aa86f813c68ef991" },
-]
-vpc_networks = [
-  { binding = "GROK_EGRESS", tunnel_id = "ce0561f2-73c2-486f-98ee-1a2f2e72ffa8", remote = true },
+  { binding = "GROK_AUTH", id = "da13e11270bb4d749c73c60dad41c1ea" },
 ]
 
+# No vpc_networks binding, deliberately.
+#
+# Direct Worker egress to api.x.ai was verified working (see
+# .plan/done/cloudflare-workers-deployment.md §4.1), so the GROK_EGRESS tunnel
+# is no longer required and no always-on cloudflared host is needed. worker.go
+# falls back to the Worker's own fetch when the binding is
+# absent, so re-adding a tunnel is a config-only change:
+#
+# vpc_networks = [
+#   { binding = "GROK_EGRESS", tunnel_id = "<YOUR_TUNNEL_ID>", remote = true },
+# ]
+
 [build]
-command = "mise run build-worker"
+command = "mise run go_build_worker"
 
 [observability.logs]
 enabled = true

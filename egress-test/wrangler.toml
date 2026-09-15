@@ -1,0 +1,26 @@
+# Throwaway Worker used to answer one question:
+# can a plain Cloudflare Worker reach api.x.ai on its own, or is the
+# GROK_EGRESS Workers VPC tunnel binding genuinely required?
+#
+# Deliberately declares the same vpc_networks binding as the real worker so a
+# single deploy can compare "direct fetch" against "fetch via binding".
+# Delete this directory once the question is answered.
+
+name = "grok-egress-test"
+main = "index.js"
+compatibility_date = "2026-09-07"
+# Your account, not the maintainer's ID committed upstream.
+account_id = "7384af54e33b8a54ff240371ea368440"
+workers_dev = true
+
+# Intentionally NO vpc_networks binding: a binding present at all is half the
+# hypothesis, so the direct path must be measured without it. The tunnel_id
+# committed upstream (ce0561f2-...) belongs to the maintainer and is not usable
+# from this account in any case.
+#
+# If direct egress turns out to be blocked, create your own tunnel and then
+# re-deploy with this uncommented to confirm the fallback path works:
+#
+# vpc_networks = [
+#   { binding = "GROK_EGRESS", tunnel_id = "<YOUR_TUNNEL_ID>", remote = true },
+# ]

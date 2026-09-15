@@ -7,6 +7,9 @@ import (
 )
 
 func TestWorkerUpstreamURL(t *testing.T) {
+	// Pin the upstream so an ambient UPSTREAM_BASE_URL cannot skew the result.
+	t.Setenv("UPSTREAM_BASE_URL", "")
+
 	incoming, err := url.Parse("https://proxy.example/v1/chat/completions?key=admin-secret&foo=bar")
 	if err != nil {
 		t.Fatalf("parse incoming URL: %v", err)

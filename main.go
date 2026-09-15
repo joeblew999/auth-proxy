@@ -244,7 +244,7 @@ func main() {
 		isAuthMode = true
 	}
 
-	target, _ := url.Parse(apiURL)
+	target, _ := url.Parse(upstreamBaseURL())
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
 	// Update the request to match the target host

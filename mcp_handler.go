@@ -57,9 +57,46 @@ type chatCompletionResponse struct {
 	} `json:"choices"`
 }
 
-// newMCPServer builds the MCP server exposed at /mcp. Tools call the xAI API
-// directly with the stored OAuth credentials, the same ones the reverse proxy
-// injects into forwarded requests.
+// upstreamName returns how the configured upstream should be described to MCP
+// clients. The upstream is configurable, so descriptions must not assume xAI.
+func upstreamName() string {
+	if isXAIUpstream() {
+		return "the xAI API"
+	}
+	return "the configured upstream API"
+}
+
+// upstreamAuthBlurb explains how the proxy authenticates to the upstream, which
+// depends on the configured mode rather than being fixed.
+func upstreamAuthBlurb() string {
+	switch {
+	case staticUpstreamKey() != "":
+		return "Requests are served by " + upstreamName() + " using a static API key, " +
+			"so no OAuth flow is involved."
+	case isXAIUpstream():
+		return "Requests are served by " + upstreamName() + " using the stored Grok OAuth " +
+			"credentials, so no separate xAI API key is involved."
+	default:
+		return "Requests are served by " + upstreamName() + " using the stored OAuth credentials."
+	}
+}
+
+// upstreamModelsBlurb describes where the model list comes from.
+func upstreamModelsBlurb() string {
+	if isXAIUpstream() {
+		return "Models come from the xAI API and reflect what the current Grok account is " +
+			"entitled to, so the list can differ between accounts and change over time."
+	}
+	return "Models come from " + upstreamName() + ", so the list reflects the models that " +
+		"provider currently offers."
+}
+
+// newMCPServer builds the MCP server exposed at /mcp. Tools call the configured
+// upstream directly with the proxy's own credentials, the same ones the reverse
+// proxy injects into forwarded requests.
+//
+// Tool names are part of the public MCP surface and stay stable regardless of
+// upstream; only the descriptions are provider-aware.
 func newMCPServer() *mcpsdk.Server {
 	srv := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    mcpServerName,
@@ -68,23 +105,20 @@ func newMCPServer() *mcpsdk.Server {
 
 	addMCPTool(srv, &mcpsdk.Tool{
 		Name: "ask_grok",
-		Description: "Ask a Grok model a single self-contained question and get its answer back as text. " +
-			"Requests are served by the xAI API using the local Grok CLI OAuth credentials, so no " +
-			"separate xAI API key is involved. Each call is one-shot: there is no conversation history, " +
-			"so put everything the model needs into the prompt. Call ask_grok_models first if you are " +
-			"unsure which model IDs are available.",
+		Description: "Ask a model a single self-contained question and get its answer back as text. " +
+			upstreamAuthBlurb() + " Each call is one-shot: there is no conversation history, " +
+			"so put everything the model needs into the prompt. Call ask_grok_models first if you " +
+			"are unsure which model IDs are available.",
 		InputSchema: mcpObjectSchema(map[string]any{
-			"model": mcpStringSchema("Model ID to ask, e.g. grok-code-fast-1. " +
-				"Use ask_grok_models to list the IDs the xAI API currently offers."),
+			"model": mcpStringSchema("Model ID to ask. Use ask_grok_models to list the IDs " +
+				upstreamName() + " currently offers."),
 			"prompt": mcpStringSchema("The full question or instruction to send to the model."),
 		}, "model", "prompt"),
 	}, mcpAskGrok)
 
 	addMCPTool(srv, &mcpsdk.Tool{
-		Name: "ask_grok_models",
-		Description: "List the model IDs that can be passed to ask_grok. Models come from the xAI API and " +
-			"reflect what the current Grok account is entitled to, so the list can differ between " +
-			"accounts and change over time.",
+		Name:        "ask_grok_models",
+		Description: "List the model IDs that can be passed to ask_grok. " + upstreamModelsBlurb(),
 		InputSchema: mcpObjectSchema(map[string]any{}),
 	}, mcpAskGrokModels)
 
@@ -141,7 +175,7 @@ func mcpAskGrok(ctx context.Context, in askGrokInput) (askGrokOutput, error) {
 
 	log.Printf("MCP ask_grok request received: model=%s prompt_len=%d", requestedModel, len(prompt))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL+"/chat/completions", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, upstreamBaseURL()+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return askGrokOutput{}, fmt.Errorf("failed to create upstream request: %w", err)
 	}
@@ -212,7 +246,7 @@ func mcpAskGrokModels(ctx context.Context, _ askGrokModelsInput) (askGrokModelsO
 		return askGrokModelsOutput{}, fmt.Errorf("failed to fetch available models: upstream returned %d", status)
 	}
 
-	merged, err := mergeModelsList(body, extraModels)
+	merged, err := mergeModelsList(body, providerExtraModels())
 	if err != nil {
 		log.Printf("MCP ask_grok_models failed to merge extra models: %v", err)
 		merged = body

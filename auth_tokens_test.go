@@ -10,6 +10,10 @@ import (
 )
 
 func TestCurrentAccessTokenRefreshesBeforeExpiry(t *testing.T) {
+	// This exercises the OAuth path, so pin away a static key if one is set in
+	// the ambient environment.
+	t.Setenv("UPSTREAM_API_KEY", "")
+
 	store := &memoryTokenStore{
 		tokens: &AuthTokens{
 			AccessToken:  "expiring",

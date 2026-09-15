@@ -1,28 +1,165 @@
 [tools]
-go = "1.26.0"
+go = "1.27"
+fnox = "latest"
+node = "24"
+"npm:wrangler" = "4"
+cloudflared = "latest"
 
-[tasks.run]
+[env]
+# Base URL of the deployed Worker, consumed by the cf_auth_* / cf_verify_* tasks.
+GROK_BASE_URL = "https://grok-oauth-proxy.gedw99.workers.dev"
+
+[tasks.go_run]
 run = "go run ."
 description = "Run the proxy server"
 
-[tasks.build]
+[tasks.go_build]
 run = "go build -o ./bin/grok-oauth-proxy ."
 description = "Build the proxy binary"
 
-[tasks.test]
+[tasks.go_test]
 run = "go test ./..."
 description = "Run Go tests"
 
-[tasks.format]
+[tasks.go_format]
 run = "gofmt -w *.go"
 description = "Format Go code"
 
-[tasks."build-worker"]
+[tasks.go_build_worker]
 run = [
   "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go",
   "GOOS=js GOARCH=wasm go build -o ./build/app.wasm .",
 ]
 description = "Build for Cloudflare Workers"
+
+# --- provider-agnostic local testing ----------------------------------------
+# Proves the proxy works against any OpenAI-compatible upstream, with no xAI
+# account and no cost. Start the mock, then the proxy, then call 127.0.0.1:56121.
+
+[tasks.mock_upstream]
+run = "go run ./tools/mock-upstream"
+description = "Local OpenAI-compatible mock upstream on 127.0.0.1:18080 (no xAI account, no cost)"
+
+[tasks.proxy_local_mock]
+run = "UPSTREAM_BASE_URL=http://127.0.0.1:18080/v1 UPSTREAM_API_KEY=mock-key ADMIN_API_KEY=mock-admin go run ."
+description = "Run the proxy against the local mock upstream in static-key mode (no OAuth needed)"
+
+# --- Cloudflare -------------------------------------------------------------
+# Credentials come from fnox (~/.config/fnox/config.toml), not from a committed
+# file and not from `wrangler login` state. `fnox exec` injects
+# CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID (plus the Access client pair)
+# into the child process, so every Cloudflare task below is non-interactive and
+# leaves no credentials on disk.
+
+[tasks.cf_whoami]
+run = "fnox exec -- wrangler whoami"
+description = "Show which Cloudflare identity fnox authenticates as"
+
+[tasks.cf_deploy]
+run = "fnox exec -- wrangler deploy"
+description = "Deploy the Worker to Cloudflare (wrangler.toml [build] runs go_build_worker first)"
+
+[tasks.cf_deploy_dry]
+run = "fnox exec -- wrangler deploy --dry-run"
+description = "Validate the Worker build and config without uploading"
+
+# Deploys the proxy pointed at the deployed mock provider rather than xAI, which is
+# how the provider-agnostic path gets proven through real Cloudflare
+# infrastructure. Pair with `mise run e2e_mock_deploy`, and revert afterwards with
+# a plain `mise run cf_deploy`.
+#
+# Two details that are easy to get wrong:
+#   * global_fetch_strictly_public is REQUIRED to fetch another Worker on the same
+#     zone via workers.dev; without it every subrequest fails with error 1042.
+#   * A CLI --compatibility-flags value REPLACES the config file's list rather than
+#     adding to it, so streams_enable_constructors must be repeated here. Omitting
+#     it would silently break streaming.
+# Neither flag is in wrangler.toml, because production talks to api.x.ai, which is
+# an ordinary external host and needs no Worker-to-Worker allowance.
+[tasks.cf_deploy_mock_upstream]
+run = "fnox exec -- wrangler deploy --compatibility-flags streams_enable_constructors --compatibility-flags global_fetch_strictly_public --var UPSTREAM_BASE_URL:https://mock-openai-provider.gedw99.workers.dev/v1 --var UPSTREAM_API_KEY:mock-key"
+description = "Deploy the proxy pointed at the mock provider (end-to-end check; revert with cf_deploy)"
+
+[tasks.cf_kv_create]
+run = "fnox exec -- wrangler kv namespace create GROK_AUTH"
+description = "Create the GROK_AUTH KV namespace, then paste the id into wrangler.toml"
+
+[tasks.cf_secret_admin_key]
+run = "fnox exec -- wrangler secret put ADMIN_API_KEY"
+description = "Set ADMIN_API_KEY on the deployed Worker (prompts for the value on stdin)"
+
+# Non-interactive alternative, preferred once the key lives in fnox:
+#   fnox set ADMIN_API_KEY -g     # hidden prompt, stored in fnox
+#   mise run cf_secret_admin_key_sync
+#
+# `wrangler secret put` reads the value from stdin rather than from the
+# environment, so this pipes it instead of relying on `fnox exec` alone.
+[tasks.cf_secret_admin_key_sync]
+run = "fnox exec -- sh -c 'printf %s \"$ADMIN_API_KEY\" | wrangler secret put ADMIN_API_KEY'"
+description = "Push ADMIN_API_KEY from fnox to the Worker without prompting"
+
+[tasks.cf_tail]
+run = "fnox exec -- wrangler tail"
+description = "Stream live logs from the deployed Worker"
+
+# --- xAI device-flow authentication and verification ------------------------
+# These need only ADMIN_API_KEY, which fnox exports, so none of them prompt and
+# the key never reaches shell history or `ps` output. GROK_BASE_URL comes from
+# the [env] block at the top of this file.
+
+[tasks.cf_auth_start]
+run = "fnox exec -- sh -c 'curl -sS -X POST -H \"Authorization: Bearer $ADMIN_API_KEY\" \"$GROK_BASE_URL/admin/auth/start\"'"
+description = "Start the xAI device flow; prints verificationUrl and userCode to open in a browser"
+
+[tasks.cf_auth_status]
+run = "fnox exec -- sh -c 'curl -sS -X POST -H \"Authorization: Bearer $ADMIN_API_KEY\" \"$GROK_BASE_URL/admin/auth/status\"'"
+description = "Poll device-flow status once (do not poll faster than retryAfterSeconds)"
+
+[tasks.cf_auth_wait]
+run = "fnox exec -- sh -c 'while :; do o=$(curl -sS -X POST -H \"Authorization: Bearer $ADMIN_API_KEY\" \"$GROK_BASE_URL/admin/auth/status\"); echo \"$o\"; case \"$o\" in *authenticated*|*denied*|*expired*|*failed*) break;; esac; sleep 5; done'"
+description = "Poll device-flow status until it reaches a terminal state"
+
+[tasks.cf_verify_status]
+run = "fnox exec -- sh -c 'curl -sS -H \"Authorization: Bearer $ADMIN_API_KEY\" \"$GROK_BASE_URL/admin/status\"'"
+description = "Show proxy and stored-token status"
+
+[tasks.cf_verify_models]
+run = "fnox exec -- sh -c 'curl -sS -H \"Authorization: Bearer $ADMIN_API_KEY\" \"$GROK_BASE_URL/v1/models\"'"
+description = "List models via the proxy (proves the stored xAI token actually works)"
+
+[tasks.cf_verify_chat]
+run = "fnox exec -- sh -c 'curl -sS -N -X POST -H \"Authorization: Bearer $ADMIN_API_KEY\" -H \"Content-Type: application/json\" -d @- \"$GROK_BASE_URL/v1/chat/completions\"'"
+description = "Stream a chat completion; pipe the request JSON to stdin"
+
+# --- egress test (throwaway) ------------------------------------------------
+# Probe that settled the VPC question in the completed deployment plan, see
+# .plan/done/cloudflare-workers-deployment.md §4.1. Safe to delete once the
+# egress approach is final.
+
+[tasks.egress_test_deploy]
+dir = "egress-test"
+run = "fnox exec -- wrangler deploy"
+description = "Deploy the throwaway api.x.ai egress probe Worker"
+
+[tasks.egress_test_delete]
+dir = "egress-test"
+run = "fnox exec -- wrangler delete"
+description = "Remove the throwaway egress probe Worker"
+
+# --- end-to-end mock provider (throwaway) -----------------------------------
+# A deployed OpenAI-compatible upstream, because a Worker cannot reach a
+# localhost mock. Used with cf_deploy_mock_upstream to prove streaming survives
+# the full client -> proxy Worker -> upstream hop chain.
+
+[tasks.e2e_mock_deploy]
+dir = "e2e-mock-provider"
+run = "fnox exec -- wrangler deploy"
+description = "Deploy the throwaway OpenAI-compatible mock provider Worker"
+
+[tasks.e2e_mock_delete]
+dir = "e2e-mock-provider"
+run = "fnox exec -- wrangler delete"
+description = "Remove the throwaway mock provider Worker"
 
 [tasks.publish]
 run = "cd npm/ && npm publish"

@@ -28,8 +28,21 @@ type workersHTTPClient struct {
 	client *fetch.Client
 }
 
+// newWorkersHTTPClient builds the client used for every upstream and OAuth
+// request.
+//
+// Direct Worker egress to api.x.ai was measured to work (see
+// .plan/done/cloudflare-workers-deployment.md §4.1), so the GROK_EGRESS
+// Workers VPC tunnel is optional. When the binding is present we still route
+// through it, so existing tunneled deployments behave exactly as before; when it
+// is absent we use the Worker's own fetch, which lets a deployment drop the
+// binding and the always-on cloudflared host that a tunnel requires.
 func newWorkersHTTPClient() *workersHTTPClient {
 	binding := cloudflare.GetBinding("GROK_EGRESS")
+	if binding.IsUndefined() || binding.IsNull() {
+		log.Printf("GROK_EGRESS is not bound; using direct Worker fetch to %s", upstreamBaseURL())
+		return &workersHTTPClient{client: fetch.NewClient()}
+	}
 	namespace := js.Global().Get("Object").New()
 	namespace.Set("fetch", binding.Get("fetch").Call("bind", binding))
 	return &workersHTTPClient{

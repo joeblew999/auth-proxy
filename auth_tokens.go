@@ -14,12 +14,14 @@ import (
 	"time"
 )
 
+// These constants describe xAI's OAuth device flow specifically. They are only
+// used when a static upstream key is NOT configured; the upstream API base URL
+// is separate and lives in upstream.go.
 const (
 	clientID           = "b1a00492-073a-47ea-816f-4c329264a828"
 	scope              = "openid profile email offline_access grok-cli:access api:access"
 	deviceCodeURL      = "https://auth.x.ai/oauth2/device/code"
 	tokenURL           = "https://auth.x.ai/oauth2/token"
-	apiURL             = "https://api.x.ai/v1"
 	refreshSkew        = 5 * time.Minute
 	oauthTimeout       = 30 * time.Second
 	oauthResponseLimit = 1 << 20
@@ -138,6 +140,11 @@ var (
 )
 
 func currentAccessToken() (*AuthTokens, error) {
+	// Static-key mode: the configured key IS the upstream credential, so there
+	// is nothing to load and never anything to refresh.
+	if key := staticUpstreamKey(); key != "" {
+		return &AuthTokens{AccessToken: key}, nil
+	}
 	tokens, err := loadTokens()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errNotAuthenticated, err)
@@ -162,6 +169,12 @@ func currentAccessToken() (*AuthTokens, error) {
 }
 
 func forceRefreshToken(failedAccessToken string) (*AuthTokens, error) {
+	// Static-key mode has no refresh concept: the key is fixed. Return it
+	// unchanged so the caller's single retry re-sends the same key and surfaces
+	// the upstream's real error rather than a synthetic refresh failure.
+	if key := staticUpstreamKey(); key != "" {
+		return &AuthTokens{AccessToken: key}, nil
+	}
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 	tokens, err := loadTokens()

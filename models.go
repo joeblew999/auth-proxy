@@ -26,6 +26,19 @@ var extraModels = []model{
 	},
 }
 
+// providerExtraModels returns the extra models to merge into an upstream
+// /v1/models response.
+//
+// The entries above are xAI aliases that api.x.ai omits, so they are only
+// injected when the configured upstream actually is xAI. Against any other
+// provider they would advertise models that do not exist.
+func providerExtraModels() []model {
+	if isXAIUpstream() {
+		return extraModels
+	}
+	return nil
+}
+
 type modelsListResponse struct {
 	Object string            `json:"object"`
 	Data   []json.RawMessage `json:"data"`
@@ -90,7 +103,7 @@ func fetchUpstreamModels(r *http.Request, accessToken string) (int, []byte, erro
 }
 
 func fetchModels(ctx context.Context, accessToken string) (int, []byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL+"/models", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, upstreamBaseURL()+"/models", nil)
 	if err != nil {
 		return 0, nil, fmt.Errorf("create upstream models request: %w", err)
 	}
@@ -129,7 +142,7 @@ func handleModelsList(w http.ResponseWriter, r *http.Request, tokens *AuthTokens
 		return
 	}
 
-	merged, err := mergeModelsList(body, extraModels)
+	merged, err := mergeModelsList(body, providerExtraModels())
 	if err != nil {
 		log.Printf("merge models failed: %v", err)
 		_, _ = w.Write(body)

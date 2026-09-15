@@ -14,7 +14,7 @@ func workerUpstreamURL(incoming *url.URL) (string, error) {
 	path = strings.TrimPrefix(path, "/")
 	query := incoming.Query()
 	query.Del("key")
-	upstream, err := url.Parse(apiURL + "/" + path)
+	upstream, err := url.Parse(upstreamBaseURL() + "/" + path)
 	if err != nil {
 		return "", err
 	}
