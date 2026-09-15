@@ -78,6 +78,12 @@ Sources:
   `UPSTREAM_API_KEY` so the proxy uses a static key instead of OAuth. At $1.25/$2.50
   per 1M tokens for grok-4.20, credits are by far the cheaper way to test.
 - **Still unverified:** whether SuperGrok Lite ($10) satisfies the API entitlement.
+- **Two separate credit systems — verified 2026-09-15.** Adding $5 of API credits at
+  `console.x.ai` did **not** unblock the OAuth path: it still returns
+  `personal-team-blocked:spending-limit`, and that error links to `grok.com`, not the
+  API console. The OAuth path impersonates the Grok CLI, so it consumes *consumer*
+  entitlement and needs a subscription regardless of API credits. API credits serve
+  the **API-key** path only, which is what `UPSTREAM_API_KEY` switches on.
 - **Or pay nothing at all.** The upstream is configurable, so the proxy is not tied
   to xAI: set `UPSTREAM_BASE_URL` and `UPSTREAM_API_KEY` to point it at any
   OpenAI-compatible provider, including a local one. `mise run mock_upstream` plus
