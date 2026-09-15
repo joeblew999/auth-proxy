@@ -1,8 +1,21 @@
 # Plan: remote, local and browser AI without a mess
 
 **Status: PROPOSED, facts checked 2026-09-15, awaiting the decisions in §6.**
-Builds on the owner's notes [webbrowsers-too.md](webbrowsers-too.md) and
-[kronk-too.md](kronk-too.md).
+
+## 0. Requirements from the owner
+
+These replace the two original notes (`webbrowsers-too.md`, `kronk-too.md`):
+
+- Models can run in the browser (hybridgroup/yzma-wasm-example works), so the GUI
+  must work either through the Cloudflare proxy or with a model in the browser.
+- Local AI too: ardanlabs/kronk is built on the same yzma code.
+- **No mess in the code** when one project supports remote, local and browser AI.
+- **GUI:** gsx (gsxhq.github.io) and gsxui, as already working in go-htmx4.
+  **Do not** use yzma-wasm-example's own GUI.
+- The GUI runs on Cloudflare with a Durable Object, so every user sees updates
+  live while chatting with the AI.
+- **mise must install the CLIs and the skills in the well-known place.** In
+  go-htmx4 the skills were never loaded, and the AI working on it made a mess.
 
 ## 1. The idea in one line
 
