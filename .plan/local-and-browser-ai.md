@@ -204,18 +204,40 @@ them.
 
 ## 6. Phases
 
-Spikes come first, so the risky parts are proven or dropped before the refactor.
+Three stages, in order: **tooling** first, so every later step runs the same way
+for every developer; then **spikes**, so the unproven parts are proven or dropped
+before any refactor; then **build**.
+
+### Stage A: tooling
 
 | # | Phase | Done when |
 |---|---|---|
-| 0 | **Every-developer setup** (§5): remove personal values, `fnox.toml`, automated skills sync with test and hook enforcement, CI on a clean runner. Spike wrangler's automatic provisioning on a throwaway Worker first | a fresh clone on the CI runner passes `mise install` + `mise run test`; a second Cloudflare account deploys with `mise run setup` + `mise run deploy` and no edits |
-| 1 | **Spike: Go chat handler in a TinyGo Service Worker**, served by wrangler from Cloudflare, returning a gsx fragment | the same handler answers on the Worker and in the Service Worker |
-| 2 | **Spike: yzma in a Web Worker** driven by that Service Worker, one small model in Chrome | download size, load time and tokens per second measured; go or no-go |
-| 3 | **Spike: browser to localhost** through Local Network Access to kronk or the native binary, streaming | the permission prompt and CORS work end to end, or the local path is native-only |
-| 4 | **Engine refactor:** `internal/engine/openai`, `runtime` in providers.toml, kronk in mise with a local provider | today's tests pass; a local kronk chat works through the native binary |
-| 5 | **GUI on the Worker:** chat page, room Durable Object (JS) through wrangler, streaming for remote models | shared live chat on Cloudflare with xAI |
-| 6 | **Browser and local in the Service Worker** | one GUI serves all three kinds of model |
-| 7 | **Go room** once workers-go PR #219 merges and TinyGo is verified at runtime | the JS Durable Object is gone |
+| A1 | **Toolchain in mise:** gsxui (by commit), gsx (go.mod tool), standalone Tailwind, kronk, and the existing Go, TinyGo, binaryen and wrangler pins | `mise install` on a clean machine installs everything |
+| A2 | **Skills automated** (§5.2): postinstall `skills:sync` into `.claude/skills/`, committed; test check; Claude Code hook; CLAUDE.md and AGENTS.md GUI rules | the gsx skills are listed in a fresh session; `mise run test` fails if they drift |
+| A3 | **No personal values** (§5.1): account from fnox, bindings without IDs, Worker URL computed by `setup`. First check wrangler's automatic provisioning on a throwaway Worker | `mise run setup` + `mise run deploy` work on a second Cloudflare account with no edits |
+| A4 | **CI on a clean runner** (§5.3) | `mise install` + `mise run test` pass on every push |
+
+### Stage B: spikes (unproven parts)
+
+| # | Spike | Done when |
+|---|---|---|
+| B1 | **Go chat handler in a TinyGo Service Worker**, served by wrangler from Cloudflare, returning a gsx fragment built with `gsxui add` | the same handler answers on the Worker and in the Service Worker; otherwise fall back to a small JS adapter |
+| B2 | **yzma in a Web Worker**, driven by that Service Worker, one small model in Chrome | download size, caching, load time and tokens per second measured; go or no-go |
+| B3 | **Browser to localhost** through Local Network Access to kronk, streaming | the permission prompt and CORS work end to end; otherwise local models are native-only |
+
+### Stage C: build
+
+| # | Phase | Done when |
+|---|---|---|
+| C1 | **Engine refactor:** `internal/engine/openai`, `runtime` in providers.toml, a local kronk provider | today's tests pass; a local kronk chat works through the native binary |
+| C2 | **GUI on the Worker:** chat page, room Durable Object (JS) through wrangler, streaming for remote models | shared live chat on Cloudflare with xAI |
+| C3 | **Browser and local models in the Service Worker**, as far as B2 and B3 allow | one GUI serves every kind of model that passed its spike |
+
+### Later
+
+| # | Phase | Depends on |
+|---|---|---|
+| D1 | **Room Durable Object in Go** | workers-go PR #219 merged, TinyGo verified at runtime |
 
 ## 7. Decisions needed
 
