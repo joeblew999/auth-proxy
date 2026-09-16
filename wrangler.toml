@@ -1,14 +1,18 @@
 name = "grok-oauth-proxy"
 main = "build/go/worker.mjs"
 compatibility_date = "2026-09-07"
-account_id = "7384af54e33b8a54ff240371ea368440"
+# No account_id: wrangler takes CLOUDFLARE_ACCOUNT_ID from the environment,
+# which fnox provides, so this file is the same for every developer.
 workers_dev = true
 compatibility_flags = [
   "streams_enable_constructors",
 ]
-# Holds the Grok login for providers with auth = "xai-oauth".
+# Holds the Grok login for providers with auth = "xai-oauth". No id: wrangler
+# provisions the namespace on an account's first deploy and keeps it linked
+# after. It also writes the id back into the config it deployed from, which is
+# why `mise run deploy` runs wrangler on a throwaway copy of this file.
 kv_namespaces = [
-  { binding = "GROK_AUTH", id = "da13e11270bb4d749c73c60dad41c1ea" },
+  { binding = "GROK_AUTH" },
 ]
 
 # Providers come from providers.toml, built into the Worker; secrets are pushed
@@ -31,11 +35,12 @@ persist = true
 
 # The same Worker built with TinyGo (mise run deploy --tinygo), deployed as
 # grok-oauth-proxy-tinygo. It serves 501 on /mcp; see .plan/tinygo.md.
-# kv_namespaces is not inherited by environments, so it is repeated.
+# kv_namespaces is not inherited by environments, so it is repeated. Being a
+# separate Worker, it is provisioned its own namespace: its Grok login is its own.
 [env.tinygo]
 main = "build/tinygo/worker.mjs"
 kv_namespaces = [
-  { binding = "GROK_AUTH", id = "da13e11270bb4d749c73c60dad41c1ea" },
+  { binding = "GROK_AUTH" },
 ]
 
 [env.tinygo.build]

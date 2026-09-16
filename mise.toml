@@ -46,11 +46,9 @@ postinstall = { task = "dev:bootstrap" }
 auto_sync = true
 prune = true
 
-[env]
-# The deployed Worker; every --worker flag talks to it.
-PROXY_URL = "https://grok-oauth-proxy.gedw99.workers.dev"
-# The TinyGo build, deployed by `mise run deploy --tinygo`.
-PROXY_URL_TINYGO = "https://grok-oauth-proxy-tinygo.gedw99.workers.dev"
+# The deployed Worker URLs (PROXY_URL, PROXY_URL_TINYGO) differ per Cloudflare
+# account, so they live in gitignored mise.local.toml, written once per clone by
+# `mise run setup:url`. Every --worker flag reads them from there.
 
 # --- tasks live in mise-tasks/ as files, one per task --------------------------
 # Groups become directories: dev/*, dev/skills/*, svc/*, hello/*, keys/*,

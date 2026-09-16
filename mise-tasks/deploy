@@ -4,8 +4,24 @@
 #USAGE flag "--tinygo" help="Deploy the TinyGo build as grok-oauth-proxy-tinygo (no /mcp)"
 set -euo pipefail
 bin/grok-oauth-proxy keys >/dev/null
+# wrangler writes provisioned resource ids back into the config it deploys
+# from. Deploying from a copy keeps wrangler.toml the same for everyone and
+# git clean; same directory, so every relative path in it still holds.
+cp wrangler.toml wrangler.deploy.toml
+trap 'rm -f wrangler.deploy.toml' EXIT
+# Ids written back mean wrangler created resources on this account (a first
+# deploy); nothing written back means it inherited the deployed Worker's.
+report_bindings() {
+  if grep -qE 'binding = "[A-Z_]+", id' wrangler.deploy.toml; then
+    grep -E 'binding = "[A-Z_]+", id' wrangler.deploy.toml | sed 's/^ *{ /created and linked: /; s/ },$//'
+  else
+    echo "bindings inherited from the deployed Worker; nothing to record"
+  fi
+}
 if [ "${usage_tinygo:-false}" = "true" ]; then
-  fnox exec -- wrangler deploy --env tinygo
+  [ -n "${PROXY_URL_TINYGO:-}" ] || { echo "PROXY_URL_TINYGO is not set for this clone; compute it with: mise run setup:url"; exit 1; }
+  fnox exec -- wrangler deploy --config wrangler.deploy.toml --env tinygo
+  report_bindings
   tools/push-keys.sh tinygo
   # A first deploy creates a new workers.dev hostname, which answers Cloudflare
   # error 1042 for a short while.
@@ -16,6 +32,7 @@ if [ "${usage_tinygo:-false}" = "true" ]; then
   done
   fnox exec -- bin/grok-oauth-proxy status --url "$PROXY_URL_TINYGO"
 else
-  fnox exec -- wrangler deploy --env ""
+  fnox exec -- wrangler deploy --config wrangler.deploy.toml --env ""
+  report_bindings
   echo "Deployed. Check it with: mise run status --worker"
 fi

@@ -4,6 +4,7 @@
 #MISE raw=true
 #USAGE flag "--worker" help="Log the deployed Worker in with a device code"
 if [ "${usage_worker:-false}" = "true" ]; then
+  [ -n "${PROXY_URL:-}" ] || { echo "PROXY_URL is not set for this clone; compute it with: mise run setup:url"; exit 1; }
   exec fnox exec -- bin/grok-oauth-proxy login --url "$PROXY_URL"
 fi
 exec bin/grok-oauth-proxy login

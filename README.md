@@ -64,7 +64,7 @@ saying what to change.
 |---|---|---|
 | Locally | `mise run dev` | `http://127.0.0.1:56121/v1` |
 | Locally, no real keys | `mise run dev --mock` | `http://127.0.0.1:56121/v1` |
-| Cloudflare | `mise run deploy` | `$PROXY_URL/v1` (set in `mise.toml`) |
+| Cloudflare | `mise run deploy` | `$PROXY_URL/v1` (written to `mise.local.toml` by `mise run setup:url`) |
 
 Clients use the base URL with the client key (`ADMIN_API_KEY`, created by
 `mise run setup`) as their API key. For example, OpenCode:

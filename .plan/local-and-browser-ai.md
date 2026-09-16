@@ -224,17 +224,15 @@ is a task or a hook, never a README instruction. CI proves it on a fresh machine
 
 ### 5.1 No personal values in the repo
 
-Checked 2026-09-15, and still so on 2026-09-16: the repo hard-codes the owner's
-account ID and KV namespace ID in `wrangler.toml` (`account_id`, and the
-`GROK_AUTH` id twice, once per environment) and the owner's
-`*.gedw99.workers.dev` URLs in `mise.toml` (`PROXY_URL`, `PROXY_URL_TINYGO`).
-AGENTS.md forbids all of it, and all of it goes.
+Checked 2026-09-15: the repo hard-coded the owner's account ID and KV namespace
+ID in `wrangler.toml` and the owner's `*.gedw99.workers.dev` URLs in `mise.toml`.
+**Gone since 2026-09-16 (A3).** What replaced each:
 
 | Value | From now on |
 |---|---|
 | Cloudflare account | `CLOUDFLARE_ACCOUNT_ID`, provided by fnox; wrangler reads it from the environment |
-| KV namespace, D1, R2 | bindings **without IDs**. Wrangler (4.45+) creates them per account on deploy. Whether it writes IDs back into the committed config needs verifying, and if it does, the deployed config is generated into a gitignored file from a committed template |
-| Worker URL | computed by `setup` from the Worker name and the account's workers.dev subdomain (Cloudflare API), stored in gitignored `mise.local.toml` |
+| KV namespace, D1, R2 | bindings **without IDs**. Wrangler provisions them per account on the first deploy and inherits them after. **Verified 2026-09-16:** deploying `GROK_AUTH` with no id reported `env.GROK_AUTH (inherited)` and created nothing. It writes created ids back into the config it deployed from, so `deploy` runs wrangler on a throwaway copy, `wrangler.deploy.toml`, gitignored |
+| Worker URL | computed by `setup:url` from the Worker name and the account's workers.dev subdomain (Cloudflare API), stored in gitignored `mise.local.toml`; every `--worker` task names that fix when it is missing |
 | Secrets | fnox, as today. Each developer keeps their own values; `setup` prompts for any that fnox does not have |
 | Worker name | a per-developer name for development and one shared production name, see §7 |
 
@@ -412,7 +410,10 @@ are untouched). Stage C folds it into the root app.
     one-pin fix is a `replace github.com/gsxhq/gsx => github.com/joeblew999/gsx`
     in `cmd/gui/go.mod` held to the mise pin by `deps:*`, or dropping the fork
     once upstream ships a packslip. Owner's call.
-  - A3 (no personal values): untouched, see §5.1.
+  - A3 (no personal values): **done 2026-09-16**, see §5.1. Not exercised: a
+    first deploy on a second account, which nothing here has. The changelog says
+    wrangler creates and links the namespace then, and `deploy` prints what it
+    created.
   - A4 (CI on a clean runner): untouched. The only workflow is the tag-triggered
     release; nothing runs `mise install` + `mise run test` on push.
 

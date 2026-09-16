@@ -73,7 +73,7 @@ at least once.
 | `mise run build` / `build --tinygo` | local binary and Worker; optionally TinyGo plus sizes |
 | `mise run deploy` / `deploy --tinygo` | validate `providers.toml`, then deploy |
 | `mise run release` / `release:snapshot` | publish a GitHub Release (packslip manifest included by the workflow); build the artifacts locally |
-| `mise run logs`, `setup`, `bench` | Worker logs, one-time setup, Go vs TinyGo comparison |
+| `mise run logs`, `setup`, `bench` | Worker logs, one-time setup (`setup:url` alone computes this clone's Worker URLs), Go vs TinyGo comparison |
 
 Every task is a file in `mise-tasks/` (groups are directories: `svc/*`,
 `hello/*`, `dev/skills/*`); only `test` and the hidden `build:*` helpers
@@ -117,6 +117,12 @@ Rules that keep the design working:
   with any body, even an empty one, and Go's own client hides this in tests.
 - **Check Worker behaviour in workerd, not only with `go test`.** `mise run bench`
   runs both Worker builds locally against the mock.
+- **`wrangler.toml` names no account and no resource id.** The account is
+  `CLOUDFLARE_ACCOUNT_ID` from fnox, the KV namespace is provisioned per account
+  on the first deploy and stays linked, and `deploy` runs wrangler on a throwaway
+  copy because wrangler writes ids back into the config it deploys from. The
+  Worker URLs are per account too: `mise run setup:url` writes them to
+  gitignored `mise.local.toml`.
 
 ## Rules
 
