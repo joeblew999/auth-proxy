@@ -131,7 +131,8 @@ until TinyGo fixes them.
 ## Development
 
 ```bash
-mise run test     # gofmt, vet (native and wasm), all tests
+mise run lint     # hk: gofmt, vet, tidy, whitespace, secrets
+mise run test     # lint, wasm vet, all tests, skills + spike checks
 mise run bench    # both Worker builds in local workerd against the mock
 ```
 

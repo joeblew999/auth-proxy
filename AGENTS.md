@@ -55,20 +55,26 @@ at least once.
 | Task | Purpose |
 |---|---|
 | `mise run dev` / `dev --mock` | local proxy on `127.0.0.1:56121` (real providers, or the bundled mock) |
+| `mise run svc:start` / `svc:stop` / `svc:status` / `svc:logs` | the same proxy as pitchfork daemons, so `dev` never blocks the terminal |
 | `mise run status` / `status --worker` | every provider's readiness, with the fix for each problem |
 | `mise run models` / `chat <model> [prompt]` | list models, stream a prompt (`--worker` for the deployed Worker) |
 | `mise run login` / `login --worker` | SuperGrok login for `auth = "xai-oauth"` providers |
 | `mise run keys:set <provider>` / `keys:push` | store a key in fnox and push it; push everything |
-| `mise run test` | gofmt check, vet (native and wasm), all tests |
+| `mise run lint` | hk checks: gofmt, vet, tidy, whitespace, secrets |
+| `mise run test` | lint, wasm vet, all tests, skills check, spike check |
 | `mise run dev:skills:sync` / `dev:skills:verify` / `dev:skills:bump` | re-sync the repo's pinned Claude Code skills; prove a fresh session loads them; move github pins to upstream HEAD |
 | `mise run dev:browser` | drive an app in a headless Chrome and run its probe script |
+| `mise run hello:*` | the gsx + gsxui spike: `dev`, `build`, `serve`, `check` |
 | `mise run deps:list` / `deps:upgrade` | list / interactively apply Go module upgrades in every module |
 | `mise run build` / `build --tinygo` | local binary and Worker; optionally TinyGo plus sizes |
 | `mise run deploy` / `deploy --tinygo` | validate `providers.toml`, then deploy |
 | `mise run release` / `release:snapshot` | publish a GitHub Release (packslip manifest included by the workflow); build the artifacts locally |
 | `mise run logs`, `setup`, `bench` | Worker logs, one-time setup, Go vs TinyGo comparison |
 
-Run `mise run test` after every Go change.
+Every task is a file in `mise-tasks/` (groups are directories: `svc/*`,
+`hello/*`, `dev/skills/*`); only `test` and the hidden `build:*` helpers
+stay in `mise.toml`. Run `mise run lint` after every Go change, `mise run test`
+before committing.
 
 ## Code layout
 
@@ -84,7 +90,8 @@ Run `mise run test` after every Go change.
 | `worker.go` | Worker entry point: fetch client, KV token store |
 | `config.go` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `tools/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
-| `cmd/dev` | developer tooling, not shipped. `cmd/dev/main.go` only parses arguments; `cmd/dev/skills` and `cmd/dev/browser` are the two tools it dispatches to, and every mise task that drives it is named after the command (`dev:skills:sync`, `dev:browser`) |
+| `cmd/dev` | developer tooling, not shipped. `cmd/dev/main.go` only parses arguments; `cmd/dev/skills` (sync, check, verify, bump, pins, lock, fetch) and `cmd/dev/browser` hold the code. Every mise task that drives it is named after the command (`dev:skills:sync`, `dev:browser`) |
+| `mise-tasks/` | every task as a file: groups are directories (`svc/`, `hello/`, `keys/`, `deps/`, `release/`, `dev/skills/`), top-level scripts sit at the root |
 | `skills.toml` | which skills to vendor: `[source.*]` blocks, gomod or github; the only place a skill or pin is named |
 | `skills/` | the skill this repo's releases ship via packslip |
 | `spikes/hello-world` | separate module: the GUI toolchain spike (`mise run hello:*`); see its README |
