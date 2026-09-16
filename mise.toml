@@ -35,13 +35,13 @@ auto_sync = true
 prune = true
 
 # mise waits 24h before installing a release, and for packslip refuses to
-# bypass that even for a pin, so someone else's bad release gets noticed first.
-# For the owner's own forks there is no one else. hk and fnox keep the wait.
+# bypass that even for an exact pin. Every packslip tool here is pinned exactly
+# and its manifest is signature-checked on install, which is the guard; the
+# wait only ever made CI refuse for a day the version a developer had already
+# installed and used (hk 2.0.1, pinned the day it shipped, was red on CI for
+# 17 hours). So packslip tools are exempt. Fuzzy "latest" pins keep the wait.
 [settings]
-minimum_release_age_excludes = [
-  "packslip:github.com/joeblew999/gsx",
-  "packslip:github.com/joeblew999/gsxui",
-]
+minimum_release_age_excludes = ["packslip:*"]
 
 # ------------------------------------------------------------------------------
 # Tasks. `<cmd>:<stage>[:variant]`, or a stack verb; the short names the README
