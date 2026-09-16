@@ -4,10 +4,8 @@
 
 [tools]
 go = "1.27"
-# TODO: packslip:github.com/jdx/fnox once GITHUB_TOKEN is valid again. The
-# fnox token in the keychain is dead (401), and packslip needs the API where
-# the default backend does not. Retry after rotating the token.
-fnox = "latest"
+# packslip: verified manifest plus version-matched skills when shipped.
+"packslip:github.com/jdx/fnox" = "latest"
 node = "24"
 # Pinned: a looser "4" lets mise keep any older 4.x already installed, and 4.97's
 # local runtime rejects wrangler.toml's compatibility_date.
