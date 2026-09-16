@@ -1,0 +1,6 @@
+cloudflare	github.com/cloudflare/skills@b052c32bab7d
+durable-objects	github.com/cloudflare/skills@b052c32bab7d
+gsx	github.com/gsxhq/gsx@v0.1.1
+templ-to-gsx-migration	github.com/gsxhq/gsx@v0.1.1
+workers-best-practices	github.com/cloudflare/skills@b052c32bab7d
+wrangler	github.com/cloudflare/skills@b052c32bab7d

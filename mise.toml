@@ -22,6 +22,9 @@ tinygo = "0.42.0"
 # Local models: an OpenAI-compatible server on 127.0.0.1:11435.
 "go:github.com/ardanlabs/kronk/cmd/kronk" = "1.32.6"
 
+[hooks]
+postinstall = { task = "skills:sync" }
+
 [env]
 # The deployed Worker; every --worker flag talks to it.
 PROXY_URL = "https://grok-oauth-proxy.gedw99.workers.dev"
@@ -143,8 +146,19 @@ run = [
   "go vet ./...",
   "GOOS=js GOARCH=wasm go vet ./...",
   "go test ./...",
+  "mise run skills:check",
   "mise run hello:check",
 ]
+
+# --- skills: in this repo, so every Claude Code session here loads them --------
+
+[tasks."skills:sync"]
+description = "Put the pinned gsx and Cloudflare skills into .claude/skills (runs automatically after mise install)"
+run = "tools/sync-skills.sh"
+
+[tasks."skills:check"]
+hide = true
+run = "tools/sync-skills.sh --check"
 
 # --- spikes/hello-world: gsx + gsxui, used exactly as gsx documents ------------
 # Scaffolded with `gsx init --yes` (Vite starter) and `gsxui init` (Vite mode).
