@@ -10,7 +10,8 @@
   `mise.toml` (what runs, `depends`, and for a build the `sources` and `outputs`
   that let mise skip it when nothing changed); anything with a branch, a loop, a
   parse or an API call is a subcommand of `cmd/dev`, with a test. No shell
-  scripts.
+  scripts behind tasks; the Claude Code hook in `.claude/hooks/` is the one
+  script left, because it has to work before anything is built.
 - **Every error names its fix.** A config error names the setting, a missing key
   prints `mise run keys:set <provider>`, and so on. Keep it that way in new code.
 - **Providers live only in `providers.toml`.** Secret values live only in fnox

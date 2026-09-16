@@ -10,8 +10,8 @@ SuperGrok subscription login for xAI, and it serves MCP tools at `/mcp`.
 
 ## Quick start
 
-You need [mise](https://mise.jdx.dev) and [fnox](https://github.com/jdx/fnox).
-Then:
+You need [mise](https://mise.jdx.dev); it installs everything else, including
+[fnox](https://github.com/jdx/fnox) for secrets. Then:
 
 ```bash
 mise install

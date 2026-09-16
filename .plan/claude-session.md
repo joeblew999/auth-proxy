@@ -191,6 +191,11 @@ $ hk run pre-push --plan   →  ✓ skills_verify
 $ hk run check --plan      →  (absent)
 ```
 
+The MCP check was described above as bound to pre-push too. It was not: until
+2026-09-16 `hk.pkl` had only `session_verify` there. `mcp_check` joined it that
+day, `hk run pre-push --plan` lists both, `hk run check --plan` lists neither,
+and the push that carried the change ran both for real.
+
 Fresh clone, nothing done to it:
 
 ```

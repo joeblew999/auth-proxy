@@ -34,6 +34,11 @@ hooks {
             ["session_verify"] {
                 check = "mise run dev:session:verify"
             }
+            // Every MCP server .mcp.json declares must connect on a fresh
+            // clone. It needs the claude CLI, so it belongs here, not in check.
+            ["mcp_check"] {
+                check = "mise run dev:mcp"
+            }
         }
     }
 }

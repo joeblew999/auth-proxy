@@ -2,8 +2,11 @@
 
 **Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo: every task is a line or
 two in `mise.toml`, every piece of logic is a `dev` subcommand with a test, and
-`mise-tasks/` and the shell helpers are gone. Step 3, the tool in its own repo
-with `dev init`, needs a name and a yes.**
+`mise-tasks/` and the shell helpers are gone. Step 3 is DEFERRED by the owner
+the same day: this repo first, made right on this stack, and nothing extracted
+until it is. Not `joeblew999/.github` (the fleet task library: nu bodies in
+TOML includes, reusable workflows) and not the go-htmx4 way (a template repo
+with `mise run rename`); the owner wants neither used here yet.**
 
 ## The question
 
@@ -71,7 +74,7 @@ TinyGo Worker's status check right after its deploy: the hostname answered
 `/health` once and then Cloudflare error 1042 on the next request, so `wait`
 now demands three 200s in a row.
 
-## Step 3: the tool in its own repo
+## Step 3, later: the tool in its own repo
 
 | Generic today (moves) | Project-specific (stays) |
 |---|---|
@@ -101,6 +104,7 @@ sessionpin and rel.
 
 | # | Question | Recommendation |
 |---|---|---|
+| 0 | When? | Owner's call, once this repo is right. Until then every improvement lands here, where it is proven by `mise run test` and a real deploy |
 | 1 | The tool's name and repo | anything but `dev`, which is the binary; pick one that reads as the stack's name |
 | 2 | Does `bench` move? | No. It knows this proxy's endpoints |
 | 3 | `dev init` overwrites nothing or refuses on an existing file? | Refuses, and names the file |
