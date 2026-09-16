@@ -69,7 +69,7 @@ Sources:
 - **Break-even:** $30/month of grok-4.20 output credits is ~12M tokens, so the
   subscription wins above that. Driving the API from a subscription rather than
   per-token billing is the point of this proxy.
-- **Confirmed 2026-09-15:** the xAI account page for `gedw99@gmail.com` offers
+- **Confirmed 2026-09-15:** the xAI account page for the account used here offers
   "Get SuperGrok", so the account used for the device flow holds **no
   subscription**. That is the cause of `personal-team-blocked:spending-limit`, and
   it also confirms the flow authorised the intended account.
