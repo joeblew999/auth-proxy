@@ -13,6 +13,16 @@ import (
 // in the local module cache or a GitHub repo at a pinned commit.
 type pins struct {
 	Source map[string]sourcePins `toml:"source"`
+	Claude claudePins            `toml:"claude"`
+}
+
+// claudePins is the part of the Claude Code session this repo owns: which
+// marketplace plugins must not load, and where MCP servers come from. Sync
+// writes it into .claude/settings.json; check fails when the two disagree.
+type claudePins struct {
+	BlockedPlugins     []string `toml:"blocked_plugins"`
+	ClaudeAIConnectors bool     `toml:"claude_ai_connectors"`
+	ApproveMCPServers  bool     `toml:"approve_mcp_servers"`
 }
 
 type sourcePins struct {

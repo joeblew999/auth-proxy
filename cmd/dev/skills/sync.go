@@ -50,6 +50,13 @@ func Sync(out io.Writer) error {
 	if !existed {
 		fmt.Fprintf(out, "\nThese are new: Claude Code reads %s at startup.\n", skillsDir)
 	}
+	p, err := loadPins()
+	if err != nil {
+		return err
+	}
+	if err := syncSettings(out, p.Claude); err != nil {
+		return err
+	}
 	if !sameFiles(have, want) {
 		warnStaleSessions(out, time.Now())
 	}
@@ -71,6 +78,13 @@ func Check(out io.Writer) error {
 	}
 	if diff := diffLocked(have, want); len(diff) > 0 {
 		return fmt.Errorf("%s does not match its pins:\n%sfix with: mise run dev:skills:sync", skillsDir, indent(strings.Join(diff, "\n")+"\n"))
+	}
+	p, err := loadPins()
+	if err != nil {
+		return err
+	}
+	if err := checkSettings(p.Claude); err != nil {
+		return err
 	}
 	if err := checkToolPins(out); err != nil {
 		return err

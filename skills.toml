@@ -17,3 +17,22 @@ repo = "cloudflare/skills"
 # No tags or releases upstream, so this is a commit. Move it with bump.
 ref = "b052c32bab7dd493513260228a36c88294f343f1"
 skills = ["wrangler", "durable-objects", "workers-best-practices", "cloudflare"]
+
+# The rest of the Claude Code session, generated into .claude/settings.json by
+# `mise run dev:skills:sync`. Named here and nowhere else, for the same reason
+# the pins above are: two places to look is how the copies drifted.
+[claude]
+# Marketplace plugins that must not load in this repo. Each of these ships a
+# skill that shadows one pinned above, at a version nothing here controls.
+blocked_plugins = [
+  "cloudflare@cloudflare",
+  "claude-code@claude-skills",
+  "mise@cc-skills",
+  "itp@cc-skills",
+]
+# claude.ai connectors are per-developer and invisible to a fresh clone, so the
+# repo declares its own servers in .mcp.json instead.
+claude_ai_connectors = false
+# ...and approves them wholesale, so .mcp.json stays the only place a server is
+# named.
+approve_mcp_servers = true

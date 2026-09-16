@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -113,5 +114,60 @@ func TestWarnStaleSessionsSaysNothingWithoutSkills(t *testing.T) {
 	warnStaleSessions(&out, time.Now())
 	if out.Len() != 0 {
 		t.Errorf("warned without a skills directory: %q", out.String())
+	}
+}
+
+func TestShadowedFindsPluginTwins(t *testing.T) {
+	seen := map[string]bool{
+		"wrangler": true, "cloudflare:wrangler": true,
+		"cloudflare:sandbox-sdk": true, "gsx": true,
+	}
+	got := shadowed(seen, []string{"wrangler", "gsx"})
+	if len(got) != 1 || !strings.HasPrefix(got[0], "cloudflare:wrangler shadows wrangler") {
+		t.Errorf("shadowed = %v; want only the twin of a pinned skill", got)
+	}
+}
+
+// Settings the repo does not generate must survive a sync, or the Stop hook
+// would be lost the first time skills.toml changed.
+func TestSyncSettingsKeepsWhatItDoesNotOwn(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.MkdirAll(".claude", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFile(settingsFile, `{"hooks":{"Stop":[]},"enabledPlugins":{"stale@old":false}}`); err != nil {
+		t.Fatal(err)
+	}
+	c := claudePins{BlockedPlugins: []string{"a@b"}, ApproveMCPServers: true}
+	if err := syncSettings(io.Discard, c); err != nil {
+		t.Fatal(err)
+	}
+	have, err := readSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := have["hooks"]; !ok {
+		t.Error("sync dropped hooks, which it does not own")
+	}
+	if err := checkSettings(c); err != nil {
+		t.Errorf("check failed right after sync: %v", err)
+	}
+	blocked, _ := have["enabledPlugins"].(map[string]any)
+	if blocked["a@b"] != false || len(blocked) != 1 {
+		t.Errorf("enabledPlugins = %v; want exactly the blocked list", blocked)
+	}
+}
+
+func TestCheckSettingsCatchesHandEdits(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.MkdirAll(".claude", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFile(settingsFile, `{"enabledPlugins":{"a@b":true}}`); err != nil {
+		t.Fatal(err)
+	}
+	err := checkSettings(claudePins{BlockedPlugins: []string{"a@b"}})
+	if err == nil || !strings.Contains(err.Error(), "dev:skills:sync") {
+		t.Errorf("checkSettings = %v; want an error naming the fix", err)
 	}
 }

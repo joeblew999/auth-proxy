@@ -1,1 +1,22 @@
-{"hooks": {"Stop": [{"hooks": [{"command": "mise exec -- hk run check --safe --format json", "type": "command"}]}]}}
+{
+  "disableClaudeAiConnectors": true,
+  "enableAllProjectMcpServers": true,
+  "enabledPlugins": {
+    "claude-code@claude-skills": false,
+    "cloudflare@cloudflare": false,
+    "itp@cc-skills": false,
+    "mise@cc-skills": false
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "/opt/homebrew/bin/mise exec -- hk run check --safe --format json",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}
