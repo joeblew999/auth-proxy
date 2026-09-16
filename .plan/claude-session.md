@@ -126,7 +126,8 @@ Not "the code is written" — each is a thing someone can run and watch.
 Result today, from a fresh session: 25 skills — the repo's 8 and Claude Code's
 17 built-ins. Before: 36, including 11 from a plugin nothing here controlled.
 Re-recorded 2026-09-16 in `d7e3136`: 21, the same 8 from the repo and 13
-built-ins, as `SESSION.lock` lists them.
+built-ins, as `SESSION.lock` lists them; and again later that day: 25, after
+four artifact and design built-ins arrived (the catch is kept below).
 
 ## The failing output, kept
 
@@ -151,6 +152,21 @@ these came from the cloudflare plugin(s); add them to blocked_plugins in session
 ```
 
 All 11, where the shadow check it replaced found 4.
+
+A real catch, not staged, later on 2026-09-16 (Claude Code 2.1.272): `verify`
+run by hand, since nothing had been pushed since the lock was recorded.
+
+```
+error: skills reached this session that .claude/skills/SESSION.lock does not allow:
+  artifact-capabilities
+  artifact-design
+  artifact-diagramming
+  design
+if these are meant to be here (a Claude Code upgrade, or a skill you enabled on claude.ai,
+which no project setting can block): mise run dev:session:verify --update
+```
+
+Four built-ins that Claude Code itself grew; re-recorded with `--update`.
 
 `check`, with a hand-edit to the generated settings:
 
