@@ -10,11 +10,15 @@ tinygo = "0.42.0"   # must match TINYGO_VERSION in workers-go's Makefile
 "aqua:WebAssembly/binaryen" = "121"   # TinyGo shells out to wasm-opt
 
 # Secrets, releases, services, hooks. packslip: means a verified manifest plus
-# version-matched skills when the publisher ships them.
-"packslip:github.com/jdx/fnox" = "latest"
-"packslip:github.com/joeblew999/gsx" = "latest"
-"packslip:github.com/joeblew999/gsxui" = "latest"
-"packslip:github.com/jdx/hk" = "latest"
+# version-matched skills when the publisher ships them. Exact versions, so CI
+# and every clone get the same release: mise refuses a fuzzy version younger
+# than minimum_release_age (24h), which is what CI hit; a pin is exempt.
+# `mise up` moves them.
+"packslip:github.com/jdx/fnox" = "1.35.2"
+"packslip:github.com/joeblew999/gsx" = "0.1.2"
+"packslip:github.com/joeblew999/gsxui" = "0.1.0"
+"packslip:github.com/jdx/hk" = "2.0.1"
+jq = "latest"   # .claude/hooks/skill-gate reads the tool payload with it
 
 goreleaser = "latest"
 packslip = "latest"
