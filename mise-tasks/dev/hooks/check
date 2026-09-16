@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+#MISE description="Prove the Claude Code skill hook fires on every write and on no read"
+.claude/hooks/skill-gate.test

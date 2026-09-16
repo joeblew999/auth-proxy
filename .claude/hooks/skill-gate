@@ -1,27 +1,65 @@
 #!/usr/bin/env bash
-# Load the skills that cover a file before it is touched, by any tool.
+# Load the skills that cover a file before it is changed, by any tool.
 #
 # Claude Code only auto-loads skill names and descriptions, not their bodies, so
 # invoking the right one is left to the model's judgement -- which is how gsx
 # markup or hk config gets hand-invented. This makes it the harness's job.
 #
-# Reads a PreToolUse payload on stdin. Write and Edit carry one file_path; Bash
-# carries a command, and any word in it ending in a covered extension counts,
-# because heredocs and sed are how an agent in auto mode edits files. Prints
-# additionalContext when something matched, nothing otherwise.
+# Reads a PreToolUse payload on stdin. Write and Edit carry one file_path and
+# always change it. Bash carries a command: a covered file in it counts only
+# when the command is shaped like a write (redirected into, sed -i, cp/mv
+# destination, a script fed on stdin, ...). Reading, grepping or naming a file
+# in a commit message loads nothing -- that was 10KB of context per mention.
+# Prints additionalContext when something matched, nothing otherwise.
+#
+# Tested by mise run dev:hooks:check; add a case there with any change here.
 set -euo pipefail
 
 payload=$(cat)
 tool=$(printf '%s' "$payload" | jq -r '.tool_name // empty')
 
 case "$tool" in
-  Write|Edit) paths=$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty') ;;
-  Bash)       paths=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' | tr -s ' \n\t;|&<>()"'"'"'' '\n') ;;
-  *)          exit 0 ;;
+  Write|Edit)
+    paths=$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty')
+    cmd=""
+    ;;
+  Bash)
+    cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty')
+    # Every word that could be a path; the write test below decides which count.
+    paths=$(printf '%s' "$cmd" | tr -s ' \n\t;|&<>()"'"'"',=\\' '\n')
+    ;;
+  *) exit 0 ;;
 esac
+
+# is_write: does this Bash command change the contents of $2? A positive list;
+# anything not recognised as a write is a read and stays silent.
+is_write() {
+  local cmd=$1 esc q="['\"]?"
+  esc=$(printf '%s' "$2" | sed 's/[][\.*^$/]/\\&/g')
+  # > path, >> path
+  grep -qE ">>?[[:space:]]*${q}${esc}" <<<"$cmd" && return 0
+  # sed -i / perl -pi, with the path somewhere in the same segment
+  grep -qE "(sed|perl)[[:space:]]+-[A-Za-z]*i[^;&|]*[[:space:]]${q}${esc}" <<<"$cmd" && return 0
+  # tee, install, truncate take the file as an argument
+  grep -qE "(^|[;&|][[:space:]]*)(tee|install|truncate)[[:space:]][^;&|]*${q}${esc}" <<<"$cmd" && return 0
+  # cp / mv: only as the destination, the segment's last argument
+  grep -qE "(^|[;&|][[:space:]]*)(cp|mv)[[:space:]][^;&|]*[[:space:]]${q}${esc}${q}[[:space:]]*($|[;&|])" <<<"$cmd" && return 0
+  # git checkout restores it
+  grep -qE "git[[:space:]]+checkout[^;&|]*[[:space:]]${q}${esc}" <<<"$cmd" && return 0
+  # a script fed on stdin or inline may write anything it names
+  grep -qE "(^|[;&|][[:space:]]*)(python3?|perl|ruby|node)[[:space:]]+-(c[[:space:]]|[[:space:]]|$)" <<<"$cmd" && return 0
+  return 1
+}
 
 skills=""
 for p in $paths; do
+  case "$p" in
+    *.gsx|*.pkl) ;;
+    *) continue ;;
+  esac
+  if [ "$tool" = Bash ] && ! is_write "$cmd" "$p"; then
+    continue
+  fi
   case "$p" in
     *.gsx) skills+=" gsx gsxui" ;;   # gsx is the syntax, gsxui the components to reach for
     *.pkl) skills+=" hk-configure" ;;
@@ -40,7 +78,7 @@ done
 jq -n --arg c "$context" '{
   hookSpecificOutput: {
     hookEventName: "PreToolUse",
-    additionalContext: ("These skills cover a file this call touches. Follow them rather "
+    additionalContext: ("These skills cover a file this call changes. Follow them rather "
       + "than inferring syntax or hand-writing components:\n\n" + $c)
   }
 }'

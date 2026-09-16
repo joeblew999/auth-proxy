@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Which tool calls load a skill, and which stay silent. Run by
+# mise run dev:hooks:check. Each case is: expected skills, tool, tool_input.
+#
+# The Bash cases are the point: the gate must fire on every way an agent in
+# auto mode edits a file, and on nothing else. A read that fires costs ~10KB of
+# context; a write that does not is the hole the gate exists to close.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+gate=.claude/hooks/skill-gate
+fail=0
+
+check() {
+  local want=$1 tool=$2 input=$3 got
+  got=$(printf '{"tool_name":"%s","tool_input":%s}' "$tool" "$input" | "$gate" \
+    | jq -r '.hookSpecificOutput.additionalContext // ""' \
+    | grep -oE '^--- [a-z-]+ ---$' | sed 's/^--- //; s/ ---$//' | paste -sd ' ' - || true)
+  if [ "$got" != "$want" ]; then
+    printf 'FAIL %-5s %s\n      want: [%s]\n      got:  [%s]\n' "$tool" "$input" "$want" "$got"
+    fail=1
+  fi
+}
+
+# Write and Edit always change the file.
+check "gsx gsxui"    Edit  '{"file_path":"spikes/hello-world/x.gsx"}'
+check "hk-configure" Write '{"file_path":"hk.pkl"}'
+check ""             Edit  '{"file_path":"main.go"}'
+
+# Bash: every write shape an agent actually uses.
+check "hk-configure" Bash '{"command":"cat > hk.pkl <<EOF\nx\nEOF"}'
+check "hk-configure" Bash '{"command":"echo x >> hk.pkl"}'
+check "hk-configure" Bash '{"command":"sed -i \"\" \"s/a/b/\" hk.pkl"}'
+check "hk-configure" Bash '{"command":"perl -pi -e s/a/b/ hk.pkl"}'
+check "hk-configure" Bash '{"command":"python3 - <<PY\nimport pathlib\np = pathlib.Path(\"hk.pkl\")\nPY"}'
+check "hk-configure" Bash '{"command":"python3 -c \"open(\\\"hk.pkl\\\",\\\"w\\\")\""}'
+check "hk-configure" Bash '{"command":"cp /tmp/hk.bak hk.pkl"}'
+check "hk-configure" Bash '{"command":"cp /tmp/hk.bak hk.pkl && rm /tmp/hk.bak"}'
+check "hk-configure" Bash '{"command":"git checkout -- hk.pkl"}'
+check "hk-configure" Bash '{"command":"tee hk.pkl <<EOF\nx\nEOF"}'
+check "gsx gsxui"    Bash '{"command":"sed -i \"\" \"s/a/b/\" spikes/x.gsx && go build ./..."}'
+check "gsx gsxui hk-configure" Bash '{"command":"cp a.gsx b.gsx; cp c hk.pkl"}'
+
+# Bash: reads and mentions stay silent.
+check "" Bash '{"command":"cp hk.pkl /tmp/hk.bak"}'
+check "" Bash '{"command":"cat hk.pkl"}'
+check "" Bash '{"command":"grep -n foo hk.pkl"}'
+check "" Bash '{"command":"sed -n 1,5p hk.pkl"}'
+check "" Bash '{"command":"git add hk.pkl x.gsx"}'
+check "" Bash '{"command":"git diff hk.pkl"}'
+check "" Bash '{"command":"git commit -F - <<EOF\nRename hk.pkl step, touch x.gsx\nEOF"}'
+check "" Bash '{"command":"ls spikes/hello-world/x.gsx"}'
+check "" Bash '{"command":"go build ./... && mise run test 2>&1"}'
+check "" Bash '{"command":"hk validate"}'
+
+if [ "$fail" -ne 0 ]; then
+  echo "skill-gate: cases failed above; fix .claude/hooks/skill-gate or the case"
+  exit 1
+fi
+echo "skill-gate: every case loads exactly the skills it should"

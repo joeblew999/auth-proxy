@@ -62,6 +62,7 @@ run = [
   "GOOS=js GOARCH=wasm go vet ./...",
   "go test ./...",
   "mise run dev:session:check",
+  "mise run dev:hooks:check",
   "mise run hello:check",
 ]
 
