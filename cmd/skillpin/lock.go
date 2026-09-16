@@ -1,4 +1,4 @@
-package skills
+package main
 
 import (
 	"crypto/sha256"
@@ -14,7 +14,7 @@ import (
 func lockedFiles() (map[string]string, error) {
 	data, err := os.ReadFile(filepath.Join(skillsDir, lockFile))
 	if err != nil {
-		return nil, fmt.Errorf("%w; run: mise run dev:skills:sync", err)
+		return nil, fmt.Errorf("%w; run: "+syncCmd, err)
 	}
 	files := map[string]string{}
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {

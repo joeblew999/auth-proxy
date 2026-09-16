@@ -1,8 +1,9 @@
-package skills
+package main
 
 import (
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
@@ -14,15 +15,22 @@ import (
 type pins struct {
 	Source map[string]sourcePins `toml:"source"`
 	Claude claudePins            `toml:"claude"`
+	// SyncCommand is how this repo prefers sync to be run, quoted back in
+	// every error a sync would fix. A repo whose front door is a task runner
+	// sets it to that task; left empty, errors name this binary.
+	SyncCommand string `toml:"sync_command"`
 }
 
 // claudePins is the part of the Claude Code session this repo owns: which
 // marketplace plugins must not load, and where MCP servers come from. Sync
 // writes it into .claude/settings.json; check fails when the two disagree.
 type claudePins struct {
-	BlockedPlugins     []string `toml:"blocked_plugins"`
-	ClaudeAIConnectors bool     `toml:"claude_ai_connectors"`
-	ApproveMCPServers  bool     `toml:"approve_mcp_servers"`
+	BlockedPlugins []string `toml:"blocked_plugins"`
+	// ClaudeAIConnectors is a pointer so that leaving it out means "not this
+	// repo's business" rather than "off": a repo adopting skillpin must not
+	// silently lose its connectors by not mentioning them.
+	ClaudeAIConnectors *bool `toml:"claude_ai_connectors"`
+	ApproveMCPServers  bool  `toml:"approve_mcp_servers"`
 }
 
 type sourcePins struct {
@@ -52,10 +60,10 @@ func loadPins() (pins, error) {
 	var p pins
 	meta, err := toml.DecodeFile(pinsFile, &p)
 	if err != nil {
-		return pins{}, fmt.Errorf("%s: %w; fix the file, then: mise run dev:skills:sync", pinsFile, err)
+		return pins{}, fmt.Errorf("%s: %w; fix the file, then: "+syncCmd, pinsFile, err)
 	}
 	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
-		return pins{}, fmt.Errorf("%s: unknown key %q; fix the file, then: mise run dev:skills:sync", pinsFile, undecoded[0])
+		return pins{}, fmt.Errorf("%s: unknown key %q; fix the file, then: "+syncCmd, pinsFile, undecoded[0])
 	}
 	if len(p.Source) == 0 {
 		return pins{}, fmt.Errorf("%s lists no skills", pinsFile)
@@ -66,11 +74,11 @@ func loadPins() (pins, error) {
 		switch s.kind() {
 		case "gomod":
 			if s.Module == "" || s.ModuleDir == "" {
-				return pins{}, fmt.Errorf("%s: [source.%s] needs module and module_dir; fix the file, then: mise run dev:skills:sync", pinsFile, name)
+				return pins{}, fmt.Errorf("%s: [source.%s] needs module and module_dir; fix the file, then: "+syncCmd, pinsFile, name)
 			}
 		case "github":
 			if s.Repo == "" || s.Ref == "" {
-				return pins{}, fmt.Errorf("%s: [source.%s] needs repo and ref; fix the file, then: mise run dev:skills:sync", pinsFile, name)
+				return pins{}, fmt.Errorf("%s: [source.%s] needs repo and ref; fix the file, then: "+syncCmd, pinsFile, name)
 			}
 		default:
 			return pins{}, fmt.Errorf("%s: [source.%s] unknown kind %q; want gomod or github", pinsFile, name, s.Kind)
@@ -78,6 +86,9 @@ func loadPins() (pins, error) {
 		if len(s.Skills) == 0 {
 			return pins{}, fmt.Errorf("%s: [source.%s] lists no skills", pinsFile, name)
 		}
+	}
+	if p.SyncCommand != "" {
+		syncCmd = p.SyncCommand
 	}
 	return p, nil
 }
@@ -103,6 +114,11 @@ func checkToolPins(out io.Writer) error {
 	misePins, err := miseToolPins()
 	if err != nil {
 		return err
+	}
+	if misePins == nil {
+		// No mise.toml: nothing claims to be the source of truth for a
+		// module version, so there is no disagreement to find.
+		return nil
 	}
 	for _, name := range p.names() {
 		s := p.Source[name]
@@ -143,6 +159,9 @@ func checkToolPins(out io.Writer) error {
 func miseToolPins() (map[string]string, error) {
 	var config struct {
 		Tools map[string]string `toml:"tools"`
+	}
+	if _, err := os.Stat("mise.toml"); os.IsNotExist(err) {
+		return nil, nil
 	}
 	if _, err := toml.DecodeFile("mise.toml", &config); err != nil {
 		return nil, fmt.Errorf("mise.toml: %w", err)

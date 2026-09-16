@@ -3,7 +3,7 @@
 // the pins, and proves that a fresh session can actually load them.
 //
 // What is pinned lives in skills.toml; this package only reads it.
-package skills
+package main
 
 import (
 	"bytes"
@@ -77,7 +77,7 @@ func Check(out io.Writer) error {
 		return err
 	}
 	if diff := diffLocked(have, want); len(diff) > 0 {
-		return fmt.Errorf("%s does not match its pins:\n%sfix with: mise run dev:skills:sync", skillsDir, indent(strings.Join(diff, "\n")+"\n"))
+		return fmt.Errorf("%s does not match its pins:\n%sfix with: "+syncCmd, skillsDir, indent(strings.Join(diff, "\n")+"\n"))
 	}
 	p, err := loadPins()
 	if err != nil {

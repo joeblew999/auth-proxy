@@ -1,4 +1,4 @@
-package skills
+package main
 
 import (
 	"encoding/json"
@@ -35,7 +35,9 @@ func wantSettings(c claudePins) map[string]any {
 		}
 		want["enabledPlugins"] = blocked
 	}
-	if !c.ClaudeAIConnectors {
+	// Only a declared "off" writes anything: the setting is any-source-true,
+	// so a repo can opt out of connectors but cannot turn them back on.
+	if c.ClaudeAIConnectors != nil && !*c.ClaudeAIConnectors {
 		want["disableClaudeAiConnectors"] = true
 	}
 	if c.ApproveMCPServers {
@@ -82,7 +84,7 @@ func checkSettings(c claudePins) error {
 		return err
 	}
 	if diff := diffSettings(have, wantSettings(c)); len(diff) > 0 {
-		return fmt.Errorf("%s does not match [claude] in %s:\n%sfix with: mise run dev:skills:sync",
+		return fmt.Errorf("%s does not match [claude] in %s:\n%sfix with: "+syncCmd,
 			settingsFile, pinsFile, indent(strings.Join(diff, "\n")))
 	}
 	return nil
@@ -120,7 +122,7 @@ func readSettings() (map[string]any, error) {
 	}
 	settings := map[string]any{}
 	if err := json.Unmarshal(data, &settings); err != nil {
-		return nil, fmt.Errorf("%s: %w; fix the JSON, then: mise run dev:skills:sync", settingsFile, err)
+		return nil, fmt.Errorf("%s: %w; fix the JSON, then: "+syncCmd, settingsFile, err)
 	}
 	return settings, nil
 }

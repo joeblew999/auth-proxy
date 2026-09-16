@@ -90,9 +90,10 @@ before committing.
 | `worker.go` | Worker entry point: fetch client, KV token store |
 | `config.go` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `tools/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
-| `cmd/dev` | developer tooling, not shipped. `cmd/dev/main.go` only parses arguments; `cmd/dev/skills` (sync, check, verify, bump, pins, lock, fetch) and `cmd/dev/browser` hold the code. Every mise task that drives it is named after the command (`dev:skills:sync`, `dev:browser`) |
+| `cmd/skillpin` | the skills/plugins/MCP pinner, standalone so any repo can `go install` it and needs only a `skills.toml`. Nothing in it names mise, a task or this repo; `sync_command` in `skills.toml` supplies the fix its errors quote |
+| `cmd/dev` | developer tooling, not shipped. `cmd/dev/main.go` only parses arguments; `cmd/dev/browser` holds the code. Every mise task that drives it is named after the command (`dev:browser`) |
 | `mise-tasks/` | every task as a file: groups are directories (`svc/`, `hello/`, `keys/`, `deps/`, `release/`, `dev/skills/`), top-level scripts sit at the root |
-| `skills.toml` | which skills to vendor: `[source.*]` blocks, gomod or github; the only place a skill or pin is named |
+| `skills.toml` | the single source for the Claude Code session: `[source.*]` blocks (gomod or github) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). The only place a skill, a pin or a plugin is named; `mise run dev:skills:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |
 | `skills/` | the skill this repo's releases ship via packslip |
 | `spikes/hello-world` | separate module: the GUI toolchain spike (`mise run hello:*`); see its README |
 

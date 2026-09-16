@@ -1,4 +1,4 @@
-package skills
+package main
 
 import (
 	"archive/tar"

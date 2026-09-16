@@ -1,4 +1,4 @@
-package skills
+package main
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func Verify(out io.Writer) error {
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("a fresh Claude Code session cannot see: %s\nit answered:\n%scheck the SKILL.md frontmatter, then: mise run dev:skills:sync",
+		return fmt.Errorf("a fresh Claude Code session cannot see: %s\nit answered:\n%scheck the SKILL.md frontmatter, then: "+syncCmd,
 			strings.Join(missing, ", "), indent(string(answer)))
 	}
 	// The session can also see skills this repo does not pin. A plugin one
@@ -56,7 +56,7 @@ func Verify(out io.Writer) error {
 	// version skills.toml does not control, which is how the two drifted
 	// apart before [claude] existed.
 	if shadows := shadowed(seen, want); len(shadows) > 0 {
-		return fmt.Errorf("these also provide a skill pinned in %s:\n%sadd the plugin to blocked_plugins in %s, then: mise run dev:skills:sync",
+		return fmt.Errorf("these also provide a skill pinned in %s:\n%sadd the plugin to blocked_plugins in %s, then: "+syncCmd,
 			skillsDir, indent(strings.Join(shadows, "\n")), pinsFile)
 	}
 
@@ -87,7 +87,7 @@ func shadowed(seen map[string]bool, want []string) []string {
 func lockedSkillNames() ([]string, error) {
 	data, err := os.ReadFile(filepath.Join(skillsDir, lockFile))
 	if err != nil {
-		return nil, fmt.Errorf("%w; run: mise run dev:skills:sync", err)
+		return nil, fmt.Errorf("%w; run: "+syncCmd, err)
 	}
 	var names []string
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {

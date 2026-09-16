@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 #MISE hide=true
-#MISE depends=["build:dev"]
-bin/dev skills check
+#MISE depends=["build:skillpin"]
+bin/skillpin check

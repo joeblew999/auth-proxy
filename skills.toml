@@ -12,6 +12,9 @@
 # gsx/gsxui need no source here: they ship skills in their packslip releases,
 # and mise links them via [settings.skills] auto_sync.
 
+# How this repo runs skillpin, quoted back by every error a sync would fix.
+sync_command = "mise run dev:skills:sync"
+
 [source.cloudflare]
 repo = "cloudflare/skills"
 # No tags or releases upstream, so this is a commit. Move it with bump.

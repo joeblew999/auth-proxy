@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Move github pins in skills.toml to upstream HEAD, showing what would change first"
-#MISE depends=["build:dev"]
+#MISE depends=["build:skillpin"]
 #MISE raw=true
 #USAGE arg "[source]" help="One source, or all github sources when omitted"
-bin/dev skills bump $usage_source
+bin/skillpin bump $usage_source

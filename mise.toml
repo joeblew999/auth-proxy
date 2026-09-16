@@ -106,3 +106,9 @@ run = "go build -o bin/grok-oauth-proxy ."
 [tasks."build:dev"]
 hide = true
 run = "go build -o bin/dev ./cmd/dev"
+
+# skillpin is standalone on purpose: any repo can go install it and needs only
+# a skills.toml, so it must not grow a dependency on anything here.
+[tasks."build:skillpin"]
+hide = true
+run = "go build -o bin/skillpin ./cmd/skillpin"

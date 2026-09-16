@@ -1,4 +1,4 @@
-package skills
+package main
 
 import (
 	"io"
@@ -167,7 +167,51 @@ func TestCheckSettingsCatchesHandEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := checkSettings(claudePins{BlockedPlugins: []string{"a@b"}})
-	if err == nil || !strings.Contains(err.Error(), "dev:skills:sync") {
-		t.Errorf("checkSettings = %v; want an error naming the fix", err)
+	if err == nil || !strings.Contains(err.Error(), syncCmd) {
+		t.Errorf("checkSettings = %v; want an error naming %q as the fix", err, syncCmd)
+	}
+}
+
+// Another repo runs this through its own task runner, so the fix an error
+// names has to come from that repo, not from this one's habits.
+func TestSyncCommandComesFromPins(t *testing.T) {
+	t.Chdir(t.TempDir())
+	defer func(old string) { syncCmd = old }(syncCmd)
+	syncCmd = "skillpin sync"
+	if err := writeFile("skills.toml", "sync_command = \"just skills\"\n[source.a]\nrepo = \"o/r\"\nref = \"abc\"\nskills = [\"z\"]\n"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadPins(); err != nil {
+		t.Fatal(err)
+	}
+	if syncCmd != "just skills" {
+		t.Errorf("syncCmd = %q; want the one skills.toml names", syncCmd)
+	}
+}
+
+// A repo with no mise.toml still has to be able to run check.
+func TestCheckToolPinsSkipsWithoutMise(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := writeFile("skills.toml", "[source.a]\nrepo = \"o/r\"\nref = \"abc\"\nskills = [\"z\"]\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkToolPins(io.Discard); err != nil {
+		t.Errorf("checkToolPins = %v; want it skipped when nothing pins tool versions", err)
+	}
+}
+
+// A repo that never mentions connectors must not have them turned off behind
+// its back, so an absent key writes no setting at all.
+func TestConnectorsUnmanagedWhenUnset(t *testing.T) {
+	if _, ok := wantSettings(claudePins{})["disableClaudeAiConnectors"]; ok {
+		t.Error("an unset claude_ai_connectors disabled them anyway")
+	}
+	off := false
+	if want := wantSettings(claudePins{ClaudeAIConnectors: &off}); want["disableClaudeAiConnectors"] != true {
+		t.Errorf("claude_ai_connectors = false did not disable them: %v", want)
+	}
+	on := true
+	if _, ok := wantSettings(claudePins{ClaudeAIConnectors: &on})["disableClaudeAiConnectors"]; ok {
+		t.Error("claude_ai_connectors = true wrote a setting; it cannot force them on")
 	}
 }

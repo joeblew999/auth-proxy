@@ -1,4 +1,4 @@
-package skills
+package main
 
 import (
 	"bufio"
@@ -81,7 +81,7 @@ func Bump(out io.Writer, sources []string) error {
 	if err := rewriteRefs(pinsFile, p); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "pinned; run: mise run dev:skills:sync\n")
+	fmt.Fprintf(out, "pinned; run: %s\n", syncCmd)
 	return nil
 }
 
