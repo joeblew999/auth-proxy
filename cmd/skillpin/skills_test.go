@@ -215,3 +215,28 @@ func TestConnectorsUnmanagedWhenUnset(t *testing.T) {
 		t.Error("claude_ai_connectors = true wrote a setting; it cannot force them on")
 	}
 }
+
+// A tool that ships its own skill is linked in by mise and is not in the lock,
+// but a plugin twin of it shadows the repo just the same.
+func TestProvidedSkillNamesSeesLinkedSkills(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.MkdirAll(skillsDir+"/vendored", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(t.TempDir(), skillsDir+"/linked"); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFile(skillsDir+"/"+lockFile, "vendored\tsomewhere\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFile(skillsDir+"/.mise-skills.json", "{}"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := providedSkillNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0] != "linked" || got[1] != "vendored" {
+		t.Errorf("providedSkillNames = %v; want both the linked and vendored skills", got)
+	}
+}

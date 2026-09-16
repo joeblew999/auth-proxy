@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 // syncCmd is how this repo spells "run sync", quoted back in every error that
@@ -41,6 +43,7 @@ Run from the repo root. See skills.toml for what is pinned.
 
 func main() {
 	syncCmd = defaultSyncCmd()
+	applySyncCommand()
 	args := os.Args[1:]
 	if len(args) == 0 {
 		fail(args)
@@ -79,6 +82,19 @@ func defaultSyncCmd() string {
 		name = "skillpin"
 	}
 	return name + " sync"
+}
+
+// applySyncCommand takes sync_command from skills.toml before anything runs,
+// so that commands which never load the pins -- verify reads only the lock --
+// still name this repo's own way of running a sync. A broken or missing file
+// is not this function's business; whatever runs next reports it properly.
+func applySyncCommand() {
+	var config struct {
+		SyncCommand string `toml:"sync_command"`
+	}
+	if _, err := toml.DecodeFile(pinsFile, &config); err == nil && config.SyncCommand != "" {
+		syncCmd = config.SyncCommand
+	}
 }
 
 func requireNoArgs(args []string) {

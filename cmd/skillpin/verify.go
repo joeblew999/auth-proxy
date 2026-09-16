@@ -55,7 +55,11 @@ func Verify(out io.Writer) error {
 	// named <plugin>:<pinned name> is a second copy of a pinned skill at a
 	// version skills.toml does not control, which is how the two drifted
 	// apart before [claude] existed.
-	if shadows := shadowed(seen, want); len(shadows) > 0 {
+	provided, err := providedSkillNames()
+	if err != nil {
+		return err
+	}
+	if shadows := shadowed(seen, provided); len(shadows) > 0 {
 		return fmt.Errorf("these also provide a skill pinned in %s:\n%sadd the plugin to blocked_plugins in %s, then: "+syncCmd,
 			skillsDir, indent(strings.Join(shadows, "\n")), pinsFile)
 	}
@@ -65,8 +69,28 @@ func Verify(out io.Writer) error {
 	return nil
 }
 
+// providedSkillNames lists every skill this repo puts in the session, which is
+// more than the lock knows: a tool that ships its own skill is linked in by
+// mise and never appears in skills.toml. A plugin twin of one of those shadows
+// it just as surely, so the check covers the directory, not the lock.
+func providedSkillNames() ([]string, error) {
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") || e.Name() == lockFile {
+			continue
+		}
+		names = append(names, e.Name())
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
 // shadowed returns the namespaced skills the session saw that duplicate a
-// pinned name, as "<plugin>:<skill> shadows <skill>".
+// skill this repo provides, as "<plugin>:<skill> shadows <skill>".
 func shadowed(seen map[string]bool, want []string) []string {
 	pinned := map[string]bool{}
 	for _, name := range want {
@@ -89,9 +113,13 @@ func lockedSkillNames() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w; run: "+syncCmd, err)
 	}
+	// The lock has a row per skill and a row per file within it. Only the
+	// skills are names a session can report, so anything with a slash is a
+	// file row: asking a session to list cloudflare/references/kv/api.md as a
+	// skill fails every time.
 	var names []string
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
-		if name, _, ok := strings.Cut(line, "\t"); ok {
+		if name, _, ok := strings.Cut(line, "\t"); ok && !strings.Contains(name, "/") {
 			names = append(names, name)
 		}
 	}
