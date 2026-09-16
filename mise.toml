@@ -25,8 +25,10 @@ pitchfork = "latest"
 # 4.97's local runtime rejects wrangler.toml's compatibility_date.
 "npm:wrangler" = "4.131.1"
 
-# Go tools. Inside cmd/gui, builds use go.mod's tool pin
-# (go tool gsx); the fork tracks upstream, so the versions agree.
+# Go tools. Note that cmd/gui builds with its own go.mod tool pin (go tool gsx,
+# upstream gsxhq/gsx v0.1.1), not the packslip gsx above, whose 0.1.2 is that
+# same code plus release wiring. Nothing checks they stay the same code; see
+# .plan/local-and-browser-ai.md, A2 "still open".
 "go:github.com/ardanlabs/kronk/cmd/kronk" = "1.32.6"   # local models on 127.0.0.1:11435
 "go:github.com/oligot/go-mod-upgrade" = "latest"   # see: mise run deps:list
 

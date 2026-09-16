@@ -136,4 +136,10 @@ mise run test     # lint, wasm vet, all tests, skills + spike checks
 mise run bench    # both Worker builds in local workerd against the mock
 ```
 
+The Claude Code session here is pinned too: `session.toml` and `mise.toml` name
+every skill, `.claude/skills/SESSION.lock` lists every skill a session may have,
+and `mise run dev:session:verify` (run at pre-push) fails on anything else. One
+thing no repo file can block: skills synced from claude.ai reach every session
+whatever the project settings say. verify can only notice them and name them.
+
 The code layout and the rules that keep it simple are in [AGENTS.md](AGENTS.md).

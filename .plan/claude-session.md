@@ -4,7 +4,9 @@
 `mise run test`, `verify` and the MCP health check at pre-push, and the hooks
 themselves installed by `mise install`. Items 1-3 turned out to be impossible
 and are struck out below. Item 9 is the only thing left and it needs a yes.
-2026-09-16**
+2026-09-16. Re-checked at `d7e3136` the same day: every check still passes,
+item 9 is still open, and criteria B, F and G below were brought in line with
+what dropping items 1-3 means.**
 
 ## The question
 
@@ -72,7 +74,7 @@ sentence in a chat window, is not done.
 | 6 ✅ | `mise install` installs the git hooks (`hk install` in `[hooks] postinstall`) | hk registers hooks in `.git/config` (`hook.hk-pre-commit.command`), not `.git/hooks/`, and `.git/config` is per-clone and never committed. So the hook works here but exists on no fresh clone until something installs it, and nothing did. **Note:** an earlier draft of this plan claimed AGENTS.md was wrong to say a pre-commit hook runs. AGENTS.md was right; the check looked in `.git/hooks/` | `git clone` to a temp dir, `mise install`, then `git config --get-regexp '^hook\.'` returns the hk entries |
 | 7 ✅ | Add a **pre-push-only** step running `verify` | `hk run pre-push --plan` says *Hook 'pre-push' not found*: `hk.pkl` is a flat `steps = linters`, which hk maps to pre-commit/check/fix only. Bind the step to pre-push alone — `hk run check` is what the Stop hook runs, and a step leaking into it makes every agent turn ~7s and login-gated. Use the `hk-configure` skill | Unblock a plugin, confirm the push is refused and `hk run check --plan` does not list the step |
 | 8 ✅ | `dev:mcp` task failing on any declared server that does not connect | Nothing noticed four servers shipped at "Needs authentication" | Declare a bad server, confirm it fails |
-| 9 | Ship sessionpin as a packslip release in its own repo, pinned under `[tools]`; `cmd/rel` moves in the same pass | Adoption becomes one `[tools]` line, the same path as fnox, hk, gsx and gsxui, carrying its own skill. Doing `rel` separately pays the repo-creation and wiring cost twice | Both consumed as tool pins; neither directory left here |
+| 9 | Ship sessionpin as a packslip release in its own repo, pinned under `[tools]`; `cmd/dev/rel` moves in the same pass | Adoption becomes one `[tools]` line, the same path as fnox, hk, gsx and gsxui, carrying its own skill. Doing `rel` separately pays the repo-creation and wiring cost twice | Both consumed as tool pins; neither directory left here |
 
 4-8 are done and committed in `a2665ab`. Each was proved by breaking what it
 guards: unblocking `cloudflare@cloudflare` makes pre-push refuse the push and
@@ -85,12 +87,15 @@ Only item 9 is left.
 Item 9 creates repos and needs the owner's yes first. Nothing else does — that
 was the point of not mirroring upstreams.
 
-**AGENTS.md changes with items 1, 3, 6 and 9**, and is not done until it does.
-It currently calls `session.toml` "the single source for the Claude Code session"
-and `cmd/sessionpin` "standalone ... Nothing in it names mise" — both become false,
-and both are the opposite of what this plan concludes. It also already claims a
-pre-commit hook runs. An instruction file that describes an older design is
-worse than none, because every agent reads it first.
+**AGENTS.md is in step again.** It used to call `session.toml` "the single
+source for the Claude Code session" and `cmd/sessionpin` "standalone ... Nothing
+in it names mise", the opposite of what this plan concluded. Since `c762bd6` its
+`session.toml` + `cmd/dev/sessionpin` row says what the file pins and what
+`dev:session:sync` generates, its `SESSION.lock` row names the pre-push check
+and the claude.ai gap, and the hk section names the pre-commit hook. Item 9
+changes it once more, and is not done until it does. An instruction file that
+describes an older design is worse than none, because every agent reads it
+first.
 
 ## Done means
 
@@ -99,12 +104,12 @@ Not "the code is written" — each is a thing someone can run and watch.
 | | Done when | How it is shown |
 |---|---|---|
 | A | `mise install` on a fresh clone leaves nothing else to do | `git clone` to a temp dir, `mise install`, and with no second command: skills linked, settings generated, `.git/hooks` populated, MCP approved, and a session there reports the same skills as this repo, name for name |
-| B | `mise.toml` is the only place anything is declared | No `session.toml`. Grep for a second file naming a skill, a pin or a plugin and find none. The fetcher may stay; a second declaration may not |
+| B | Each thing is declared in exactly one place | Tools and packslip skills in `mise.toml`; vendored sources and the `[claude]` settings in `session.toml`; MCP servers in `.mcp.json`. The first wording, "no `session.toml`", died with items 1-3: mise cannot carry the declaration, so `session.toml` is sessionpin's config the way `hk.pkl` is hk's. What may not exist is a second file naming the same skill, pin or plugin, and grep finds none |
 | C | No check depends on anyone remembering | `check` in `mise run test`; `verify` and the MCP check in pre-push; the hooks themselves installed by `mise install` |
 | D | Every check has been seen to fail | For each: break the thing it guards, run it, keep the failing output in this file. A check only watched passing is not evidence |
 | E | A committed file holds nothing personal | No absolute path, no account id, no server needing a login only one developer has. `checkPortablePaths` covers the first; item 8 covers the third |
-| F | The gap is written down, not implied | claude.ai-synced skills cannot be blocked by any repo file. The README and this plan say so plainly, and `verify` reports them |
-| G | AGENTS.md describes what is actually true | Its `session.toml`, `cmd/sessionpin` and hk rows match the code |
+| F | The gap is written down, not implied | claude.ai-synced skills cannot be blocked by any repo file. This plan, the README's Development section, AGENTS.md's `SESSION.lock` row and the header of `SESSION.lock` say so, and `verify` reports them |
+| G | AGENTS.md describes what is actually true | Its `session.toml`, `cmd/dev/sessionpin`, `SESSION.lock` and hk rows match the code. Met since `c762bd6`; item 9 reopens it |
 
 ## What is already done
 
@@ -112,11 +117,16 @@ Not "the code is written" — each is a thing someone can run and watch.
 |---|---|---|
 | `95214f0` | `session.toml` gains `[claude]`; sync generates the `.claude/settings.json` keys, check fails on drift | **The generation survives, the file does not** — item 3 rehouses it |
 | `f46ba84` | Pinner split out as `cmd/sessionpin`, standalone; proved in a directory holding only a `session.toml` | **Partly.** Being installable is right; being *mise-agnostic* solved the wrong problem. Item 9 makes it a packslip tool instead |
+| `2ce6eaa`, `08037ca`, `82cbb12`, `81336ee` | A **PreToolUse hook**, `.claude/hooks/skill-gate`, loads the skills that cover a file before any tool changes it: `.gsx` gets gsx and gsxui, `.pkl` gets hk-configure. A Bash command counts only when it is shaped like a write, so reads and commit messages load nothing. `dev:hooks:check` in `mise run test` runs its 27-case matrix | **Yes.** Same shape as the Stop hook: the harness enforces it, not an agent's memory |
+| `c762bd6` | Root holds no Go: `cmd/server`, `cmd/worker`, `cmd/gui`, and sessionpin and rel folded into `cmd/dev` as the `session` and `release` subcommands | **Yes.** Item 9 moves those two out again, as a tool |
+| `d7e3136` | `SESSION.lock` re-recorded; `--update` passes through the verify task | **Yes** |
 | `6ac4381` | `verify` fixed — it had never worked, reading every row of `SKILLS.lock` including the file rows | **Yes**, and items 4-5 build on it |
 | `d17cbda` | Machine paths out of both committed Claude files; `.mcp.json` cut to servers that connect without a personal login | **Yes** |
 
 Result today, from a fresh session: 25 skills — the repo's 8 and Claude Code's
 17 built-ins. Before: 36, including 11 from a plugin nothing here controlled.
+Re-recorded 2026-09-16 in `d7e3136`: 21, the same 8 from the repo and 13
+built-ins, as `SESSION.lock` lists them.
 
 ## The failing output, kept
 
@@ -189,6 +199,11 @@ hook.hk-pre-push.event pre-push
   it cheap. It is why `check` is the fast file-to-file comparison and why
   `verify`, needing a Claude Code login and ~7s, belongs at push time. Do not
   move login-gated or network work into it.
+- There is also a **PreToolUse hook**, `.claude/hooks/skill-gate`, on
+  `Write|Edit|Bash`. Keep it silent on reads: a `.gsx` mention costs 6KB of
+  context, and the first Bash version fired on `cat`, `grep` and commit
+  messages. Every write shape and every read that must stay quiet is a case in
+  `skill-gate.test`; add one with any change.
 - Two regressions went in during this work and no check caught either:
   committed machine paths (`/opt/homebrew/bin/mise`), and four MCP servers
   needing a login nobody had. The owner caught both by reading the diff. The

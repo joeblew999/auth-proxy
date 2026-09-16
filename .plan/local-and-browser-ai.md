@@ -1,6 +1,9 @@
 # Plan: one app for remote, local and browser AI
 
-**Status: PROPOSED, facts checked 2026-09-15, awaiting the decisions in §7.**
+**Status: PROPOSED, facts checked 2026-09-15, awaiting the decisions in §7.
+Re-checked 2026-09-16: A1 and A2 done, A3 and A4 untouched, nothing of Stage B
+or C started. Names below follow the move to `cmd/` and `dev:session:*`
+(`c762bd6`); the dated results keep the names they had.**
 Replaces an earlier draft that split the proxy and the GUI into two repos over
 tooling differences. Both are Go compiled to wasm on Cloudflare through
 workers-go, so they are one app.
@@ -169,10 +172,13 @@ Checked 2026-09-15.
   with `targetAddressSpace: "local"`; it is exempt from mixed-content blocking.
   Whether kronk sends CORS headers is unverified, and the native binary can add
   them if it does not.
-- **gsx** v0.1.1 and **gsxui** (no releases; pin a commit): `go install` only, so
-  mise's `go:` backend. gsx ships `skills/gsx/SKILL.md` and
-  `skills/templ-to-gsx-migration/SKILL.md`. gsxui ships no skills, and its CLI
-  (`gsxui add`) is how components get into the repo.
+- **gsx** and **gsxui**: upstream (gsxhq) has gsx v0.1.1 and no gsxui releases,
+  both `go install` only; gsx ships `skills/gsx/SKILL.md` and
+  `skills/templ-to-gsx-migration/SKILL.md`, gsxui ships none. Since 2026-09-16
+  this repo pins the owner's forks as packslip releases instead
+  (`packslip:github.com/joeblew999/gsx` 0.1.2, `.../gsxui` 0.1.0), which carry
+  the `gsx` and `gsxui` skills so mise links them at the tool's version. gsxui's
+  CLI (`gsxui add`) is how components get into the repo.
 - **Claude Code skills** load from `.claude/skills/<name>/SKILL.md` in the repo. A
   skills directory created during a session appears only after a restart.
 - **workers-go** v0.35.0 cannot define Durable Objects in Go (only unmerged
@@ -202,7 +208,7 @@ One module, this repo. The app outgrows the name `grok-oauth-proxy`; see §7.
 | `internal/chat` + `views/` | chat pages, send and stream handlers, gsx components from `gsxui add` | all three |
 | `worker/index.mjs`, `worker/room.mjs` | wrangler entry and the room Durable Object (JS until PR #219) | Worker |
 | `web/sw.js`, `web/engine.js` | loaders only: start the TinyGo Service Worker and the yzma Web Worker | browser |
-| `main.go`, `worker.go`, `cmd/sw/` | entry points: native, Cloudflare, Service Worker | one each |
+| `cmd/server`, `cmd/worker`, `cmd/sw/` | entry points: native, Cloudflare, Service Worker | one each |
 
 **One deploy:** `mise run deploy` builds the Go Worker and the TinyGo Service
 Worker, then runs `wrangler deploy`. Static Assets hold the gsxui CSS, the Service
@@ -218,9 +224,11 @@ is a task or a hook, never a README instruction. CI proves it on a fresh machine
 
 ### 5.1 No personal values in the repo
 
-Checked 2026-09-15: the repo currently hard-codes the owner's account ID and KV
-namespace ID in `wrangler.toml` and the owner's `*.gedw99.workers.dev` URLs in
-`mise.toml`. All of that goes.
+Checked 2026-09-15, and still so on 2026-09-16: the repo hard-codes the owner's
+account ID and KV namespace ID in `wrangler.toml` (`account_id`, and the
+`GROK_AUTH` id twice, once per environment) and the owner's
+`*.gedw99.workers.dev` URLs in `mise.toml` (`PROXY_URL`, `PROXY_URL_TINYGO`).
+AGENTS.md forbids all of it, and all of it goes.
 
 | Value | From now on |
 |---|---|
@@ -237,34 +245,46 @@ loaded. So **every skill this project relies on lives in the repo**, pinned, and
 proven to load. Nothing comes from a global or plugin install on someone's
 machine.
 
-| Skills | Source, pinned | Checked 2026-09-15 |
+| Skills | Source, pinned | State on 2026-09-16 |
 |---|---|---|
-| `gsx`, `templ-to-gsx-migration` | `skills/` in github.com/gsxhq/gsx at go.mod's gsx version | the only skills in the gsxhq org; gsxui, gsxhq/vite and vite-plugin-gsx ship none |
-| `wrangler`, `durable-objects`, `workers-best-practices` (and others as needed) | `skills/` in github.com/cloudflare/skills at a pinned commit | today they reach this machine only through a global plugin install last updated 2026-03-26, which is stale and not in the repo |
+| `gsx`, `gsxui` | the packslip releases of the `joeblew999/gsx` and `joeblew999/gsxui` forks, pinned under `[tools]` in `mise.toml`; mise links each skill at the tool's version (`[settings.skills] auto_sync`) | linked. Upstream gsx also ships `templ-to-gsx-migration`; the fork's release does not, and nothing here needs it |
+| `hk-configure`, `hk-debug` | hk's packslip release, the same way | linked |
+| `wrangler`, `durable-objects`, `workers-best-practices`, `cloudflare` | `skills/` in github.com/cloudflare/skills at the commit in `session.toml`, vendored into `.claude/skills` with every file hashed in `SKILLS.lock` | vendored. cloudflare/skills has no releases, which is the one reason `session.toml` exists; `.plan/claude-session.md` has the whole story. On 2026-09-15 they reached this machine only through a stale global plugin, which the generated settings now block |
 
-1. **`skills:sync`, run by a mise `postinstall` hook,** copies exactly those skills
-   at their pinned versions into `.claude/skills/`, and the result is committed.
-   **Never global.** When it adds or changes a skill, the task itself tells the
-   developer to restart Claude Code, so no one has to remember it.
-2. **`skills:verify` proves they load:** it runs a fresh headless Claude Code
-   session (`claude -p`) in the repo, asks which skills are available, and fails
-   unless every pinned skill is listed. `mise run test` runs it; CI runs the
-   file-level check (skills present and matching their pins), since CI has no
-   Claude login.
+1. **`dev:session:sync`, run by `mise install`** (its `postinstall` hook runs
+   `dev:bootstrap`: sync, then `hk install`), vendors the cloudflare skills at
+   their pinned commit into `.claude/skills/` and generates the
+   `.claude/settings.json` keys; mise links the packslip skills itself. The
+   result is committed. **Never global.** When it adds or changes a skill, the
+   task itself tells the developer to restart Claude Code, so no one has to
+   remember it.
+2. **`dev:session:verify` proves they load:** it runs a fresh headless Claude
+   Code session (`claude -p`) in the repo and holds what it reports against
+   `SESSION.lock`, failing on anything missing or anything extra. It needs a
+   login and ~7s, so it is bound to **pre-push**. `mise run test` runs the cheap
+   file-level `dev:session:check` (skills present and matching their pins,
+   settings matching `session.toml`), which is also all CI could run.
 3. **Enforced by tests:** `mise run test` fails when `.claude/skills/` differs from
-   the pins, when `.gsx` files are unformatted, or when generated `*.x.go` files
-   are stale.
-4. **Enforced for AI agents:** a committed `.claude/settings.json` hook blocks edits
-   to generated `*.x.go` files. CLAUDE.md requires invoking the gsx skill before
-   touching `.gsx`, and the Cloudflare skills before touching wrangler config or
-   Durable Objects.
+   the pins or when `.gsx` files are unformatted. Generated `*.x.go` files are
+   gitignored and regenerated by `hello:build`, so there is no stale copy to
+   check for.
+4. **Enforced for AI agents:** a committed PreToolUse hook,
+   `.claude/hooks/skill-gate`, loads the skills that cover a file before any
+   tool changes it: `.gsx` gets gsx and gsxui, `.pkl` gets hk-configure,
+   `wrangler.toml` (or `.json`, `.jsonc`) gets wrangler, and a Bash command
+   counts only when it is shaped like a write. `dev:hooks:check` in
+   `mise run test` runs its case matrix. Durable Object files get nothing yet,
+   because none exist; map them when B4 creates one. The `*.x.go` edit block
+   from the first draft was never built, and with the files gitignored and
+   regenerated on every build there is nothing for it to protect.
 5. **GUI rules** in AGENTS.md follow gsxui's own site and gsx's test corpus
    (`internal/corpus/testdata`), which the gsx skill names as the canonical
    reference: components only via `gsxui add`, compositions copied from gsxui's
    site, never invented.
-6. **Done 2026-09-16.** All six skills are in `.claude/skills`, synced by
-   `bin/dev skills sync` and proven to load by `skills:verify`. The picker written
-   without them was replaced (A2 result below).
+6. **Done 2026-09-16.** Eight skills are in `.claude/skills`, four vendored and
+   four linked from packslip tools, synced by `mise install` and proven to load
+   by `dev:session:verify`. The picker written without them was replaced (A2
+   result below).
 
 ### 5.3 Proven on a clean machine
 
@@ -295,9 +315,9 @@ successful install.
 
 #### A1 result, 2026-09-15: done and validated
 
-Stages A and B are built in **`spikes/hello-world/`**, a separate Go module in
-this repo (the root module and its tests are untouched). Stage C folds it into
-the root app.
+Stages A and B are built in **`cmd/gui/`** (`spikes/hello-world/` until
+`c762bd6`), a separate Go module in this repo (the root module and its tests
+are untouched). Stage C folds it into the root app.
 
 - **Scaffolded the documented way:** `gsx init hello-world --module … --yes` (Vite
   starter with `@gsxhq/vite-plugin-gsx` and the `github.com/gsxhq/vite` Go module),
@@ -310,7 +330,8 @@ the root app.
   `-target wasm` build).
 - **Tools pinned in mise:** gsx CLI v0.1.1 (same version as the spike's go.mod
   tool), gsxui `5d973c7`, kronk 1.32.6. Standalone Tailwind was removed: gsxui's
-  documented path is Vite.
+  documented path is Vite. (gsx and gsxui have since moved to packslip releases
+  of the owner's forks; see A2's re-check.)
 - **Fixed on the way, not skipped:**
   - `gsx init` writes `go 1.26.0`; aligned to the repo's Go 1.27.
   - npm 11 blocks install scripts by default: `esbuild` (needed by Vite) and
@@ -339,7 +360,11 @@ the root app.
   `mise run skills:verify` (a headless `claude -p` session lists all six). The
   tooling is Go (`cmd/dev`) with tests, after the shell version mis-parsed `ps`
   output twice. `skills:check` warns when a Claude Code session predates the
-  skills, since a session only reads them at startup.
+  skills, since a session only reads them at startup. Since then: the tasks
+  are `dev:session:sync|check|verify`; gsx and gsxui come from packslip
+  releases carrying their own skills, so `templ-to-gsx-migration` went and
+  `gsxui`, `hk-configure` and `hk-debug` arrived; and `verify` holds the whole
+  session against `SESSION.lock`. `.plan/claude-session.md` has that work.
 - **The picker was rebuilt** with the gsx skill loaded and gsxui's own site as
   the pattern source. What changed, beyond looks:
   - **A mode now owns its models** (`Mode.Models`), instead of the model list
@@ -363,8 +388,9 @@ the root app.
   - **The page buffers its render.** The gsx scaffold renders straight to the
     `ResponseWriter`, so a failure part way through logged "superfluous
     WriteHeader" and served half a page.
-- **`mise run hello:browser`** is the new check: `bin/dev browser` serves the app
-  on a free port, starts a headless Chrome, and a probe drives it over the
+- **`mise run dev:browser`** (`hello:browser` when it landed) is the new check:
+  `bin/dev browser` serves the app on a free port, starts a headless Chrome, and
+  a probe drives it over the
   DevTools protocol (Node's built-in WebSocket, no dependency). It proves the
   thing curl cannot: clicking a mode really swaps to that mode's models, one
   panel at a time, and the Vite-bundled JS runs with no console errors. It is
@@ -376,10 +402,23 @@ the root app.
   components are **1,277 KB raw / 386 KB gzip**. Of that, only 75 KB raw / 19 KB
   gzip is the vendored 1,748-icon Lucide set; the rest is the TinyGo runtime plus
   gsx. That is the floor for B5's Service Worker.
-- **Still open:** nothing keeps the mise gsx pin and the spike's `go.mod` tool pin
-  in step (both v0.1.1 today). A3 (no personal values) and A4 (CI) are untouched.
+- **Still open, re-checked 2026-09-16:**
+  - The mise gsx pin and `cmd/gui/go.mod`'s tool pin are two numbers for one
+    code: the packslip fork's 0.1.2 is upstream gsxhq/gsx v0.1.1 plus release
+    wiring only (compared 2026-09-16: `.goreleaser.yml`, the release workflow,
+    `mise.toml`, one doc), and its module path is still `github.com/gsxhq/gsx`.
+    `hello:*` builds with `go tool gsx`, so the packslip binary is only what
+    mise links the skill from. Nothing checks the two stay the same code. The
+    one-pin fix is a `replace github.com/gsxhq/gsx => github.com/joeblew999/gsx`
+    in `cmd/gui/go.mod` held to the mise pin by `deps:*`, or dropping the fork
+    once upstream ships a packslip. Owner's call.
+  - A3 (no personal values): untouched, see §5.1.
+  - A4 (CI on a clean runner): untouched. The only workflow is the tag-triggered
+    release; nothing runs `mise install` + `mise run test` on push.
 
 ### Stage B: hello world round trip in every topology
+
+**Not started as of 2026-09-16.**
 
 The smallest possible "click → request → Go handler → gsx fragment → swapped into
 the page", once per topology the design needs, before anything real is built. A
@@ -398,6 +437,8 @@ topology that cannot round-trip changes the design before code depends on it.
 
 ### Stage B2: spikes (depth, after the round trips work)
 
+**Not started as of 2026-09-16.**
+
 | # | Spike | Done when |
 |---|---|---|
 | S1 | **Service Worker handler at full size**: the real chat handler and gsxui page in TinyGo | size and startup measured; otherwise fall back to a small JS adapter |
@@ -405,6 +446,9 @@ topology that cannot round-trip changes the design before code depends on it.
 | S3 | **Local Network Access in practice**: prompt wording, denial, CORS | the local mode's picker states and actions are proven |
 
 ### Stage C: build
+
+**Not started as of 2026-09-16.** `providers.toml` has no `runtime` key, and no
+`internal/engine` or `internal/chat` exists.
 
 | # | Phase | Done when |
 |---|---|---|
