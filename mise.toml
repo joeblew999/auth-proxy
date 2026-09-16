@@ -203,14 +203,21 @@ dir = "spikes/hello-world"
 raw = true
 run = "bin/hello-world"
 
+[tasks."hello:browser"]
+description = "Drive spikes/hello-world in a headless Chrome: does picking a mode really swap to that mode's models"
+depends = ["hello:build", "build:dev"]
+run = "bin/dev browser spikes/hello-world/bin/hello-world spikes/hello-world/tools/browser-check.mjs '/?mode=remote'"
+
 [tasks."hello:check"]
-description = "Check spikes/hello-world: build, gsx formatting, go vet, and a TinyGo wasm build of the components"
+description = "Check spikes/hello-world: build, gsx formatting, go vet, a TinyGo wasm build, and the browser round trip"
 depends = ["hello:build"]
 dir = "spikes/hello-world"
 run = [
   'test -z "$(go tool gsx fmt -l .)" || { go tool gsx fmt -l .; echo "unformatted .gsx; fix with: go tool gsx fmt -w ."; exit 1; }',
   "go vet ./...",
+  "go test ./...",
   "tinygo build -o /dev/null -target wasm ./cmd/tinygo-render",
+  "mise run hello:browser",
 ]
 
 [tasks.build]

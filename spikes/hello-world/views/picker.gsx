@@ -1,83 +1,150 @@
+// Package views holds the spike's pages. The picker is the one that matters:
+// it is the project's routing rule made visible.
 package views
 
 import (
+	"github.com/gsxhq/gsx"
+
 	"github.com/joeblew999/grok-oauth-proxy/spikes/hello-world/ui"
+	"github.com/joeblew999/grok-oauth-proxy/spikes/hello-world/ui/icon"
 )
 
-// Mode is where models run: remote, local or in the browser.
+// One routing rule decides everything: a model ID carries a provider prefix,
+// the prefix names the provider, and the provider says where the model runs.
+// So a Mode owns its models rather than sitting beside them — picking a mode
+// narrows the list, and picking a model yields a full, routable ID.
 type Mode struct {
-	ID        string
-	Label     string
-	Blurb     string
-	Available bool
-	Action    string // shown when not available
+	ID     string // the tab's value, and the runtime: remote, local, browser
+	Label  string
+	Blurb  string
+	Icon   func(...gsx.Attr) gsx.Node
+	Ready  bool // false when this runtime cannot serve anything yet
+	Fix    Fix  // read only when Ready is false
+	Models []Model
 }
 
-// Model is one model within a mode.
+// Fix names what is wrong and the one command that fixes it, the same contract
+// the proxy's own errors keep.
+type Fix struct {
+	Problem string
+	Detail  string
+	Command string
+}
+
+// State is how usable one model is right now.
+type State string
+
+const (
+	Ready       State = "ready"       // usable immediately
+	Downloading State = "downloading" // arriving on this device
+	Absent      State = "absent"      // one action away; Action says which
+)
+
 type Model struct {
-	ID       string
-	Ready    bool
-	Status   string
-	Progress float64 // download percent for in-browser models; 0 when not downloading
+	ID       string // full and routable, prefix included: xai/grok-4.3
+	Detail   string
+	State    State
+	Progress float64 // percent, read only while Downloading
+	Action   string  // what the button offers while Absent
+	InUse    bool    // requests go here today
 }
 
-// ModePicker shows the three modes; the selected one is resolved by the caller.
-component ModePicker(modes []Mode, current string) {
-	<ui.Tabs value={current}>
-		<ui.TabsList>
-			{ for _, m := range modes {
-				<ui.TabsTrigger value={m.ID} selected={m.ID == current}>{ m.Label }</ui.TabsTrigger>
+// Picker asks for the mode first, then that mode's models. Every mode's panel
+// is rendered, so ui/tabs/tabs.js switches modes in the browser with no round
+// trip; current only decides which panel is open at first paint.
+component Picker(modes []Mode, current string) {
+	<ui.Tabs value={current} class="w-full">
+		<ui.TabsList class="w-full">
+			{ for _, mode := range modes {
+				<ui.TabsTrigger value={mode.ID} selected={mode.ID == current}>
+					{ mode.Icon() }
+					{ mode.Label }
+				</ui.TabsTrigger>
 			} }
 		</ui.TabsList>
-		{ for _, m := range modes {
-			<ui.TabsContent value={m.ID} selected={m.ID == current}>
-				<p>{ m.Blurb }</p>
-				{ if !m.Available {
-					<ui.Badge variant="destructive">{ m.Action }</ui.Badge>
+		{/* Without JavaScript the triggers above are inert buttons, so offer
+		   the same choice as plain links. Nothing is lost: the picker's state
+		   is in the URL either way. */}
+		<noscript>
+			<div class="flex flex-wrap gap-2 pt-2">
+				{ for _, mode := range modes {
+					<ui.Button href={ModeURL(modes, mode.ID)} variant="outline" size="sm">{ mode.Label }</ui.Button>
 				} }
+			</div>
+		</noscript>
+		{ for _, mode := range modes {
+			<ui.TabsContent value={mode.ID} selected={mode.ID == current}>
+				<ModePanel mode={mode}/>
 			</ui.TabsContent>
 		} }
 	</ui.Tabs>
 }
 
-// ModelList shows only the current mode's models, each with its status.
-component ModelList(models []Model) {
-	<ui.ItemGroup>
-		{ for _, m := range models {
-			<ui.Item variant="outline">
-				<ui.ItemContent>
-					<ui.ItemTitle>{ m.ID }</ui.ItemTitle>
-					<ui.ItemDescription>{ m.Status }</ui.ItemDescription>
-					{ if m.Progress > 0 {
-						<ui.Progress value={m.Progress}/>
-					} }
-				</ui.ItemContent>
-				<ui.ItemActions>
-					{ if m.Ready {
-						<ui.Badge>ready</ui.Badge>
-					} else {
-						<ui.Button size="sm" variant="outline">{ m.Status }</ui.Button>
-					} }
-				</ui.ItemActions>
-			</ui.Item>
+// ModePanel is one mode's body: what the mode costs you, then either its
+// models or the single thing that would make the mode work.
+component ModePanel(mode Mode) {
+	<div class="flex flex-col gap-4 pt-4">
+		<p class="text-muted-foreground">{ mode.Blurb }</p>
+		{ if mode.Ready {
+			<ui.ItemGroup>
+				{ for _, model := range mode.Models {
+					<ModelRow mode={mode.ID} model={model}/>
+				} }
+			</ui.ItemGroup>
+		} else {
+			<ui.Empty>
+				<ui.EmptyHeader>
+					<ui.EmptyMedia variant="icon">
+						<icon.TriangleAlert/>
+					</ui.EmptyMedia>
+					<ui.EmptyTitle>{ mode.Fix.Problem }</ui.EmptyTitle>
+					<ui.EmptyDescription>{ mode.Fix.Detail }</ui.EmptyDescription>
+				</ui.EmptyHeader>
+				<ui.EmptyContent>
+					{/* An inline command, styled the way gsxui's own site styles one. */}
+					<code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">{ mode.Fix.Command }</code>
+				</ui.EmptyContent>
+			</ui.Empty>
 		} }
-	</ui.ItemGroup>
+	</div>
 }
 
-// DemoModes and DemoModels are sample data for validating the toolchain.
-var DemoModes = []Mode{
-	{ID: "remote", Label: "Remote", Blurb: "Runs at the provider and costs credits.", Available: true},
-	{ID: "local", Label: "Local", Blurb: "Runs on your machine.", Action: "Start kronk"},
-	{ID: "browser", Label: "In browser", Blurb: "Private; runs on this device.", Available: true},
-}
-
-var DemoModels = []Model{
-	{ID: "browser/Qwen3-0.6B", Ready: true, Status: "downloaded"},
-	{ID: "browser/Llama-3.2-1B", Status: "Download 770 MB", Progress: 42},
-}
-
-// Picker is the mode picker followed by that mode's models.
-component Picker(modes []Mode, current string, models []Model) {
-	<ModePicker modes={modes} current={current}/>
-	<ModelList models={models}/>
+// ModelRow is one model: what it is on the left, where it stands on the right.
+component ModelRow(mode string, model Model) {
+	<ui.Item variant="outline">
+		<ui.ItemMedia variant="icon">
+			{ switch model.State {
+			case Downloading:
+				<ui.Spinner/>
+			case Absent:
+				<icon.Download/>
+			default:
+				<icon.CircleCheck/>
+			} }
+		</ui.ItemMedia>
+		<ui.ItemContent>
+			<ui.ItemTitle>{ model.ID }</ui.ItemTitle>
+			<ui.ItemDescription>{ model.Detail }</ui.ItemDescription>
+			{ if model.State == Downloading {
+				<ui.Progress value={model.Progress} class="mt-2"/>
+			} }
+		</ui.ItemContent>
+		<ui.ItemActions>
+			{ if model.InUse {
+				<ui.Badge>in use</ui.Badge>
+			} else {
+				{ switch model.State {
+				case Downloading:
+					<ui.Badge variant="secondary">{ model.Percent() }</ui.Badge>
+				case Absent:
+					<ui.Button size="sm" variant="outline">
+						<icon.Download/>
+						{ model.Action }
+					</ui.Button>
+				default:
+					<ui.Button href={UseURL(mode, model.ID)} size="sm" variant="outline">Use</ui.Button>
+				} }
+			} }
+		</ui.ItemActions>
+	</ui.Item>
 }

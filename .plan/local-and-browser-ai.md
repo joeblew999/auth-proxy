@@ -113,9 +113,10 @@ disagree. Underneath it is still one routing rule: the mode is the provider's
 - **Every message is labelled** with its mode and model, so a shared room shows that
   one person asked a remote model and another a model in their browser.
 - **Each user picks their own mode and model** in a shared room.
-- **Built from gsxui components** added with `gsxui add` (for example tabs or a
-  toggle group for the mode, and item, badge, dialog and progress for models),
-  never hand-written. The component set is decided in C2 with the gsx skill loaded.
+- **Built from gsxui components** added with `gsxui add`, never hand-written.
+  Proven in the spike (A2 result): `tabs` for the mode, `item` + `badge` +
+  `progress` + `spinner` + `icon` for the models, and `empty` for a mode that
+  cannot be used, carrying the command that fixes it.
 
 ### Two engines, not three
 
@@ -261,9 +262,9 @@ machine.
    (`internal/corpus/testdata`), which the gsx skill names as the canonical
    reference: components only via `gsxui add`, compositions copied from gsxui's
    site, never invented.
-6. **The spike's current picker is removed.** It was written without the gsx skill
-   loaded or gsxui's patterns, so it proved only that the toolchain compiles. GUI
-   work in the spike restarts after `skills:verify` passes.
+6. **Done 2026-09-16.** All six skills are in `.claude/skills`, synced by
+   `bin/dev skills sync` and proven to load by `skills:verify`. The picker written
+   without them was replaced (A2 result below).
 
 ### 5.3 Proven on a clean machine
 
@@ -328,6 +329,55 @@ the root app.
 - **Still open, moved to A2:** nothing yet keeps the mise gsx pin and the spike's
   go.mod tool pin in step, and no skills are installed. The picker was written
   without the gsx skill loaded and is to be removed (§5.2).
+
+#### A2 result, 2026-09-16: skills load, and the picker was rebuilt with them
+
+- **Skills** (§5.2): six of them (`gsx`, `templ-to-gsx-migration`, `cloudflare`,
+  `wrangler`, `durable-objects`, `workers-best-practices`) are in
+  `.claude/skills`, pinned in `SKILLS.lock`, synced by the mise `postinstall`
+  hook, drift-checked by `mise run test`, and proven loadable by
+  `mise run skills:verify` (a headless `claude -p` session lists all six). The
+  tooling is Go (`cmd/dev`) with tests, after the shell version mis-parsed `ps`
+  output twice. `skills:check` warns when a Claude Code session predates the
+  skills, since a session only reads them at startup.
+- **The picker was rebuilt** with the gsx skill loaded and gsxui's own site as
+  the pattern source. What changed, beyond looks:
+  - **A mode now owns its models** (`Mode.Models`), instead of the model list
+    sitting beside the tabs. The old one showed the same list whatever mode you
+    picked — the routing rule was in the prose and not in the code.
+  - **Every panel is rendered**, so gsxui's `tabs.js` switches modes in the
+    browser with no round trip; the server only decides which one opens first.
+  - **The state is in the URL** (`?mode=`, `?model=`). Choosing a model is an
+    ordinary link, and `?model=` alone opens that model's own mode — the routing
+    rule, applied (`views.ModeOf`). gsxui's tab triggers are buttons, so with
+    JavaScript off they do nothing; a `<noscript>` block offers the same modes as
+    links, carrying the chosen model. Checked by walking the page with no
+    JavaScript, and pinned by a test, since a browser check cannot cover it.
+  - **A mode that cannot be used** renders gsxui's `Empty` with the problem and
+    the exact command, matching the proxy's "every error names its fix" rule.
+  - **The starter's CSS was removed.** It hard-coded a `#242424` page and its own
+    fonts, while gsxui's dark palette hangs off a `dark` class on `<html>`. On a
+    dark-mode machine that gave light components on a dark page. The page now
+    uses gsxui's tokens, with the theme script from gsxui's own site; both
+    palettes were rendered and checked.
+  - **The page buffers its render.** The gsx scaffold renders straight to the
+    `ResponseWriter`, so a failure part way through logged "superfluous
+    WriteHeader" and served half a page.
+- **`mise run hello:browser`** is the new check: `bin/dev browser` serves the app
+  on a free port, starts a headless Chrome, and a probe drives it over the
+  DevTools protocol (Node's built-in WebSocket, no dependency). It proves the
+  thing curl cannot: clicking a mode really swaps to that mode's models, one
+  panel at a time, and the Vite-bundled JS runs with no console errors. It is
+  part of `hello:check`, so `mise run test` runs it. Without Chrome it says so
+  loudly and passes; `CHROME=/path/to/chrome` points it at one. gsxui tests its
+  own behaviour modules with Playwright — if these checks grow past a handful,
+  switch to that rather than growing the probe.
+- **Measured**, TinyGo 0.42.0, `-target wasm -no-debug`: the picker and its gsxui
+  components are **1,277 KB raw / 386 KB gzip**. Of that, only 75 KB raw / 19 KB
+  gzip is the vendored 1,748-icon Lucide set; the rest is the TinyGo runtime plus
+  gsx. That is the floor for B5's Service Worker.
+- **Still open:** nothing keeps the mise gsx pin and the spike's `go.mod` tool pin
+  in step (both v0.1.1 today). A3 (no personal values) and A4 (CI) are untouched.
 
 ### Stage B: hello world round trip in every topology
 

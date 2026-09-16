@@ -75,6 +75,8 @@ Run `mise run test` after every Go change.
 | `worker.go` | Worker entry point: fetch client, KV token store |
 | `config.go` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `tools/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
+| `cmd/dev` | developer tooling, not shipped: skill syncing and the headless-browser check |
+| `spikes/hello-world` | separate module: the GUI toolchain spike (`mise run hello:*`); see its README |
 
 Rules that keep the design working:
 

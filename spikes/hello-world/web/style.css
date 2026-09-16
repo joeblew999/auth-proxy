@@ -1,111 +1,24 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/* The app's own base styles. Everything else the page needs comes from gsxui:
+   web/gsxui/foundation.css already puts bg-background/text-foreground on the
+   body, and web/gsxui/theme.css owns the palette and the fonts.
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+   The Vite starter's own base styles used to live here — a hard-coded #242424
+   page, a flex-centred body and a hand-styled button. They fought gsxui on
+   every one of those: gsxui's dark palette hangs off a `dark` class (set in
+   app.gsx's head script), not off prefers-color-scheme, so a dark-mode machine
+   got light gsxui components on a dark starter page. They are gone; the page
+   uses gsxui's components and tokens instead. */
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-.logos a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-.logos a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-.app-title {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-.logos {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1em;
-  flex-wrap: wrap;
-}
-
-.logo {
-  display: block;
-  height: 6em;
-  padding: 1.5em;
-  box-sizing: content-box;
-  will-change: filter, transform;
-  transition: filter 300ms, transform 300ms;
-}
-/* The gsx wordmark is wide and short — size it up so both marks read equally. */
-.logo.gsx {
-  height: 7em;
-}
-.logo:hover {
-  transform: translateY(-2px);
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.gsx:hover {
-  filter: drop-shadow(0 0 2em #2c7da0aa);
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
-
-#counter {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-#counter:hover {
-  border-color: #646cff;
-}
-#counter:focus,
-#counter:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+@layer base {
+  /* gsxui vendors the font files and declares the family in theme.css, where a
+     preset can change it, so read the token rather than repeating the value. */
+  body {
+    font-family: var(--font-sans);
   }
-  .logos a:hover {
-    color: #747bff;
-  }
-  #counter {
-    background-color: #f9f9f9;
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading, var(--font-sans));
   }
 }
