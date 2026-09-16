@@ -34,7 +34,8 @@ const usage = `skillpin: pin a repo's Claude Code skills, plugins and MCP server
 
   skillpin sync     write .claude/skills and the .claude/settings.json keys skills.toml implies
   skillpin check    fail when either has drifted from skills.toml (run it in CI)
-  skillpin verify   ask a fresh Claude Code session which skills it can see
+  skillpin verify [--update]
+                    hold a fresh Claude Code session against SESSION.lock; --update records it
   skillpin bump [source]
                     move github pins in skills.toml to upstream HEAD
 
@@ -57,8 +58,11 @@ func main() {
 		requireNoArgs(args)
 		err = Check(os.Stdout)
 	case "verify":
-		requireNoArgs(args)
-		err = Verify(os.Stdout)
+		update := len(args) == 2 && args[1] == "--update"
+		if len(args) > 1 && !update {
+			fail(args)
+		}
+		err = Verify(os.Stdout, update)
 	case "bump":
 		err = Bump(os.Stdout, args[1:])
 	default:

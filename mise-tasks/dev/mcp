@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#MISE description="Check every MCP server this repo declares actually connects"
+set -euo pipefail
+
+# .mcp.json declaring a server proves nothing: four were shipped once that all
+# sat at "Needs authentication". Anything a developer must log into separately
+# does not belong in a file every clone shares.
+status=$(claude mcp list 2>&1)
+echo "$status"
+
+if echo "$status" | grep -qiE "needs authentication|failed to connect|✗"; then
+  echo
+  echo "A declared MCP server is not usable on a fresh clone."
+  echo "Either it needs a per-developer login, in which case drop it from .mcp.json,"
+  echo "or it is misconfigured. Fix .mcp.json, then: mise run dev:mcp"
+  exit 1
+fi

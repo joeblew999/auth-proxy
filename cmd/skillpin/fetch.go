@@ -114,7 +114,9 @@ func readDir(dir string) (skillFiles, error) {
 		if isSymlink(p) {
 			return nil
 		}
-		if filepath.Base(p) == ".mise-skills.json" {
+		// Not sync's files: mise's own state, and the record of what a real
+		// session is allowed, which only verify writes.
+		if base := filepath.Base(p); base == ".mise-skills.json" || base == sessionLockFile {
 			return nil
 		}
 		rel, err := filepath.Rel(dir, p)

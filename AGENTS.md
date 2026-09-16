@@ -15,7 +15,8 @@
   vet, tidy, whitespace, secrets). Ask the hk MCP server to plan checks before
   execution; scope to changed files; prefer safe fixes. A Stop hook runs
   `hk run check --safe` after every agent turn, and the pre-commit hook runs
-  the same on commit.
+  the same on commit. `hk run check` must stay cheap: the expensive,
+  login-gated `dev:skills:verify` is bound to **pre-push** only.
 
 ## Working rules from the owner
 
@@ -62,7 +63,8 @@ at least once.
 | `mise run keys:set <provider>` / `keys:push` | store a key in fnox and push it; push everything |
 | `mise run lint` | hk checks: gofmt, vet, tidy, whitespace, secrets |
 | `mise run test` | lint, wasm vet, all tests, skills check, spike check |
-| `mise run dev:skills:sync` / `dev:skills:verify` / `dev:skills:bump` | re-sync the repo's pinned Claude Code skills; prove a fresh session loads them; move github pins to upstream HEAD |
+| `mise run dev:skills:sync` / `dev:skills:verify` / `dev:skills:bump` | re-sync the repo's pinned Claude Code skills; hold a fresh session against `SESSION.lock` (`--update` re-records it); move github pins to upstream HEAD |
+| `mise run dev:bootstrap` / `dev:mcp` | install the git hooks and sync skills (runs after `mise install`); check every declared MCP server connects |
 | `mise run dev:browser` | drive an app in a headless Chrome and run its probe script |
 | `mise run hello:*` | the gsx + gsxui spike: `dev`, `build`, `serve`, `check` |
 | `mise run deps:list` / `deps:upgrade` | list / interactively apply Go module upgrades in every module |
@@ -90,7 +92,7 @@ before committing.
 | `worker.go` | Worker entry point: fetch client, KV token store |
 | `config.go` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `tools/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
-| `cmd/skillpin` | the skills/plugins/MCP pinner, standalone so any repo can `go install` it and needs only a `skills.toml`. Nothing in it names mise, a task or this repo; `sync_command` in `skills.toml` supplies the fix its errors quote |
+| `cmd/skillpin` | the skills/plugins/MCP pinner. `sync` writes `.claude/skills` and the `.claude/settings.json` keys; `check` compares both to the pins; `verify` holds a real session against `.claude/skills/SESSION.lock`, which lists every skill the session is allowed — the only way to catch one arriving from a marketplace plugin or from claude.ai. Tool versions come from `mise ls`, never from parsing `mise.toml` |
 | `cmd/dev` | developer tooling, not shipped. `cmd/dev/main.go` only parses arguments; `cmd/dev/browser` holds the code. Every mise task that drives it is named after the command (`dev:browser`) |
 | `mise-tasks/` | every task as a file: groups are directories (`svc/`, `hello/`, `keys/`, `deps/`, `release/`, `dev/skills/`), top-level scripts sit at the root |
 | `skills.toml` | the single source for the Claude Code session: `[source.*]` blocks (gomod or github) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). The only place a skill, a pin or a plugin is named; `mise run dev:skills:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |

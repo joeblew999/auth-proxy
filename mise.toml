@@ -31,7 +31,7 @@ pitchfork = "latest"
 "go:github.com/oligot/go-mod-upgrade" = "latest"   # see: mise run deps:list
 
 [hooks]
-postinstall = { task = "dev:skills:sync" }
+postinstall = { task = "dev:bootstrap" }
 
 # Packslip skills link into .claude/skills alongside the vendored copies from
 # skills.toml. mise preserves real directories, so the two never fight. When a

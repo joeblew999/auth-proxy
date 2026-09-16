@@ -1,9 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
-	"os"
+	"os/exec"
 	"sort"
 	"strings"
 
@@ -133,12 +134,12 @@ func checkToolPins(out io.Writer) error {
 		}
 		switch len(keys) {
 		case 0:
-			return fmt.Errorf("mise.toml pins no go: tool under %q; add it under [tools]", s.Module)
+			return fmt.Errorf("mise pins no go: tool under %q; add it to [tools] in mise.toml", s.Module)
 		case 1:
 			// The one tool that carries the module's version.
 		default:
 			sort.Strings(keys)
-			return fmt.Errorf("mise.toml pins several go: tools under %q:\n%s\nname the version carrier in %s",
+			return fmt.Errorf("mise pins several go: tools under %q:\n%s\nname the version carrier in %s",
 				s.Module, indent(strings.Join(keys, "\n")), pinsFile)
 		}
 		want := misePins[keys[0]]
@@ -147,7 +148,7 @@ func checkToolPins(out io.Writer) error {
 			return err
 		}
 		if got != want {
-			return fmt.Errorf("%s/go.mod has %s %s, but mise.toml pins %s (%s)\nfix with: go-mod-upgrade in %s, or change the mise pin",
+			return fmt.Errorf("%s/go.mod has %s %s, but mise has %s (%s)\nfix with: go-mod-upgrade in %s, or change the mise pin",
 				s.ModuleDir, s.Module, got, want, keys[0], s.ModuleDir)
 		}
 		fmt.Fprintf(out, "%s %s matches mise\n", s.Module, want)
@@ -155,21 +156,48 @@ func checkToolPins(out io.Writer) error {
 	return nil
 }
 
-// miseToolPins reads the go: tool pins from mise.toml.
+// miseToolPins asks mise which go: tools are active and at what version.
+//
+// It asks rather than reading mise.toml, because mise.toml is not the whole
+// answer: mise merges a config hierarchy, and a pin of "latest" resolves to a
+// real version only mise knows. Parsing another tool's config behind its back
+// gets both wrong.
+//
+// A machine without mise gets a nil map and no error: nothing there claims to
+// be the source of truth for a tool version, so there is no disagreement to
+// find.
 func miseToolPins() (map[string]string, error) {
-	var config struct {
-		Tools map[string]string `toml:"tools"`
-	}
-	if _, err := os.Stat("mise.toml"); os.IsNotExist(err) {
+	if _, err := exec.LookPath("mise"); err != nil {
 		return nil, nil
 	}
-	if _, err := toml.DecodeFile("mise.toml", &config); err != nil {
-		return nil, fmt.Errorf("mise.toml: %w", err)
+	out, err := output(".", "mise", "ls", "--current", "--json")
+	if err != nil {
+		return nil, fmt.Errorf("mise ls: %w", err)
+	}
+	var listed map[string][]struct {
+		Version          string `json:"version"`
+		RequestedVersion string `json:"requested_version"`
+		Active           bool   `json:"active"`
+	}
+	if err := json.Unmarshal([]byte(out), &listed); err != nil {
+		return nil, fmt.Errorf("mise ls --json: %w", err)
 	}
 	pins := map[string]string{}
-	for key, value := range config.Tools {
-		if strings.HasPrefix(key, "go:") {
-			pins[key] = value
+	for tool, installs := range listed {
+		if !strings.HasPrefix(tool, "go:") {
+			continue
+		}
+		for _, install := range installs {
+			if !install.Active {
+				continue
+			}
+			// The resolved version is what a go.mod can be compared against;
+			// "latest" cannot.
+			if install.Version != "" {
+				pins[tool] = install.Version
+			} else {
+				pins[tool] = install.RequestedVersion
+			}
 		}
 	}
 	return pins, nil

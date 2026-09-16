@@ -18,4 +18,22 @@ local linters = new Mapping {
     ["check_added_large_files"] = Builtins.check_added_large_files
 }
 
-steps = linters
+// The linters run on commit and on demand. `hk run check` is also what the
+// Claude Code Stop hook runs after every agent turn, so it must stay cheap:
+// nothing needing a login or the network belongs in it.
+hooks {
+    ["pre-commit"] { steps = linters }
+    ["check"] { steps = linters }
+    ["fix"] { steps = linters }
+
+    // Push time is where the expensive check goes. `dev:skills:verify` starts a
+    // real Claude Code session and holds it against SESSION.lock, which is the
+    // only way to catch a skill that arrived from somewhere no repo file names.
+    ["pre-push"] {
+        steps {
+            ["skills_verify"] {
+                check = "mise run dev:skills:verify"
+            }
+        }
+    }
+}
