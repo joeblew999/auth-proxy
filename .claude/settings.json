@@ -8,6 +8,18 @@
     "mise@cc-skills": false
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": ".claude/hooks/skill-gate",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit"
+      }
+    ],
     "Stop": [
       {
         "hooks": [
