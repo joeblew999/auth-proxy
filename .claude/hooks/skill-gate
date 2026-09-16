@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Load the skill that covers a file before it is edited.
+# Load the skills that cover a file before it is edited.
 #
 # Claude Code only auto-loads skill names and descriptions, not their bodies, so
 # invoking the right one is left to the model's judgement -- which is how gsx
 # markup or hk config gets hand-invented. This makes it the harness's job.
 #
 # Reads a PreToolUse payload on stdin; prints additionalContext when the file
-# maps to a skill, nothing otherwise. Every skill it can serve lives in
-# .claude/skills, so adding one is a line in the case below.
+# maps to one or more skills, nothing otherwise. Every skill it can serve lives
+# in .claude/skills, so adding one is a word in the case below.
 set -euo pipefail
 
 payload=$(cat)
@@ -15,18 +15,25 @@ path=$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty')
 [ -n "$path" ] || exit 0
 
 case "$path" in
-  *.gsx)  skill=gsx ;;
-  *.pkl)  skill=hk-configure ;;
+  # Editing gsx markup needs both: gsx is the syntax, gsxui the components you
+  # are meant to reach for instead of hand-rolling one.
+  *.gsx)  skills="gsx gsxui" ;;
+  *.pkl)  skills="hk-configure" ;;
   *)      exit 0 ;;
 esac
 
-body=".claude/skills/$skill/SKILL.md"
-[ -f "$body" ] || exit 0
+context=""
+for skill in $skills; do
+  body=".claude/skills/$skill/SKILL.md"
+  [ -f "$body" ] || continue
+  context+="--- $skill ---"$'\n'"$(cat "$body")"$'\n\n'
+done
+[ -n "$context" ] || exit 0
 
-jq -n --arg s "$skill" --rawfile b "$body" '{
+jq -n --arg c "$context" '{
   hookSpecificOutput: {
     hookEventName: "PreToolUse",
-    additionalContext: ("The \($s) skill covers this file. Follow it rather than "
-      + "inferring syntax:\n\n" + $b)
+    additionalContext: ("These skills cover this file. Follow them rather than "
+      + "inferring syntax or hand-writing components:\n\n" + $c)
   }
 }'
