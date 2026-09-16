@@ -453,11 +453,12 @@ else
   tag="${usage_version:?pass a version: mise run release:publish v1.2.0}"
   case "$tag" in v*) ;; *) tag="v$tag";; esac
   version="${tag#v}"
-  commit="$(git rev-parse HEAD)"
   if [ -n "$(git status --porcelain)" ]; then
     echo "working tree is dirty; commit first" >&2
     exit 1
   fi
+  git tag "$tag"
+  commit="$(git rev-parse HEAD)"
   # goreleaser needs a token env even though gh authenticates from its own
   # keychain; reuse it when set, else ask gh for one.
   export GITHUB_TOKEN="${GITHUB_TOKEN:-$(mise exec -- gh auth token 2>/dev/null)}"
