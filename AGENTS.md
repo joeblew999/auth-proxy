@@ -11,6 +11,11 @@
   prints `mise run keys:set <provider>`, and so on. Keep it that way in new code.
 - **Providers live only in `providers.toml`.** Secret values live only in fnox
   (`mise run keys:set`) and Worker secrets (`mise run keys:push`).
+- **hk owns the checks.** `mise run lint` runs them (`hk check --all`: gofmt,
+  vet, tidy, whitespace, secrets). Ask the hk MCP server to plan checks before
+  execution; scope to changed files; prefer safe fixes. A Stop hook runs
+  `hk run check --safe` after every agent turn, and the pre-commit hook runs
+  the same on commit.
 
 ## Working rules from the owner
 

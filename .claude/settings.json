@@ -1,0 +1,1 @@
+{"hooks": {"Stop": [{"hooks": [{"command": "mise exec -- hk run check --safe --format json", "type": "command"}]}]}}
