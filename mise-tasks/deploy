@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Validate providers.toml, then build and deploy the Worker (--tinygo: the separate TinyGo Worker, with its keys pushed)"
+#MISE depends=["build:cli"]
+#USAGE flag "--tinygo" help="Deploy the TinyGo build as grok-oauth-proxy-tinygo (no /mcp)"
+set -euo pipefail
+bin/grok-oauth-proxy keys >/dev/null
+if [ "${usage_tinygo:-false}" = "true" ]; then
+  fnox exec -- wrangler deploy --env tinygo
+  tools/push-keys.sh tinygo
+  # A first deploy creates a new workers.dev hostname, which answers Cloudflare
+  # error 1042 for a short while.
+  for _ in $(seq 24); do
+    [ "$(curl -s -o /dev/null -w '%{http_code}' "$PROXY_URL_TINYGO/health")" = 200 ] && break
+    echo "waiting for $PROXY_URL_TINYGO to come online..."
+    sleep 5
+  done
+  fnox exec -- bin/grok-oauth-proxy status --url "$PROXY_URL_TINYGO"
+else
+  fnox exec -- wrangler deploy --env ""
+  echo "Deployed. Check it with: mise run status --worker"
+fi

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Drive an app in a headless Chrome and run its probe script (defaults: the gsx spike, at /?mode=remote)"
+#MISE depends=["hello:build", "build:dev"]
+#USAGE arg "[server]" default="spikes/hello-world/bin/hello-world" help="Server binary to serve"
+#USAGE arg "[probe]" default="spikes/hello-world/tools/browser-check.mjs" help="Node probe script to drive the page with"
+#USAGE arg "[path]" default="/?mode=remote" help="Path to open in the browser"
+bin/dev browser "$usage_server" "$usage_probe" "$usage_path"

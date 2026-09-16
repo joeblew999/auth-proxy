@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+#MISE description="Run hk checks: gofmt, vet, tidy, whitespace, secrets"
+exec hk check --all

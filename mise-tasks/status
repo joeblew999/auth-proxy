@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Check every provider and print the exact fix for anything wrong (--worker: the deployed Worker)"
+#MISE depends=["build:cli"]
+#USAGE flag "--worker" help="Check the deployed Worker instead of the local configuration"
+if [ "${usage_worker:-false}" = "true" ]; then
+  exec fnox exec -- bin/grok-oauth-proxy status --url "$PROXY_URL"
+fi
+exec fnox exec -- bin/grok-oauth-proxy status

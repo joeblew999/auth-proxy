@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Write the skills from skills.toml into .claude/skills (runs automatically after mise install)"
+#MISE depends=["build:dev"]
+bin/dev skills sync

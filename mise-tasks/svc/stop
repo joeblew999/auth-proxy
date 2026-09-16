@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+#MISE description="Stop everything this project started (proxy, proxy-mock, mock)"
+pitchfork stop proxy proxy-mock mock

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Log in to a SuperGrok subscription for providers with auth = \"xai-oauth\" (--worker: log the Worker in)"
+#MISE depends=["build:cli"]
+#MISE raw=true
+#USAGE flag "--worker" help="Log the deployed Worker in with a device code"
+if [ "${usage_worker:-false}" = "true" ]; then
+  exec fnox exec -- bin/grok-oauth-proxy login --url "$PROXY_URL"
+fi
+exec bin/grok-oauth-proxy login

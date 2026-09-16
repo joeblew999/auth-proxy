@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+#MISE description="Build release artifacts locally without publishing"
+goreleaser release --snapshot --clean --config .goreleaser.yml

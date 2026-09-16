@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+#MISE description="Stream live logs from the deployed Worker"
+fnox exec -- wrangler tail --env ""

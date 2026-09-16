@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Build spikes/hello-world the documented gsx way: vite build, gsx generate, go build (bin/hello-world)"
+#MISE depends=["hello:install"]
+#MISE dir="spikes/hello-world"
+npm run build
+go tool gsx generate -q
+go build -o bin/hello-world .

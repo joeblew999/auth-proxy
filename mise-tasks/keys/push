@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Push every secret providers.toml needs from fnox to the Worker, and list any that are missing"
+#MISE depends=["build:cli"]
+tools/push-keys.sh

@@ -9,11 +9,13 @@ node = "24"
 tinygo = "0.42.0"   # must match TINYGO_VERSION in workers-go's Makefile
 "aqua:WebAssembly/binaryen" = "121"   # TinyGo shells out to wasm-opt
 
-# Secrets, releases, services. packslip: means a verified manifest plus
+# Secrets, releases, services, hooks. packslip: means a verified manifest plus
 # version-matched skills when the publisher ships them.
 "packslip:github.com/jdx/fnox" = "latest"
 "packslip:github.com/joeblew999/gsx" = "latest"
 "packslip:github.com/joeblew999/gsxui" = "latest"
+"packslip:github.com/jdx/hk" = "latest"
+
 goreleaser = "latest"
 packslip = "latest"
 gh = "latest"
@@ -44,165 +46,19 @@ PROXY_URL = "https://grok-oauth-proxy.gedw99.workers.dev"
 # The TinyGo build, deployed by `mise run deploy --tinygo`.
 PROXY_URL_TINYGO = "https://grok-oauth-proxy-tinygo.gedw99.workers.dev"
 
-# --- daily use ---------------------------------------------------------------
-
-[tasks.dev]
-description = "Run the proxy locally on http://127.0.0.1:56121/v1 (--mock: against the bundled mock, no real keys)"
-depends = ["build:cli"]
-raw = true
-usage = 'flag "--mock" help="Serve tools/mock-upstream/providers.toml (needs the mock daemon: mise run svc:start --mock)"'
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-if [ "${usage_mock:-false}" = "true" ]; then
-  MOCK_API_KEY=mock-key fnox exec -- bin/grok-oauth-proxy serve --config tools/mock-upstream/providers.toml
-else
-  fnox exec -- bin/grok-oauth-proxy serve
-fi
-'''
-
-# --- svc: the same proxy as pitchfork daemons, for `mise run dev` without -----
-# blocking the terminal. pitchfork.toml supervises; these tasks are the commands
-# it runs and the controls around it.
-
-[tasks."dev:serve"]
-description = "Serve the proxy in the foreground (real providers; pitchfork runs this as the proxy daemon)"
-depends = ["build:cli"]
-raw = true
-run = "fnox exec -- bin/grok-oauth-proxy serve"
-
-[tasks."dev:serve-mock"]
-description = "Serve the proxy in the foreground against the mock config (pitchfork runs this as the proxy-mock daemon)"
-depends = ["build:cli"]
-raw = true
-run = "MOCK_API_KEY=mock-key fnox exec -- bin/grok-oauth-proxy serve --config tools/mock-upstream/providers.toml"
-
-[tasks."dev:mock-server"]
-description = "Serve the mock upstream in the foreground on 127.0.0.1:18080 (pitchfork runs this as the mock daemon)"
-run = "go run ./tools/mock-upstream -addr 127.0.0.1:18080"
-
-[tasks."svc:start"]
-description = "Build and start the proxy as a pitchfork daemon (--mock: with the mock upstream)"
-depends = ["build:cli"]
-raw = true
-usage = 'flag "--mock" help="Start proxy-mock + mock instead of proxy"'
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-if [ "${usage_mock:-false}" = "true" ]; then
-  go build -o bin/mock-upstream ./tools/mock-upstream
-  exec pitchfork start proxy-mock
-fi
-exec pitchfork start proxy
-'''
-
-[tasks."svc:stop"]
-description = "Stop everything this project started (proxy, proxy-mock, mock)"
-run = "pitchfork stop proxy proxy-mock mock"
-
-[tasks."svc:status"]
-description = "Show what this project has running"
-run = "pitchfork list --project"
-
-[tasks."svc:logs"]
-description = "Tail the logs of the running daemons"
-raw = true
-usage = 'arg "[daemon]" default="proxy" help="proxy, proxy-mock, or mock"'
-run = 'pitchfork logs "$usage_daemon" --tail'
-
-[tasks.status]
-description = "Check every provider and print the exact fix for anything wrong (--worker: the deployed Worker)"
-depends = ["build:cli"]
-usage = 'flag "--worker" help="Check the deployed Worker instead of the local configuration"'
-run = '''
-#!/usr/bin/env bash
-if [ "${usage_worker:-false}" = "true" ]; then
-  exec fnox exec -- bin/grok-oauth-proxy status --url "$PROXY_URL"
-fi
-exec fnox exec -- bin/grok-oauth-proxy status
-'''
-
-[tasks.models]
-description = "List model IDs across all providers (--worker: from the deployed Worker; otherwise needs mise run dev)"
-depends = ["build:cli"]
-usage = 'flag "--worker" help="Ask the deployed Worker"'
-run = '''
-#!/usr/bin/env bash
-url=http://127.0.0.1:56121; [ "${usage_worker:-false}" = "true" ] && url="$PROXY_URL"
-exec fnox exec -- bin/grok-oauth-proxy models --url "$url"
-'''
-
-[tasks.chat]
-description = "Send a prompt to a model and stream the answer (--worker: through the deployed Worker)"
-depends = ["build:cli"]
-usage = '''
-arg "<model>" help="Model ID such as xai/grok-4.3; see: mise run models"
-arg "[prompt]" default="Say hello in one sentence."
-flag "--worker" help="Go through the deployed Worker instead of mise run dev"
-'''
-run = '''
-#!/usr/bin/env bash
-url=http://127.0.0.1:56121; [ "${usage_worker:-false}" = "true" ] && url="$PROXY_URL"
-exec fnox exec -- bin/grok-oauth-proxy chat --url "$url" "$usage_model" "$usage_prompt"
-'''
-
-[tasks.login]
-description = "Log in to a SuperGrok subscription for providers with auth = \"xai-oauth\" (--worker: log the Worker in)"
-depends = ["build:cli"]
-raw = true
-usage = 'flag "--worker" help="Log the deployed Worker in with a device code"'
-run = '''
-#!/usr/bin/env bash
-if [ "${usage_worker:-false}" = "true" ]; then
-  exec fnox exec -- bin/grok-oauth-proxy login --url "$PROXY_URL"
-fi
-exec bin/grok-oauth-proxy login
-'''
-
-# --- keys --------------------------------------------------------------------
-
-[tasks."keys:set"]
-description = "Store a provider's API key in fnox and push it to the Worker (admin: the client key)"
-depends = ["build:cli"]
-usage = '''
-arg "<provider>" help="Provider name from providers.toml, or admin for the proxy's client key"
-flag "--generate" help="Generate a random value instead of prompting (for admin)"
-'''
-raw = true
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-name=$(bin/grok-oauth-proxy keys "$usage_provider")
-if [ "${usage_generate:-false}" = "true" ]; then
-  value=$(openssl rand -hex 32)
-else
-  [ -t 0 ] && printf 'Value for %s (input hidden): ' "$name"
-  IFS= read -rs value || true
-  [ -t 0 ] && echo
-fi
-if [ -z "$value" ]; then
-  echo "No value given for $name; nothing was changed." >&2
-  exit 1
-fi
-printf %s "$value" | fnox set -g "$name" >/dev/null
-unset value
-echo "Stored $name in fnox."
-fnox exec -- sh -c 'printf %s "$(printenv "$1")" | wrangler secret put "$1" --env ""' _ "$name" >/dev/null
-echo "Pushed $name to the Worker. Check with: mise run status --worker"
-'''
-
-[tasks."keys:push"]
-description = "Push every secret providers.toml needs from fnox to the Worker, and list any that are missing"
-depends = ["build:cli"]
-run = "tools/push-keys.sh"
+# --- tasks live in mise-tasks/ as files, one per task --------------------------
+# Groups become directories: dev/*, dev/skills/*, svc/*, hello/*, keys/*,
+# deps/*, release/*. Top-level scripts (status, models, chat, login, build,
+# deploy, logs, setup, bench, lint) sit at the root. Only `test` and the
+# hidden build:* helpers stay here: wrangler.toml [build] calls
+# `mise run build:worker` by name, and test is the front door.
 
 # --- build and deploy ----------------------------------------------------------
 
 [tasks.test]
 description = "Check formatting, vet the local and Worker builds, and run all tests"
 run = [
-  'test -z "$(gofmt -l .)" || { gofmt -l .; echo "unformatted files; fix with: gofmt -w ."; exit 1; }',
-  "go vet ./...",
+  "mise run lint",
   "GOOS=js GOARCH=wasm go vet ./...",
   "go test ./...",
   "mise run dev:skills:check",
@@ -211,272 +67,21 @@ run = [
 
 # --- deps: go.mod follows the mise pins, never the reverse -----------------------
 # Bump the version in [tools] first, then run these so each go.mod follows.
-
-[tasks."deps:list"]
-description = "List available Go module upgrades in every module, without changing anything"
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-for dir in . spikes/hello-world; do
-  echo "== $dir =="
-  (cd "$dir" && go-mod-upgrade --list)
-done
-'''
-
-[tasks."deps:upgrade"]
-description = "Interactively upgrade Go modules in every module, then check the mise pins still agree"
-raw = true
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-for dir in . spikes/hello-world; do
-  echo "== $dir =="
-  (cd "$dir" && go-mod-upgrade)
-done
-mise run dev:skills:check
-'''
+# File tasks in mise-tasks/deps/.
 
 # --- bin/dev: this repo's own tooling, one task per `dev <group> <verb>` -------
-
-[tasks."dev:skills:sync"]
-description = "Write the skills from skills.toml into .claude/skills (runs automatically after mise install)"
-depends = ["build:dev"]
-run = "bin/dev skills sync"
-
-[tasks."dev:skills:verify"]
-description = "Prove a fresh Claude Code session loads the repo's skills (needs a Claude Code login; not run in CI)"
-depends = ["build:dev"]
-run = "bin/dev skills verify"
-
-[tasks."dev:skills:bump"]
-description = "Move github pins in skills.toml to upstream HEAD, showing what would change first"
-depends = ["build:dev"]
-raw = true
-usage = 'arg "[source]" help="One source, or all github sources when omitted"'
-run = 'bin/dev skills bump $usage_source'
-
-[tasks."dev:skills:check"]
-hide = true
-depends = ["build:dev"]
-run = "bin/dev skills check"
-
-[tasks."dev:browser"]
-description = "Drive an app in a headless Chrome and run its probe script (defaults: the gsx spike, at /?mode=remote)"
-depends = ["hello:build", "build:dev"]
-usage = '''
-arg "[server]" default="spikes/hello-world/bin/hello-world" help="Server binary to serve"
-arg "[probe]" default="spikes/hello-world/tools/browser-check.mjs" help="Node probe script to drive the page with"
-arg "[path]" default="/?mode=remote" help="Path to open in the browser"
-'''
-run = 'bin/dev browser "$usage_server" "$usage_probe" "$usage_path"'
+# File tasks in mise-tasks/dev/ (skills/*, browser).
 
 # --- spikes/hello-world: gsx + gsxui, used exactly as gsx documents ------------
 # Scaffolded with `gsx init --yes` (Vite starter) and `gsxui init` (Vite mode).
 # Order matters: `vite build` empties dist/, and the Go binary embeds dist/, so
-# the npm build must run before any Go build or vet.
-
-[tasks."hello:install"]
-hide = true
-dir = "spikes/hello-world"
-sources = ["package.json", "package-lock.json"]
-outputs = ["node_modules/.package-lock.json"]
-run = "npm ci"
-
-[tasks."hello:dev"]
-description = "gsx dev loop for spikes/hello-world: Vite + Go server with live reload on http://localhost:5173"
-depends = ["hello:install"]
-dir = "spikes/hello-world"
-raw = true
-run = "npm run dev"
-
-[tasks."hello:build"]
-description = "Build spikes/hello-world the documented gsx way: vite build, gsx generate, go build (bin/hello-world)"
-depends = ["hello:install"]
-dir = "spikes/hello-world"
-run = [
-  "npm run build",
-  "go tool gsx generate -q",
-  "go build -o bin/hello-world .",
-]
-
-[tasks."hello:serve"]
-description = "Build and run spikes/hello-world natively on http://localhost:7777"
-depends = ["hello:build"]
-dir = "spikes/hello-world"
-raw = true
-run = "bin/hello-world"
-
-[tasks."hello:check"]
-description = "Check spikes/hello-world: build, gsx formatting, go vet, a TinyGo wasm build, and the browser round trip"
-depends = ["hello:build"]
-dir = "spikes/hello-world"
-run = [
-  'test -z "$(go tool gsx fmt -l .)" || { go tool gsx fmt -l .; echo "unformatted .gsx; fix with: go tool gsx fmt -w ."; exit 1; }',
-  "go vet ./...",
-  "go test ./...",
-  "tinygo build -o /dev/null -target wasm ./cmd/tinygo-render",
-  "mise run dev:browser",
-]
-
-[tasks.build]
-description = "Build the local binary (bin/) and the Worker (build/go); --tinygo also builds the TinyGo Worker and compares sizes"
-usage = 'flag "--tinygo" help="Also build build/tinygo and print both sizes"'
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-go build -o bin/grok-oauth-proxy .
-mise run build:worker
-if [ "${usage_tinygo:-false}" = "true" ]; then
-  mise run build:worker-tinygo
-  for f in build/*/app.wasm; do
-    printf '%-24s raw %6s KB   gzip %6s KB\n' "$f" $(( $(wc -c < "$f") / 1024 )) $(( $(gzip -9 -c "$f" | wc -c) / 1024 ))
-  done
-fi
-'''
-
-[tasks.deploy]
-description = "Validate providers.toml, then build and deploy the Worker (--tinygo: the separate TinyGo Worker, with its keys pushed)"
-depends = ["build:cli"]
-usage = 'flag "--tinygo" help="Deploy the TinyGo build as grok-oauth-proxy-tinygo (no /mcp)"'
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-bin/grok-oauth-proxy keys >/dev/null
-if [ "${usage_tinygo:-false}" = "true" ]; then
-  fnox exec -- wrangler deploy --env tinygo
-  tools/push-keys.sh tinygo
-  # A first deploy creates a new workers.dev hostname, which answers Cloudflare
-  # error 1042 for a short while.
-  for _ in $(seq 24); do
-    [ "$(curl -s -o /dev/null -w '%{http_code}' "$PROXY_URL_TINYGO/health")" = 200 ] && break
-    echo "waiting for $PROXY_URL_TINYGO to come online..."
-    sleep 5
-  done
-  fnox exec -- bin/grok-oauth-proxy status --url "$PROXY_URL_TINYGO"
-else
-  fnox exec -- wrangler deploy --env ""
-  echo "Deployed. Check it with: mise run status --worker"
-fi
-'''
-
-[tasks.logs]
-description = "Stream live logs from the deployed Worker"
-run = "fnox exec -- wrangler tail --env \"\""
-
-[tasks.setup]
-description = "One-time setup: create the client key if needed, push all keys, and show what is still missing"
-run = '''
-#!/usr/bin/env bash
-set -uo pipefail
-if ! fnox get ADMIN_API_KEY >/dev/null 2>&1; then
-  mise run keys:set admin --generate
-fi
-mise run keys:push
-mise run status --worker
-'''
-
-[tasks.bench]
-description = "Run the Go and TinyGo Workers locally against the mock and compare status, size and latency"
-run = "tools/bench.sh"
+# the npm build must run before any Go build or vet. File tasks in
+# mise-tasks/hello/.
 
 # --- release: versioned CLI artifacts plus a packslip manifest -----------------
-# `mise run release v1.2.0` publishes fully locally (goreleaser + key-signed
-# packslip + gh upload). .github/workflows/release.yml runs release:publish on
-# a tag push as the CI backup.
-
-[tasks.release]
-description = "Publish a GitHub Release fully locally: tag, build, sign, upload (needs gh auth)"
-usage = 'arg "<version>" help="Version to release, e.g. v1.2.0"'
-raw = true
-run = "mise run release:publish \"$usage_version\""
-
-[tasks."release:snapshot"]
-description = "Build release artifacts locally without publishing"
-run = "goreleaser release --snapshot --clean --config .goreleaser.yml"
-
-[tasks."release:publish"]
-description = "Build artifacts, sign the packslip manifest, publish the GitHub Release (CI uses the workflow identity; locally signs with --key and uploads with gh)"
-usage = 'arg "[version]" help="Version when running locally (CI uses GITHUB_REF_NAME instead)"'
-raw = true
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-slug=$(git remote get-url origin | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#;s#\.git$##')
-if [ -n "${GITHUB_REF_NAME:-}" ]; then
-  # CI: goreleaser publishes the release; packslip signs with the workflow identity.
-  version="${GITHUB_REF_NAME#v}"
-  tag="$GITHUB_REF_NAME"
-  commit="$GITHUB_SHA"
-  goreleaser release --clean --config .goreleaser.yml
-  mise exec -- packslip create --project "github.com/$slug" \
-    --version "$version" --out dist \
-    --bin grok-oauth-proxy \
-    --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' \
-    --source-repo "https://github.com/$slug" \
-    --commit "$commit" --tag "$tag" \
-    dist/*.tar.gz
-  gh release upload "$tag" dist/packslip.sigstore.json --clobber
-else
-  # Local: everything goreleaser + packslip + gh, no workflow. CGO_ENABLED=0
-  # binaries run anywhere, so a local build publishes the same dist CI would.
-  tag="${usage_version:?pass a version: mise run release:publish v1.2.0}"
-  case "$tag" in v*) ;; *) tag="v$tag";; esac
-  version="${tag#v}"
-  if [ -n "$(git status --porcelain)" ]; then
-    echo "working tree is dirty; commit first" >&2
-    exit 1
-  fi
-  git tag "$tag"
-  # Push only the tag: pushing main too can advance the remote past the tag
-  # when local main is ahead, and gh then targets the wrong repo state.
-  git push origin "refs/tags/$tag"
-  commit="$(git rev-parse HEAD)"
-  # goreleaser needs a token env even though gh authenticates from its own
-  # keychain; reuse it when set, else ask gh for one.
-  export GITHUB_TOKEN="${GITHUB_TOKEN:-$(mise exec -- gh auth token 2>/dev/null)}"
-  goreleaser release --clean --config .goreleaser.yml --release-notes <(echo "Release $tag")
-  key=${RUNNER_TEMP:-/tmp}/packslip-local.key
-  rm -f "$key" "$key.pub"
-  packslip keygen --out "$key"
-  packslip create --project "github.com/$slug" --version "$version" \
-    --key "$key" --no-log --out dist \
-    --bin grok-oauth-proxy \
-    --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' \
-    --source-repo "https://github.com/$slug" \
-    --commit "$commit" --tag "$tag" \
-    dist/*.tar.gz
-  if gh release view "$tag" >/dev/null 2>&1; then
-    gh release upload "$tag" dist/*.tar.gz dist/checksums.txt dist/packslip.sigstore.json --clobber
-  else
-    gh release create "$tag" dist/*.tar.gz dist/checksums.txt dist/packslip.sigstore.json --title "$tag" --notes "Release $tag"
-  fi
-  echo "published $tag"
-fi
-'''
-
-[tasks."release:packslip"]
-description = "Build the packslip manifest for the local snapshot artifacts and verify it (no signing identity locally, so --no-log)"
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-mise run release:snapshot >/dev/null
-version=$(git describe --tags --always --dirty | sed 's/^v//')
-key=${RUNNER_TEMP:-/tmp}/packslip-test.key
-rm -f "$key" "$key.pub" "$key.b64"
-packslip keygen --out "$key"
-slug=$(git remote get-url origin | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#;s#\.git$##')
-packslip create --project "github.com/$slug" --version "$version" \
-  --key "$key" --no-log --out dist \
-  --bin grok-oauth-proxy \
-  --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' \
-  --source-repo "https://github.com/$slug" \
-  --commit "$(git rev-parse HEAD)" --tag "$(git describe --tags --always)" \
-  dist/*.tar.gz
-tail -1 "${key%.key}.pub" > "${key}.b64"
-packslip verify dist/packslip.sigstore.json --pubkey "${key}.b64" --allow-unlogged \
-  --artifact "$(ls dist/*.tar.gz | head -1)"
-packslip show dist/packslip.sigstore.json | head -30
-'''
+# File tasks in mise-tasks/release/ (`mise run release v1.2.0` publishes fully
+# locally: goreleaser + key-signed packslip + gh upload).
+# .github/workflows/release.yml runs release:publish on a tag push as the CI backup.
 
 # --- used by wrangler.toml [build]; not for direct use -------------------------
 

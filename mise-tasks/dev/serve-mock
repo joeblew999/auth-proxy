@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Serve the proxy in the foreground against the mock config (pitchfork runs this as the proxy-mock daemon)"
+#MISE depends=["build:cli"]
+#MISE raw=true
+MOCK_API_KEY=mock-key fnox exec -- bin/grok-oauth-proxy serve --config tools/mock-upstream/providers.toml

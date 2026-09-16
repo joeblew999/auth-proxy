@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Interactively upgrade Go modules in every module, then check the mise pins still agree"
+#MISE raw=true
+set -euo pipefail
+for dir in . spikes/hello-world; do
+  echo "== $dir =="
+  (cd "$dir" && go-mod-upgrade)
+done
+mise run dev:skills:check

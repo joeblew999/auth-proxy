@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+#MISE description="Run the Go and TinyGo Workers locally against the mock and compare status, size and latency"
+tools/bench.sh
