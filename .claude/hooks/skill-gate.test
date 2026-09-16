@@ -25,6 +25,9 @@ check() {
 check "gsx gsxui"    Edit  '{"file_path":"spikes/hello-world/x.gsx"}'
 check "hk-configure" Write '{"file_path":"hk.pkl"}'
 check ""             Edit  '{"file_path":"main.go"}'
+check "wrangler"     Write '{"file_path":"wrangler.toml"}'
+check "wrangler"     Edit  '{"file_path":"cmd/gui/wrangler.jsonc"}'
+check ""             Edit  '{"file_path":"cmd/gui/notwrangler.toml"}'
 
 # Bash: every write shape an agent actually uses.
 check "hk-configure" Bash '{"command":"cat > hk.pkl <<EOF\nx\nEOF"}'
@@ -39,6 +42,7 @@ check "hk-configure" Bash '{"command":"git checkout -- hk.pkl"}'
 check "hk-configure" Bash '{"command":"tee hk.pkl <<EOF\nx\nEOF"}'
 check "gsx gsxui"    Bash '{"command":"sed -i \"\" \"s/a/b/\" spikes/x.gsx && go build ./..."}'
 check "gsx gsxui hk-configure" Bash '{"command":"cp a.gsx b.gsx; cp c hk.pkl"}'
+check "wrangler"     Bash '{"command":"sed -i \"\" \"s/a/b/\" wrangler.toml"}'
 
 # Bash: reads and mentions stay silent.
 check "" Bash '{"command":"cp hk.pkl /tmp/hk.bak"}'
@@ -51,6 +55,8 @@ check "" Bash '{"command":"git commit -F - <<EOF\nRename hk.pkl step, touch x.gs
 check "" Bash '{"command":"ls spikes/hello-world/x.gsx"}'
 check "" Bash '{"command":"go build ./... && mise run test 2>&1"}'
 check "" Bash '{"command":"hk validate"}'
+check "" Bash '{"command":"cat wrangler.toml"}'
+check "" Bash '{"command":"wrangler deploy --config wrangler.toml"}'
 
 if [ "$fail" -ne 0 ]; then
   echo "skill-gate: cases failed above; fix .claude/hooks/skill-gate or the case"

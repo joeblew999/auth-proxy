@@ -29,9 +29,11 @@ at least once.
   committed.
 - **Skills are in the repo, pinned, synced by mise, and proven to load.** Invoke
   the relevant skill before the work it covers: gsx before any `.gsx`, the
-  Cloudflare skills before wrangler config or Durable Objects. GUI work uses only
-  the gsx and gsxui CLIs and patterns from gsxui's own site; never hand-invented
-  components.
+  Cloudflare skills before wrangler config or Durable Objects. A PreToolUse hook
+  (`.claude/hooks/skill-gate`) does this for `.gsx`, `.pkl` and wrangler config
+  on every write, by any tool; `mise run dev:hooks:check` proves it. GUI work
+  uses only the gsx and gsxui CLIs and patterns from gsxui's own site; never
+  hand-invented components.
 - **Use tools the way their authors document them.** Do not work around a tool's
   intended path (for example gsx's Vite starter).
 - **Once something works, put it in mise and the plan.** No manual steps, no

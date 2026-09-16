@@ -53,8 +53,8 @@ is_write() {
 
 skills=""
 for p in $paths; do
-  case "$p" in
-    *.gsx|*.pkl) ;;
+  case "${p##*/}" in
+    *.gsx|*.pkl|wrangler.toml|wrangler.json|wrangler.jsonc) ;;
     *) continue ;;
   esac
   if [ "$tool" = Bash ] && ! is_write "$cmd" "$p"; then
@@ -63,6 +63,7 @@ for p in $paths; do
   case "$p" in
     *.gsx) skills+=" gsx gsxui" ;;   # gsx is the syntax, gsxui the components to reach for
     *.pkl) skills+=" hk-configure" ;;
+    *wrangler.*) skills+=" wrangler" ;;   # AGENTS.md: the Cloudflare skills before wrangler config
   esac
 done
 [ -n "$skills" ] || exit 0
