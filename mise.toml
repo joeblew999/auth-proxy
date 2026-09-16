@@ -156,6 +156,10 @@ run = [
 description = "Put the pinned gsx and Cloudflare skills into .claude/skills (runs automatically after mise install)"
 run = "tools/sync-skills.sh"
 
+[tasks."skills:verify"]
+description = "Prove a fresh Claude Code session loads the repo's skills (needs a Claude Code login; not run in CI)"
+run = "tools/verify-skills.sh"
+
 [tasks."skills:check"]
 hide = true
 run = "tools/sync-skills.sh --check"
