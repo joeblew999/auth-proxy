@@ -36,6 +36,9 @@ packslip = "latest"
 # Creates GitHub releases and uploads assets, so `mise run release` needs no
 # workflow: tag, build, manifest, publish, all from the task.
 gh = "latest"
+# Supervises the local proxy (and mock) as daemons: start, logs, stop.
+# See pitchfork.toml and: mise run svc:start / svc:logs / svc:stop.
+pitchfork = "latest"
 
 [hooks]
 postinstall = { task = "dev:skills:sync" }
@@ -73,6 +76,56 @@ else
   fnox exec -- bin/grok-oauth-proxy serve
 fi
 '''
+
+# --- svc: the same proxy as pitchfork daemons, for `mise run dev` without -----
+# blocking the terminal. pitchfork.toml supervises; these tasks are the commands
+# it runs and the controls around it. Replaces install-launchagent.sh for the
+# dev loop (launchd stays only if boot persistence is needed).
+
+[tasks."dev:serve"]
+description = "Serve the proxy in the foreground (real providers; pitchfork runs this as the proxy daemon)"
+depends = ["build:cli"]
+raw = true
+run = "fnox exec -- bin/grok-oauth-proxy serve"
+
+[tasks."dev:serve-mock"]
+description = "Serve the proxy in the foreground against the mock config (pitchfork runs this as the proxy-mock daemon)"
+depends = ["build:cli"]
+raw = true
+run = "MOCK_API_KEY=mock-key fnox exec -- bin/grok-oauth-proxy serve --config tools/mock-upstream/providers.toml"
+
+[tasks."dev:mock-server"]
+description = "Serve the mock upstream in the foreground on 127.0.0.1:18080 (pitchfork runs this as the mock daemon)"
+run = "go run ./tools/mock-upstream -addr 127.0.0.1:18080"
+
+[tasks."svc:start"]
+description = "Build and start the proxy as a pitchfork daemon (--mock: with the mock upstream)"
+depends = ["build:cli"]
+raw = true
+usage = 'flag "--mock" help="Start proxy-mock + mock instead of proxy"'
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${usage_mock:-false}" = "true" ]; then
+  go build -o bin/mock-upstream ./tools/mock-upstream
+  exec pitchfork start proxy-mock
+fi
+exec pitchfork start proxy
+'''
+
+[tasks."svc:stop"]
+description = "Stop everything this project started (proxy, proxy-mock, mock)"
+run = "pitchfork stop proxy proxy-mock mock"
+
+[tasks."svc:status"]
+description = "Show what this project has running"
+run = "pitchfork list --project"
+
+[tasks."svc:logs"]
+description = "Tail the logs of the running daemons"
+raw = true
+usage = 'arg "[daemon]" default="proxy" help="proxy, proxy-mock, or mock"'
+run = 'pitchfork logs "$usage_daemon" --tail'
 
 [tasks.status]
 description = "Check every provider and print the exact fix for anything wrong (--worker: the deployed Worker)"
