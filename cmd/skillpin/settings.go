@@ -126,3 +126,63 @@ func readSettings() (map[string]any, error) {
 	}
 	return settings, nil
 }
+
+// committedClaudeFiles are the Claude Code files a repo checks in. Claude Code
+// rewrites a command it launches to the absolute path it resolved, so a file
+// that was portable when written comes back naming one machine's toolchain.
+// Committing that breaks every other clone, quietly, on a machine nobody is
+// looking at.
+var committedClaudeFiles = []string{settingsFile, ".mcp.json"}
+
+// checkPortablePaths fails when one of those files names a command by absolute
+// path. A bare name is found on PATH wherever the repo is cloned.
+func checkPortablePaths() error {
+	var bad []string
+	for _, name := range committedClaudeFiles {
+		data, err := os.ReadFile(name)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		var parsed any
+		if err := json.Unmarshal(data, &parsed); err != nil {
+			// Malformed JSON is reported by whoever owns the file.
+			continue
+		}
+		for _, command := range commandValues(parsed) {
+			if strings.HasPrefix(command, "/") {
+				bad = append(bad, fmt.Sprintf("%s: %s", name, command))
+			}
+		}
+	}
+	if len(bad) > 0 {
+		sort.Strings(bad)
+		return fmt.Errorf("a command is named by absolute path, so it only works on the machine that wrote it:\n%sname it bare (\"mise\", not \"/opt/homebrew/bin/mise\") so PATH finds it in every clone",
+			indent(strings.Join(bad, "\n")))
+	}
+	return nil
+}
+
+// commandValues collects every "command" string anywhere in the document,
+// whatever shape the file uses to nest them.
+func commandValues(node any) []string {
+	var found []string
+	switch v := node.(type) {
+	case map[string]any:
+		for key, value := range v {
+			if key == "command" {
+				if command, ok := value.(string); ok {
+					found = append(found, command)
+				}
+			}
+			found = append(found, commandValues(value)...)
+		}
+	case []any:
+		for _, item := range v {
+			found = append(found, commandValues(item)...)
+		}
+	}
+	return found
+}

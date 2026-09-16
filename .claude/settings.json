@@ -12,7 +12,7 @@
       {
         "hooks": [
           {
-            "command": "/opt/homebrew/bin/mise exec -- hk run check --safe --format json",
+            "command": "mise exec -- hk run check --safe --format json",
             "type": "command"
           }
         ]

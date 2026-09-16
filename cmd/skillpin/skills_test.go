@@ -240,3 +240,35 @@ func TestProvidedSkillNamesSeesLinkedSkills(t *testing.T) {
 		t.Errorf("providedSkillNames = %v; want both the linked and vendored skills", got)
 	}
 }
+
+// The exact regression this catches: Claude Code rewrote "mise" to the path it
+// resolved, and a commit carried one machine's toolchain into the repo.
+func TestCheckPortablePathsCatchesAbsoluteCommands(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.MkdirAll(".claude", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFile(".mcp.json", `{"mcpServers":{"hk":{"command":"/opt/homebrew/bin/mise"}}}`); err != nil {
+		t.Fatal(err)
+	}
+	err := checkPortablePaths()
+	if err == nil || !strings.Contains(err.Error(), "/opt/homebrew/bin/mise") {
+		t.Errorf("checkPortablePaths = %v; want it to name the offending command", err)
+	}
+	// Nested inside a hooks array, which is where the other one hid.
+	if err := writeFile(settingsFile, `{"hooks":{"Stop":[{"hooks":[{"command":"/usr/local/bin/x"}]}]}}`); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFile(".mcp.json", `{"mcpServers":{"hk":{"command":"mise"}}}`); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkPortablePaths(); err == nil || !strings.Contains(err.Error(), "/usr/local/bin/x") {
+		t.Errorf("checkPortablePaths missed a command nested in hooks: %v", err)
+	}
+	if err := writeFile(settingsFile, `{"hooks":{"Stop":[{"hooks":[{"command":"mise exec -- hk"}]}]}}`); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkPortablePaths(); err != nil {
+		t.Errorf("checkPortablePaths = %v; want bare commands to pass", err)
+	}
+}

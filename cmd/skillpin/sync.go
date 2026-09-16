@@ -86,6 +86,9 @@ func Check(out io.Writer) error {
 	if err := checkSettings(p.Claude); err != nil {
 		return err
 	}
+	if err := checkPortablePaths(); err != nil {
+		return err
+	}
 	if err := checkToolPins(out); err != nil {
 		return err
 	}
