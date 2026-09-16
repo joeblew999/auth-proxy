@@ -1,5 +1,7 @@
 //go:build js && wasm
 
+// The same proxy as a Cloudflare Worker: wrangler.toml beside this file, the
+// KV token store below. workers-go hands each request to the shared handler.
 package main
 
 import (
@@ -14,10 +16,10 @@ import (
 	"github.com/syumai/workers-go/cloudflare/fetch"
 	"github.com/syumai/workers-go/cloudflare/kv"
 
-	"github.com/joeblew999/grok-oauth-proxy/internal/bootstrap"
-	"github.com/joeblew999/grok-oauth-proxy/internal/mcp"
-	"github.com/joeblew999/grok-oauth-proxy/internal/proxy"
-	"github.com/joeblew999/grok-oauth-proxy/internal/xaiauth"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/bootstrap"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/mcp"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/proxy"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/xaiauth"
 )
 
 const (

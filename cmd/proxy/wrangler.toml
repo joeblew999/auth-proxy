@@ -25,7 +25,7 @@ kv_namespaces = [
 # ]
 
 [build]
-command = "mise run worker:build"
+command = "mise run proxy:wasm"
 
 [observability.logs]
 enabled = true
@@ -33,7 +33,7 @@ head_sampling_rate = 1
 invocation_logs = true
 persist = true
 
-# The same Worker built with TinyGo (mise run worker:deploy:tinygo), deployed as
+# The same Worker built with TinyGo (mise run proxy:deploy:tinygo), deployed as
 # grok-oauth-proxy-tinygo. It serves 501 on /mcp; see .plan/done/tinygo.md. Its
 # main lives under build/tinygo, which is how `dev build` knows to use TinyGo.
 # kv_namespaces is not inherited by environments, so it is repeated. Being a
@@ -45,4 +45,4 @@ kv_namespaces = [
 ]
 
 [env.tinygo.build]
-command = "mise run worker:build --env tinygo"
+command = "mise run proxy:wasm --env tinygo"

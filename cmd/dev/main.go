@@ -25,7 +25,7 @@ const usage = `dev: the stack's developer tool (run through mise).
 
 Stages of a command directory, read from what it holds (Go main, package.json,
 .gsx, wrangler.toml):
-  dev build DIR [--env NAME]                     npm, gsx generate, go build to bin/<dir>, a Worker's wasm
+  dev build DIR [--worker [--env NAME]]          npm, gsx generate, go build to bin/<dir>; --worker: its wasm
   dev run DIR [--worker] [--env NAME] [-- ARGS]  bin/<dir> under fnox, or wrangler dev
   dev check DIR [--path P] [--expect TEXT]       gsx fmt, vet, test, a Worker's workerd round trip, the browser probe
 Worker stages (DIR holds the wrangler.toml):
@@ -53,9 +53,11 @@ func main() {
 	switch args[0] {
 	case "build":
 		fs := stageFlags("build")
+		var asWorker cli.Bool
+		fs.Var(&asWorker, "worker", "build the Worker's wasm instead of the binary")
 		env := fs.String("env", "", "wrangler environment to build the Worker for")
 		dir := parseDir(fs, args[1:])
-		err = app.Build(os.Stdout, dir, *env)
+		err = app.Build(os.Stdout, dir, bool(asWorker), *env)
 	case "run":
 		fs := stageFlags("run")
 		var asWorker cli.Bool
@@ -123,7 +125,7 @@ func stageFlags(name string) *flagSet {
 
 func parseDir(fs *flagSet, args []string) string {
 	if len(args) == 0 || args[0] == "" || args[0][0] == '-' {
-		fmt.Fprintf(os.Stderr, "dev %s: the command directory comes first, e.g. dev %s cmd/worker\n\n", fs.Name(), fs.Name())
+		fmt.Fprintf(os.Stderr, "dev %s: the command directory comes first, e.g. dev %s cmd/proxy\n\n", fs.Name(), fs.Name())
 		fail(nil)
 	}
 	if err := fs.Parse(args[1:]); err != nil {

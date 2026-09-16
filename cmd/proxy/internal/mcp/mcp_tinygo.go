@@ -8,7 +8,7 @@ package mcp
 import (
 	"net/http"
 
-	"github.com/joeblew999/grok-oauth-proxy/internal/proxy"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/proxy"
 )
 
 // NewHandler returns nil, which the proxy serves as 501.

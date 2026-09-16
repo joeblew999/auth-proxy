@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/joeblew999/grok-oauth-proxy/internal/config"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/config"
 )
 
 func testConfig(t *testing.T) *config.Config {

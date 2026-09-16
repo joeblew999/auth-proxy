@@ -10,7 +10,7 @@ compatibility_flags = [
 ]
 
 [build]
-command = "mise run gui:build"
+command = "mise run gui:wasm"
 
 [observability.logs]
 enabled = true

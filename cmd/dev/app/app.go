@@ -92,25 +92,34 @@ func wasmOnly(dir string) bool {
 	return err != nil && strings.Contains(string(out), "build constraints exclude all Go files")
 }
 
+// run runs a tool in dir. Progress and the tool's own output go to stderr:
+// stdout is for data, and a task that depends on a build may be piped.
 func run(out io.Writer, dir string, env []string, name string, args ...string) error {
-	fmt.Fprintf(out, "$ %s %s\n", name, strings.Join(args, " "))
+	fmt.Fprintf(os.Stderr, "$ %s %s\n", name, strings.Join(args, " "))
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), env...)
-	cmd.Stdout, cmd.Stderr = out, os.Stderr
+	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%s %s (in %s): %w", name, strings.Join(args, " "), dir, err)
 	}
 	return nil
 }
 
-// Build builds what the directory holds. For a Worker, env picks the wrangler
-// environment; its main's directory is the output directory, and one named
-// tinygo is built with TinyGo, any other with Go.
-func Build(out io.Writer, path, env string) error {
+// Build builds the directory's binary: npm and gsx first where they apply,
+// then go build to bin/<dir>. With asWorker it builds the Worker's wasm for
+// env instead: the environment's main names the output directory, and one
+// under build/tinygo is built with TinyGo, any other with Go.
+func Build(out io.Writer, path string, asWorker bool, env string) error {
 	d, err := Inspect(path)
 	if err != nil {
 		return err
+	}
+	if asWorker {
+		return buildWorker(out, d, env)
+	}
+	if d.WasmOnly {
+		return fmt.Errorf("%s builds only a Worker; build it with --worker", d.Path)
 	}
 	if d.NPM {
 		if stale(filepath.Join(d.Path, "package-lock.json"), filepath.Join(d.Path, "node_modules", ".package-lock.json")) {
@@ -127,12 +136,20 @@ func Build(out io.Writer, path, env string) error {
 			return err
 		}
 	}
-	if !d.WasmOnly {
-		if err := run(out, d.Path, nil, "go", "build", "-o", filepath.Join(d.Root, "bin", d.Name), "."); err != nil {
+	return run(out, d.Path, nil, "go", "build", "-o", filepath.Join(d.Root, "bin", d.Name), ".")
+}
+
+func buildWorker(out io.Writer, d Dir, env string) error {
+	if !d.Wrangler {
+		return fmt.Errorf("%s has no wrangler.toml; it is not a Worker", d.Path)
+	}
+	if d.GSX {
+		if err := run(out, d.Path, nil, "go", "tool", "gsx", "generate", "-q"); err != nil {
 			return err
 		}
 	}
-	if d.Wrangler {
+	var err error
+	{
 		main, ok := d.Mains[env]
 		if !ok {
 			return fmt.Errorf("%s/wrangler.toml has no environment %q", d.Path, env)
@@ -158,7 +175,7 @@ func Build(out io.Writer, path, env string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(out, sizes.Line(filepath.Join(d.Path, wasm), raw, gz))
+		fmt.Fprint(os.Stderr, sizes.Line(filepath.Join(d.Path, wasm), raw, gz))
 	}
 	return nil
 }
@@ -206,15 +223,18 @@ func Check(out io.Writer, path, reqPath, expect string) error {
 			return fmt.Errorf("unformatted .gsx above; fix with: go tool gsx fmt -w %s", d.Path)
 		}
 	}
-	var goEnv []string
-	if d.WasmOnly {
-		goEnv = []string{"GOOS=js", "GOARCH=wasm"}
-	}
-	if err := run(out, d.Path, goEnv, "go", "vet", "./..."); err != nil {
-		return err
-	}
+	// A directory with a Worker has a wasm target; one with a native main has
+	// that too. Vet every target it has, test where tests can run.
 	if !d.WasmOnly {
+		if err := run(out, d.Path, nil, "go", "vet", "./..."); err != nil {
+			return err
+		}
 		if err := run(out, d.Path, nil, "go", "test", "./..."); err != nil {
+			return err
+		}
+	}
+	if d.WasmOnly || d.Wrangler {
+		if err := run(out, d.Path, []string{"GOOS=js", "GOARCH=wasm"}, "go", "vet", "./..."); err != nil {
 			return err
 		}
 	}

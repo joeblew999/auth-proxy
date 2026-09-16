@@ -70,13 +70,32 @@ func dirAnd(fs *flag.FlagSet, args []string, positional int) (dir string, rest [
 	if len(args) == 0 || args[0] == "" || args[0][0] == '-' {
 		return "", nil, usageErr("%s: the Worker's directory comes first", fs.Name())
 	}
-	if err := fs.Parse(args[1:]); err != nil {
+	rest, err = parseInterleaved(fs, args[1:])
+	if err != nil {
 		return "", nil, usageErr("%s: %v", fs.Name(), err)
 	}
-	if fs.NArg() != positional {
+	if len(rest) != positional {
 		return "", nil, usageErr("%s: wrong arguments", fs.Name())
 	}
-	return args[0], fs.Args(), nil
+	return args[0], rest, nil
+}
+
+// parseInterleaved parses flags wherever they appear, returning the
+// positionals. mise appends what the developer typed after the task name to
+// the command, so `keys set DIR admin --generate` must work.
+func parseInterleaved(fs *flag.FlagSet, args []string) ([]string, error) {
+	var positionals []string
+	for len(args) > 0 {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		args = fs.Args()
+		if len(args) > 0 {
+			positionals = append(positionals, args[0])
+			args = args[1:]
+		}
+	}
+	return positionals, nil
 }
 
 // Run dispatches the Worker commands. Args are everything after the verb,

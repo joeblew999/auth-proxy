@@ -2,6 +2,7 @@ package worker
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -307,5 +308,15 @@ func TestResolveMapsOwnersToSecrets(t *testing.T) {
 	}
 	if got, _ := Resolve("", "ANY"); got != "ANY" {
 		t.Fatalf("no list: got %q", got)
+	}
+}
+
+func TestParseInterleavedTakesFlagsAnywhere(t *testing.T) {
+	fs := flag.NewFlagSet("x", flag.ContinueOnError)
+	a := fs.Bool("a", false, "")
+	b := fs.String("b", "", "")
+	got, err := parseInterleaved(fs, []string{"-b", "one", "first", "-a", "second"})
+	if err != nil || !*a || *b != "one" || strings.Join(got, ",") != "first,second" {
+		t.Fatalf("got %v %v a=%v b=%q", got, err, *a, *b)
 	}
 }

@@ -203,12 +203,12 @@ One module, this repo. The app outgrows the name `grok-oauth-proxy`; see §7.
 | `internal/engine/openai` | today's `proxy.Upstream`: HTTP to OpenAI-compatible providers | all |
 | `internal/engine/yzma` | in-browser inference over a Web Worker | browser only (`js && wasm && browser`) |
 | `internal/api` | the `/v1` OpenAI API (today's `internal/proxy`) | Worker, native |
-| `internal/mcp` | `ask`, `list_models` | Worker (standard Go), native |
-| `internal/xaiauth` | Grok login | Worker, native |
+| `cmd/proxy/internal/mcp` | `ask`, `list_models` | Worker (standard Go), native |
+| `cmd/proxy/internal/xaiauth` | Grok login | Worker, native |
 | `internal/chat` + `views/` | chat pages, send and stream handlers, gsx components from `gsxui add` | all three |
 | `worker/index.mjs`, `worker/room.mjs` | wrangler entry and the room Durable Object (JS until PR #219) | Worker |
 | `web/sw.js`, `web/engine.js` | loaders only: start the TinyGo Service Worker and the yzma Web Worker | browser |
-| `cmd/server`, `cmd/worker`, `cmd/sw/` | entry points: native, Cloudflare, Service Worker | one each |
+| `cmd/proxy`, `cmd/proxy`, `cmd/sw/` | entry points: native, Cloudflare, Service Worker | one each |
 
 **One deploy:** `mise run deploy` builds the Go Worker and the TinyGo Service
 Worker, then runs `wrangler deploy`. Static Assets hold the gsxui CSS, the Service

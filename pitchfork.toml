@@ -3,7 +3,7 @@
 # Local daemons for grok-oauth-proxy. Commands stay mise tasks (SSOT);
 # pitchfork only supervises: start, readiness, logs, stop.
 #
-#   mise run svc:start            build and start the proxy (real providers)
+#   mise run svc:start proxy      build and start the proxy (real providers)
 #   mise run svc:start proxy-mock build and start proxy + mock upstream
 #   mise run svc:status       what is running
 #   mise run svc:logs         tail the logs
@@ -15,12 +15,12 @@ port = 18080
 ready_http = { url = "http://127.0.0.1:18080/v1/models", timeout = "15s" }
 
 [daemons.proxy]
-run = "mise run server:run"
+run = "mise run proxy:run"
 port = 56121
 ready_http = { url = "http://127.0.0.1:56121/health", timeout = "15s" }
 
 [daemons.proxy-mock]
-run = "mise run server:mock"
+run = "mise run proxy:mock"
 port = 56121
 ready_http = { url = "http://127.0.0.1:56121/health", timeout = "15s" }
 depends = ["mock"]

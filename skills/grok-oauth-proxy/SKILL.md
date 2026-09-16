@@ -15,15 +15,15 @@ ever hold one key.
 Run everything through mise from the repo root; `mise tasks` lists it all.
 
 - `mise run dev` — proxy locally on `http://127.0.0.1:56121/v1`
-- `mise run server:mock` — same, against the bundled mock, no real keys
+- `mise run proxy:mock` — same, against the bundled mock, no real keys
 - `mise run status` — every provider's readiness, with the fix for each problem
 - `mise run models` / `chat <model> [prompt]` — list models, stream a prompt
 - `mise run login` — SuperGrok login for `auth = "xai-oauth"` providers
 - `mise run keys:set <provider>` / `keys:push` — store keys in fnox, push to Worker
 - `mise run deploy` — validate `providers.toml`, then deploy the Worker
 
-Append `--worker` to `status`, `models`, `chat`, `login` to talk to the deployed
-Worker instead of the local proxy.
+`mise run proxy:status`, `proxy:models`, `proxy:chat`, `proxy:login` talk to the
+deployed Worker instead of the local proxy.
 
 ## Providers
 
@@ -41,12 +41,12 @@ key = "GROQ_API_KEY"   # the secret's name, never its value
 
 ## Code layout
 
-- `internal/proxy` — the HTTP handler both runtimes share. Never add
-  runtime-specific proxy logic to `cmd/server` or `cmd/worker`.
-- `internal/config` — the only code that reads the environment.
-- `internal/router` — model name to provider, no I/O.
-- `internal/xaiauth` — the Grok login (browser PKCE, device flow, refresh).
-- `cmd/server` — local CLI. `cmd/worker` — Worker entry point. `cmd/gui` — GUI (separate module).
-- `internal/bootstrap` — which providers file is used (`--config`, `PROVIDERS_TOML`, or the built-in one).
+- `cmd/proxy/internal/proxy` — the HTTP handler both runtimes share. Never add
+  runtime-specific proxy logic to `cmd/proxy`'s `main.go` or `worker.go`.
+- `cmd/proxy/internal/config` — the only code that reads the environment.
+- `cmd/proxy/internal/router` — model name to provider, no I/O.
+- `cmd/proxy/internal/xaiauth` — the Grok login (browser PKCE, device flow, refresh).
+- `cmd/proxy` — the CLI (`main.go`) and the Worker (`worker.go`, `wrangler.toml`). `cmd/gui` — GUI (separate module).
+- `cmd/proxy/internal/bootstrap` — which providers file is used (`--config`, `PROVIDERS_TOML`, or the built-in one).
 
 Run `mise run test` after every Go change.

@@ -55,7 +55,7 @@ func KeysSet(stdin io.Reader, stdout, stderr io.Writer, name string, generate, i
 	if err := pushSecret(dir, name, value, env); err != nil {
 		return fmt.Errorf("pushing %s to the Worker: %w (retry with: mise run keys:push)", name, err)
 	}
-	fmt.Fprintf(stdout, "Pushed %s to the Worker. Check with: mise run status --worker\n", name)
+	fmt.Fprintf(stdout, "Pushed %s to the Worker. Check with: mise run proxy:status\n", name)
 	return nil
 }
 

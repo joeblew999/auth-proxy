@@ -29,7 +29,7 @@ const (
 	goPort     = 8791
 	tinygoPort = 8792
 	clientKey  = "bench-key"
-	workerDir  = "cmd/worker" // where wrangler.toml and the builds live
+	workerDir  = "cmd/proxy" // where wrangler.toml and the builds live
 	mockConfig = "cmd/mock-upstream/providers.toml"
 	mockBinary = "bin/mock-upstream"
 )

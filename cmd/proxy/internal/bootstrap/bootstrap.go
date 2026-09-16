@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/joeblew999/grok-oauth-proxy/internal/config"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/config"
 )
 
 //go:embed providers.toml

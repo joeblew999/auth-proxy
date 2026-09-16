@@ -1,7 +1,9 @@
 # Plan: one dev tool for every repo on this stack
 
-**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo: `mise.toml` is one block
-per task, one field per line (never compressed onto one line: the owner rejected
+**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo. Every command is its own
+Go module (`cmd/proxy` owns the proxy's `internal/`, `cmd/dev` is standalone,
+`go.work` at the root ties the five together); `mise.toml` is one block per
+task, one field per line (never compressed onto one line: the owner rejected
 that as unreadable), a stack half that names nothing of this project and a project half
 that is a grid of four commands by stage; `dev build|run|check DIR` reads a
 command directory and does the rest; every Worker stage takes its directory;
@@ -99,7 +101,7 @@ now demands three 200s in a row.
 
 Layout, settled 2026-09-16 on the owner's question "should the wrangler be
 with each Worker too": yes. A Worker owns its `wrangler.toml` and its `build/`
-in its own directory (`cmd/worker`); `dev url` and `dev worker ...` take
+in its own directory (`cmd/proxy`); `dev url` and `dev worker ...` take
 `--dir`, and the tasks pass `{{vars.worker}}`. The second Worker, the GUI,
 proved it the same day: `cmd/gui/wrangler.toml`, a `worker.go` beside
 `main.go`, four one-line tasks, and no new tooling beyond `dev worker smoke`,

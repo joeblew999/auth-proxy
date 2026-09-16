@@ -66,13 +66,13 @@ and does the rest. `mise tasks` lists everything; these are the ones to know.
 
 | Task | Purpose |
 |---|---|
-| `mise run server:run` (alias `dev`) / `server:mock` | the proxy on `127.0.0.1:56121` with real providers, or against the bundled mock |
-| `mise run worker:deploy` (alias `deploy`) / `worker:deploy:tinygo` | validate `providers.toml`, then deploy the proxy Worker; or its TinyGo build as the `-tinygo` Worker |
-| `mise run worker:url` (alias `url`) / `worker:logs` (alias `logs`) / `worker:run` | this clone's proxy Worker URL, its live logs, the Worker on local workerd |
+| `mise run proxy:run` (alias `dev`) / `proxy:mock` | the proxy on `127.0.0.1:56121` with real providers, or against the bundled mock |
+| `mise run proxy:deploy` (alias `deploy`) / `proxy:deploy:tinygo` | validate `providers.toml`, then deploy the proxy Worker; or its TinyGo build as the `-tinygo` Worker |
+| `mise run proxy:url` (alias `url`) / `proxy:logs` (alias `logs`) / `proxy:workerd` | this clone's proxy Worker URL, its live logs, the Worker on local workerd |
 | `mise run gui:run` / `gui:dev` / `gui:workerd` / `gui:deploy` / `gui:url` | the GUI natively, with live reload, on local workerd, deployed, its URL |
-| `mise run status` / `models` / `chat <model> [prompt]` / `login` | the proxy CLI against the local proxy; `--worker` for the deployed one |
+| `mise run status` / `models` / `chat <model> [prompt]` / `login` | the proxy CLI against the local proxy; `proxy:status` and the rest against the deployed Worker |
 | `mise run setup` | one-time: Worker URL, client key if missing, every key pushed, what is still missing |
-| `mise run keys:set <name\|provider\|admin>` / `keys:push` | store a secret in fnox and push it; push everything the project's `secrets` task lists |
+| `mise run keys:set <name\|provider\|admin> [--generate]` / `keys:push [--env tinygo]` | store a secret in fnox and push it; push everything the project's `secrets` task lists |
 | `mise run build` / `<cmd>:build` | every command, or one; a Worker's wasm per environment (`--env tinygo`) |
 | `mise run check` / `<cmd>:check` | the project's checks, or one command's: gsx fmt, vet, test, the workerd round trip, the browser probe |
 | `mise run test` / `lint` | lint, the session and hook checks, then `check`; hk alone |
@@ -96,18 +96,19 @@ test` before committing.
 
 | Path | Owns |
 |---|---|
-| `internal/bootstrap/providers.toml` (`providers.toml` symlinks to it) | the providers, built into every binary and the Worker |
-| `internal/config` | parsing and validating providers, resolving secrets; **the only code that reads the environment** (through the `getenv` it is given) |
-| `internal/router` | model name → provider, URL joining, model rewriting, merged `/v1/models`; no I/O |
-| `internal/proxy` | the HTTP handler used by **both** runtimes: client key, routing, provider auth, streaming, admin routes |
-| `internal/xaiauth` | the Grok login: browser PKCE, device flow, refresh, token stores |
-| `internal/mcp` | MCP tools `ask` and `list_models` (excluded from TinyGo builds) |
-| `cmd/server` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
-| `cmd/worker` | the proxy as a Cloudflare Worker: entry point (fetch client, KV token store), **its own `wrangler.toml`** and its gitignored `build/`. A Worker owns everything about itself; nothing of it lives at the root |
-| `cmd/gui` | separate module: the GUI spike, a native server and a Cloudflare Worker from one handler, with its own `wrangler.toml` (`mise run gui:*`); see its README |
-| `cmd/dev` | the stack's developer tool, not shipped and not project-specific: the stages `build`, `run`, `check` (package `app`, which reads a command directory) and `deploy`, `url`, `logs`, `smoke`, `wait`, `keys` (package `worker`, every one taking the Worker's directory), plus `session`, `browser`, `sizes`, `deps`, `mcp`, `release`. Each is a package with tests |
-| `cmd/bench` | this proxy's Go vs TinyGo comparison in local workerd; project code, so not in `cmd/dev` |
-| `internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
+| `cmd/proxy/internal/bootstrap/providers.toml` (`providers.toml` symlinks to it) | the providers, built into every binary and the Worker |
+| `cmd/proxy/internal/config` | parsing and validating providers, resolving secrets; **the only code that reads the environment** (through the `getenv` it is given) |
+| `cmd/proxy/internal/router` | model name → provider, URL joining, model rewriting, merged `/v1/models`; no I/O |
+| `cmd/proxy/internal/proxy` | the HTTP handler used by **both** runtimes: client key, routing, provider auth, streaming, admin routes |
+| `cmd/proxy/internal/xaiauth` | the Grok login: browser PKCE, device flow, refresh, token stores |
+| `cmd/proxy/internal/mcp` | MCP tools `ask` and `list_models` (excluded from TinyGo builds) |
+| `cmd/proxy` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
+| `cmd/proxy` | the proxy, its own Go module: `main.go` is the CLI (`serve`, `status`, `models`, `chat`, `login`, `keys`), `worker.go` the Cloudflare Worker (fetch client, KV token store), **its own `wrangler.toml`**, its gitignored `build/`, and `internal/` with everything the two share. A command owns everything about itself; nothing of it lives at the root |
+| `cmd/gui` | the GUI spike, its own Go module: a native server and a Cloudflare Worker from one handler, with its own `wrangler.toml` (`mise run gui:*`); see its README |
+| `cmd/dev` | the stack's developer tool, its own Go module, not shipped and not project-specific: the stages `build`, `run`, `check` (package `app`, which reads a command directory) and `deploy`, `url`, `logs`, `smoke`, `wait`, `keys` (package `worker`, every one taking the Worker's directory), plus `session`, `browser`, `sizes`, `deps`, `mcp`, `release`. Each is a package with tests |
+| `cmd/bench` | this proxy's Go vs TinyGo comparison in local workerd; its own module, project code, so not in `cmd/dev` |
+| `go.work` | the one file at the root that knows Go: it lists the five modules, so a build or test in any of them sees the others |
+| `cmd/proxy/internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `cmd/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
 | `cmd/dev/rel` | release tooling behind `dev release ...` (`snapshot`, `packslip`, `publish`) |
 | `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike. Written by `mise run dev:session:verify --update`, checked at pre-push. It is what catches a skill arriving from a marketplace plugin or from claude.ai — the latter cannot be blocked by any project setting, only noticed |
@@ -116,10 +117,10 @@ test` before committing.
 
 Rules that keep the design working:
 
-- **One handler.** Never add runtime-specific proxy logic to `cmd/server` or
-  `cmd/worker`; they only supply an HTTP client and a token store. The Worker and
+- **One handler.** Never add runtime-specific proxy logic to `cmd/proxy` or
+  `cmd/proxy`; they only supply an HTTP client and a token store. The Worker and
   the local proxy drifted apart before this layout existed.
-- **No package globals and no env reads outside `internal/config`.** Tests build a
+- **No package globals and no env reads outside `cmd/proxy/internal/config`.** Tests build a
   `config.Config` with `config.Load` and a fake `getenv`.
 - **Grok tokens only go to api.x.ai.** `config.Load` rejects `auth = "xai-oauth"`
   on any other host; do not add paths around that check.
@@ -130,7 +131,7 @@ Rules that keep the design working:
 - **Check Worker behaviour in workerd, not only with `go test`.** `mise run bench`
   runs both Worker builds locally against the mock.
 - **A Worker owns its `wrangler.toml` and its `build/`**, in its own directory
-  (`cmd/worker`, `cmd/gui`). Every `dev` stage takes the directory, so a second
+  (`cmd/proxy`, `cmd/gui`). Every `dev` stage takes the directory, so a second
   Worker is another directory and a few one-line tasks, not another set of
   tooling. An environment whose `main` lives under `build/tinygo` is built with
   TinyGo; any other with Go.
