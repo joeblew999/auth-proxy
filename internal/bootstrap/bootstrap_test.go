@@ -14,7 +14,7 @@ func TestBuiltinAndMockProvidersLoad(t *testing.T) {
 		t.Errorf("default %q is not a provider", cfg.Default)
 	}
 
-	mock, err := LoadConfig("../../tools/mock-upstream/providers.toml")
+	mock, err := LoadConfig("../../cmd/mock-upstream/providers.toml")
 	if err != nil {
 		t.Fatalf("mock providers.toml: %v", err)
 	}

@@ -17,22 +17,26 @@ import (
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/internal/cli"
 )
 
-const usage = `dev url [--worker[=BOOL]] [--env NAME] [--local URL] [--refresh]
+const usage = `Every command takes --dir DIR: the Worker's directory, holding its
+wrangler.toml (default "."). mise.local.toml stays in the current directory,
+the repo root, because the account is the repo's, not one Worker's.
+
+dev url [--worker[=BOOL]] [--dir DIR] [--env NAME] [--local URL] [--refresh]
     print the URL to talk to: the deployed Worker when --worker, else --local
     (default empty). The account's workers.dev subdomain is read once with the
     credentials in fnox and kept in gitignored mise.local.toml; --refresh asks
     again, for after switching accounts.
 
-dev worker deploy [--env NAME]
+dev worker deploy [--dir DIR] [--env NAME]
     deploy from a throwaway copy of wrangler.toml, so the ids wrangler writes
     back into its config never reach git, then say what was created or that
     the deployed Worker's bindings were inherited
 dev worker wait URL [--timeout DURATION]
     wait until URL answers 200 (a first deploy's hostname takes a while)
-dev worker keys set NAME [--generate] [--if-missing] [--env NAME]
+dev worker keys set NAME [--dir DIR] [--generate] [--if-missing] [--env NAME]
     store a secret in fnox and push it to the Worker; --generate makes a random
     value instead of prompting, --if-missing leaves an existing one alone
-dev worker keys push [--env NAME] [--fix TEMPLATE]
+dev worker keys push [--dir DIR] [--env NAME] [--fix TEMPLATE]
     read "NAME<TAB>PROVIDER" lines on stdin and push each secret from fnox to
     the Worker; a missing one prints TEMPLATE with {provider} filled in, and
     any problem makes the exit code 1
@@ -58,9 +62,14 @@ func flags(name string, stderr io.Writer) *flag.FlagSet {
 	return fs
 }
 
+func dirFlag(fs *flag.FlagSet) *string {
+	return fs.String("dir", ".", "the Worker's directory, holding its wrangler.toml")
+}
+
 // RunURL is `dev url`.
 func RunURL(args []string, stdout, stderr io.Writer) error {
 	fs := flags("url", stderr)
+	dir := dirFlag(fs)
 	var worker, refresh cli.Bool
 	fs.Var(&worker, "worker", "the deployed Worker's URL; otherwise --local")
 	fs.Var(&refresh, "refresh", "ask the API again instead of reading mise.local.toml")
@@ -72,7 +81,7 @@ func RunURL(args []string, stdout, stderr io.Writer) error {
 	if fs.NArg() != 0 {
 		return usageErr("url takes no arguments")
 	}
-	u, err := URL(*env, bool(worker), *local, bool(refresh))
+	u, err := URL(*dir, *env, bool(worker), *local, bool(refresh))
 	if err != nil {
 		return err
 	}
@@ -88,6 +97,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	switch args[0] {
 	case "deploy":
 		fs := flags("worker deploy", stderr)
+		dir := dirFlag(fs)
 		env := fs.String("env", "", "wrangler environment to deploy")
 		if err := fs.Parse(args[1:]); err != nil {
 			return usageErr("worker deploy: %v", err)
@@ -95,7 +105,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		if fs.NArg() != 0 {
 			return usageErr("worker deploy takes no arguments")
 		}
-		return Deploy(stdout, *env)
+		return Deploy(stdout, *dir, *env)
 	case "wait":
 		fs := flags("worker wait", stderr)
 		timeout := fs.Duration("timeout", 2*time.Minute, "how long to keep trying")
@@ -119,6 +129,7 @@ func runKeys(args []string, stdout, stderr io.Writer) error {
 	switch args[0] {
 	case "set":
 		fs := flags("worker keys set", stderr)
+		dir := dirFlag(fs)
 		var generate, ifMissing cli.Bool
 		fs.Var(&generate, "generate", "make a random 64-hex-character value instead of prompting")
 		fs.Var(&ifMissing, "if-missing", "do nothing when fnox already has the secret")
@@ -129,9 +140,10 @@ func runKeys(args []string, stdout, stderr io.Writer) error {
 		if fs.NArg() != 1 || fs.Arg(0) == "" {
 			return usageErr("worker keys set needs exactly one secret name")
 		}
-		return KeysSet(os.Stdin, stdout, stderr, fs.Arg(0), bool(generate), bool(ifMissing), *env)
+		return KeysSet(os.Stdin, stdout, stderr, fs.Arg(0), bool(generate), bool(ifMissing), *dir, *env)
 	case "push":
 		fs := flags("worker keys push", stderr)
+		dir := dirFlag(fs)
 		env := fs.String("env", "", "wrangler environment to push to")
 		fix := fs.String("fix", "mise run keys:set {provider}", "what to run for a secret fnox does not have")
 		if err := fs.Parse(args[1:]); err != nil {
@@ -140,7 +152,7 @@ func runKeys(args []string, stdout, stderr io.Writer) error {
 		if fs.NArg() != 0 {
 			return usageErr("worker keys push reads its list on stdin and takes no arguments")
 		}
-		return KeysPush(os.Stdin, stdout, *env, *fix)
+		return KeysPush(os.Stdin, stdout, *dir, *env, *fix)
 	}
 	return usageErr("worker keys: unknown subcommand %q", args[0])
 }

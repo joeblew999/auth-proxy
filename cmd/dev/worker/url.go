@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,13 +53,13 @@ func workerName(cfg wranglerConfig, env string) string {
 	return cfg.Name + "-" + env
 }
 
-// URL is the address to talk to: the deployed Worker's workers.dev URL when
+// URL is the address to talk to: the workers.dev URL of the Worker in dir when
 // worker is set, otherwise local as given.
-func URL(env string, worker bool, local string, refresh bool) (string, error) {
+func URL(dir, env string, worker bool, local string, refresh bool) (string, error) {
 	if !worker {
 		return local, nil
 	}
-	cfg, err := readWrangler(wranglerFile)
+	cfg, err := readWrangler(filepath.Join(dir, wranglerFile))
 	if err != nil {
 		return "", err
 	}

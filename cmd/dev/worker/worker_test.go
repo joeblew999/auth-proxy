@@ -73,14 +73,14 @@ func TestURLReadsTheSubdomainOnceAndKeepsIt(t *testing.T) {
 	calls := fakeAccount(t, "tok", "someone")
 	stubFnox(t, map[string]string{"CLOUDFLARE_API_TOKEN": "tok", "CLOUDFLARE_ACCOUNT_ID": "acct"})
 
-	if got, _ := URL("", false, "http://127.0.0.1:1", false); got != "http://127.0.0.1:1" {
+	if got, _ := URL(".", "", false, "http://127.0.0.1:1", false); got != "http://127.0.0.1:1" {
 		t.Fatalf("local: got %q", got)
 	}
-	got, err := URL("", true, "", false)
+	got, err := URL(".", "", true, "", false)
 	if err != nil || got != "https://app.someone.workers.dev" {
 		t.Fatalf("worker: got %q, %v", got, err)
 	}
-	got, err = URL("tinygo", true, "", false)
+	got, err = URL(".", "tinygo", true, "", false)
 	if err != nil || got != "https://app-tinygo.someone.workers.dev" {
 		t.Fatalf("tinygo: got %q, %v", got, err)
 	}
@@ -91,7 +91,7 @@ func TestURLReadsTheSubdomainOnceAndKeepsIt(t *testing.T) {
 	if !strings.Contains(string(data), "CLOUDFLARE_WORKERS_SUBDOMAIN = \"someone\"") {
 		t.Fatalf("mise.local.toml:\n%s", data)
 	}
-	if _, err := URL("", true, "", true); err != nil || *calls != 2 {
+	if _, err := URL(".", "", true, "", true); err != nil || *calls != 2 {
 		t.Fatalf("refresh: %v, calls %d", err, *calls)
 	}
 }
@@ -100,7 +100,7 @@ func TestURLNamesTheMissingCredential(t *testing.T) {
 	t.Chdir(t.TempDir())
 	os.WriteFile(wranglerFile, []byte("name = \"app\"\n"), 0o644)
 	stubFnox(t, map[string]string{})
-	_, err := URL("", true, "", false)
+	_, err := URL(".", "", true, "", false)
 	want := "CLOUDFLARE_API_TOKEN is not in fnox; store it with: fnox set -g CLOUDFLARE_API_TOKEN"
 	if err == nil || err.Error() != want {
 		t.Fatalf("got %v", err)
@@ -112,7 +112,7 @@ func TestURLReportsWhatCloudflareSaid(t *testing.T) {
 	os.WriteFile(wranglerFile, []byte("name = \"app\"\n"), 0o644)
 	fakeAccount(t, "right", "x")
 	stubFnox(t, map[string]string{"CLOUDFLARE_API_TOKEN": "wrong", "CLOUDFLARE_ACCOUNT_ID": "acct"})
-	_, err := URL("", true, "", false)
+	_, err := URL(".", "", true, "", false)
 	if err == nil || !strings.Contains(err.Error(), "HTTP 403: Invalid API token") {
 		t.Fatalf("got %v", err)
 	}
@@ -147,10 +147,10 @@ func stubPush(t *testing.T) *[]string {
 	t.Helper()
 	var pushed []string
 	old := fnoxExec
-	fnoxExec = func(stdin io.Reader, _ io.Writer, args ...string) error {
+	fnoxExec = func(dir string, stdin io.Reader, _ io.Writer, args ...string) error {
 		var buf bytes.Buffer
 		buf.ReadFrom(stdin)
-		pushed = append(pushed, strings.Join(args, " ")+" <- "+buf.String())
+		pushed = append(pushed, dir+": "+strings.Join(args, " ")+" <- "+buf.String())
 		return nil
 	}
 	t.Cleanup(func() { fnoxExec = old })
@@ -161,7 +161,7 @@ func TestKeysPushNamesTheFixForEachMissingSecret(t *testing.T) {
 	stubFnox(t, map[string]string{"A": "va", "B": ""})
 	pushed := stubPush(t)
 	var out bytes.Buffer
-	err := KeysPush(strings.NewReader("A\tprov-a\nB\tprov-b\n\nC\n"), &out, "tinygo", "mise run keys:set {provider}")
+	err := KeysPush(strings.NewReader("A\tprov-a\nB\tprov-b\n\nC\n"), &out, "cmd/w", "tinygo", "mise run keys:set {provider}")
 	if err == nil || err.Error() != "2 secret(s) not pushed" {
 		t.Fatalf("err = %v", err)
 	}
@@ -170,7 +170,7 @@ func TestKeysPushNamesTheFixForEachMissingSecret(t *testing.T) {
 			t.Errorf("output lacks %q:\n%s", want, out.String())
 		}
 	}
-	if len(*pushed) != 1 || (*pushed)[0] != "wrangler secret put A --env tinygo <- va" {
+	if len(*pushed) != 1 || (*pushed)[0] != "cmd/w: wrangler secret put A --env tinygo <- va" {
 		t.Fatalf("pushed %q", *pushed)
 	}
 }
@@ -184,30 +184,30 @@ func TestKeysSet(t *testing.T) {
 
 	stubFnox(t, map[string]string{})
 	var out bytes.Buffer
-	if err := KeysSet(strings.NewReader(""), &out, &out, "K", true, false, ""); err != nil {
+	if err := KeysSet(strings.NewReader(""), &out, &out, "K", true, false, ".", ""); err != nil {
 		t.Fatal(err)
 	}
 	if len(stored) != 1 || len(stored[0]) != len("K=")+64 {
 		t.Fatalf("generated: stored %q", stored)
 	}
-	if len(*pushed) != 1 || !strings.HasPrefix((*pushed)[0], "wrangler secret put K --env  <- ") {
+	if len(*pushed) != 1 || !strings.HasPrefix((*pushed)[0], ".: wrangler secret put K --env  <- ") {
 		t.Fatalf("pushed %q", *pushed)
 	}
 
-	if err := KeysSet(strings.NewReader("typed\n"), &out, &out, "P", false, false, ""); err != nil {
+	if err := KeysSet(strings.NewReader("typed\n"), &out, &out, "P", false, false, ".", ""); err != nil {
 		t.Fatal(err)
 	}
 	if stored[1] != "P=typed" {
 		t.Fatalf("piped: stored %q", stored[1])
 	}
 
-	if err := KeysSet(strings.NewReader("\n"), &out, &out, "E", false, false, ""); err == nil || !strings.Contains(err.Error(), "no value given for E") {
+	if err := KeysSet(strings.NewReader("\n"), &out, &out, "E", false, false, ".", ""); err == nil || !strings.Contains(err.Error(), "no value given for E") {
 		t.Fatalf("empty: %v", err)
 	}
 
 	stubFnox(t, map[string]string{"HAVE": "x"})
 	out.Reset()
-	if err := KeysSet(strings.NewReader(""), &out, &out, "HAVE", true, true, ""); err != nil || len(stored) != 2 {
+	if err := KeysSet(strings.NewReader(""), &out, &out, "HAVE", true, true, ".", ""); err != nil || len(stored) != 2 {
 		t.Fatalf("if-missing: %v, stored %q", err, stored)
 	}
 	if !strings.Contains(out.String(), "HAVE is already in fnox") {

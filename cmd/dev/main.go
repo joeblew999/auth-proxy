@@ -14,7 +14,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/bench"
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/browser"
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/deps"
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/mcpcheck"
@@ -26,11 +25,10 @@ import (
 
 const usage = `dev: developer tooling for this repo (run through mise).
 
-  dev url [--worker] [--env NAME] [--local URL]   the URL to talk to: the deployed Worker, or --local
-  dev worker deploy|wait|keys ...                 deploy from a throwaway config copy, wait for a Worker, secrets
+  dev url [--worker] [--dir DIR] [--env NAME]     the URL to talk to: the Worker in DIR, or --local
+  dev worker deploy|wait|keys ... [--dir DIR]     deploy from a throwaway config copy, wait for a Worker, secrets
   dev session sync|check|verify|bump              pin the Claude Code session to session.toml
   dev browser <server> <probe> [path]             serve an app, drive it in a headless Chrome, run the probe
-  dev bench                                       Go vs TinyGo Worker in local workerd against the mock
   dev sizes FILE...                               raw and gzip sizes
   dev deps list|upgrade                           Go module upgrades in every module
   dev mcp check                                   every declared MCP server connects
@@ -69,8 +67,6 @@ func main() {
 		if errors.As(err, &uerr) {
 			fail(args)
 		}
-	case "bench":
-		err = bench.Run(args[1:], os.Stdout, os.Stderr)
 	case "sizes":
 		err = sizes.Run(args[1:], os.Stdout, os.Stderr)
 	case "deps":

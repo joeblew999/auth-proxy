@@ -1,8 +1,9 @@
 # Plan: one dev tool for every repo on this stack
 
-**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo: every task is a line or
-two in `mise.toml`, every piece of logic is a `dev` subcommand with a test, and
-`mise-tasks/` and the shell helpers are gone. Step 3 is DEFERRED by the owner
+**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo: every task is a line in
+`mise.toml` (172 lines, from 417), every piece of logic is a `dev` subcommand
+with a test, `cmd/dev` holds nothing project-specific, each Worker owns its
+`wrangler.toml`, and `mise-tasks/` and the shell helpers are gone. Step 3 is DEFERRED by the owner
 the same day: this repo first, made right on this stack, and nothing extracted
 until it is. Not `joeblew999/.github` (the fleet task library: nu bodies in
 TOML includes, reusable workflows) and not the go-htmx4 way (a template repo
@@ -76,9 +77,17 @@ now demands three 200s in a row.
 
 ## Step 3, later: the tool in its own repo
 
-| Generic today (moves) | Project-specific (stays) |
+| Generic (all of `cmd/dev`, moves) | Project-specific (stays) |
 |---|---|
-| `url`, `worker`, `session`, `browser`, `mcp`, `deps`, `sizes`, `release` | `bench` (this proxy's requests), the proxy binary's own `status`, `keys`, `chat` |
+| `url`, `worker`, `session`, `browser`, `mcp`, `deps`, `sizes`, `release` | `cmd/bench` (this proxy's requests), `cmd/mock-upstream`, the proxy binary's own `status`, `keys`, `chat` |
+
+Layout, settled 2026-09-16 on the owner's question "should the wrangler be
+with each Worker too": yes. A Worker owns its `wrangler.toml` and its `build/`
+in its own directory (`cmd/worker`); `dev url` and `dev worker ...` take
+`--dir`, and the tasks pass `{{vars.worker}}`. A second Worker (the GUI, when
+Stage B2 makes it one) is another directory and another var, not another set
+of tooling. `cmd/dev` holds nothing of this project any more: the bench moved
+to `cmd/bench` and the mock to `cmd/mock-upstream`.
 
 - **Repo** `github.com/joeblew999/<name>`, releasing `dev` with goreleaser and
   packslip; `dev release` already does that. Pinned in every project as

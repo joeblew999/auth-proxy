@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -23,29 +24,31 @@ var idKeys = map[string]string{
 	"r2_buckets":    "bucket_name",
 }
 
-// Deploy runs `wrangler deploy` for env from a throwaway copy of wrangler.toml
-// and then says what wrangler created on this account, or that it inherited
-// the deployed Worker's bindings, which is what happens on every deploy after
-// the first.
-func Deploy(out io.Writer, env string) error {
-	before, err := os.ReadFile(wranglerFile)
+// Deploy runs `wrangler deploy` for env in the Worker's dir, from a throwaway
+// copy of its wrangler.toml, and then says what wrangler created on this
+// account, or that it inherited the deployed Worker's bindings, which is what
+// happens on every deploy after the first.
+func Deploy(out io.Writer, dir, env string) error {
+	src := filepath.Join(dir, wranglerFile)
+	copyPath := filepath.Join(dir, deployCopy)
+	before, err := os.ReadFile(src)
 	if err != nil {
-		return fmt.Errorf("%s: %w", wranglerFile, err)
+		return fmt.Errorf("%s: %w", src, err)
 	}
-	if err := os.WriteFile(deployCopy, before, 0o644); err != nil {
+	if err := os.WriteFile(copyPath, before, 0o644); err != nil {
 		return err
 	}
-	defer os.Remove(deployCopy)
-	if err := fnoxExec(nil, out, "wrangler", "deploy", "--config", deployCopy, "--env", env); err != nil {
+	defer os.Remove(copyPath)
+	if err := fnoxExec(dir, nil, out, "wrangler", "deploy", "--config", deployCopy, "--env", env); err != nil {
 		return fmt.Errorf("wrangler deploy failed: %w", err)
 	}
-	after, err := os.ReadFile(deployCopy)
+	after, err := os.ReadFile(copyPath)
 	if err != nil {
 		return err
 	}
 	made, err := created(before, after)
 	if err != nil {
-		return fmt.Errorf("reading what wrangler wrote back to %s: %w", deployCopy, err)
+		return fmt.Errorf("reading what wrangler wrote back to %s: %w", copyPath, err)
 	}
 	if len(made) == 0 {
 		fmt.Fprintln(out, "bindings inherited from the deployed Worker; nothing written back")

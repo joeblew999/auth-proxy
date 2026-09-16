@@ -5,7 +5,7 @@
 // SSE streaming, and which bearer token the proxy forwards upstream — the last
 // of which is the thing worth checking when switching providers.
 //
-//	go run ./tools/mock-upstream -addr 127.0.0.1:18080
+//	go run ./cmd/mock-upstream -addr 127.0.0.1:18080
 //
 // Then point the proxy at it (see the proxy_local_mock mise task):
 //

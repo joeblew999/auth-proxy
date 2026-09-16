@@ -1,6 +1,6 @@
 //go:build unix
 
-package bench
+package main
 
 import (
 	"os/exec"

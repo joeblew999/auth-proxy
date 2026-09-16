@@ -1,11 +1,12 @@
-// Package bench runs the Go and TinyGo Worker builds side by side in local
-// workerd, both against the mock upstream, sends them identical requests and
-// prints status, size and latency in one table. Everything it starts is
-// stopped on exit. It runs as `dev bench`.
+// Command bench runs this proxy's Go and TinyGo Worker builds side by side in
+// local workerd, both against the mock upstream, sends them identical requests
+// and prints status, size and latency in one table. Everything it starts is
+// stopped on exit. It is this project's, not the stack's: it knows the proxy's
+// endpoints, so it lives beside them rather than in cmd/dev.
 //
 // workers-go instantiates the wasm module on every request, so latency
 // includes that startup cost, which is where the two toolchains differ most.
-package bench
+package main
 
 import (
 	"bytes"
@@ -27,11 +28,12 @@ const (
 	goPort     = 8791
 	tinygoPort = 8792
 	clientKey  = "bench-key"
-	mockConfig = "tools/mock-upstream/providers.toml"
+	workerDir  = "cmd/worker" // where wrangler.toml and the builds live
+	mockConfig = "cmd/mock-upstream/providers.toml"
 	mockBinary = "bin/mock-upstream"
 )
 
-var wasm = []string{"build/go/app.wasm", "build/tinygo/app.wasm"}
+var wasm = []string{workerDir + "/build/go/app.wasm", workerDir + "/build/tinygo/app.wasm"}
 
 type request struct{ name, method, path, body string }
 
@@ -45,10 +47,17 @@ var requests = []request{
 	{"POST /mcp", http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`},
 }
 
-// Run is `dev bench`. RUNS in the environment sets the sample size (20).
-func Run(args []string, stdout, stderr io.Writer) error {
+func main() {
+	if err := run(os.Args[1:], os.Stdout); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+}
+
+// run does the whole comparison. RUNS in the environment sets the sample size (20).
+func run(args []string, stdout io.Writer) error {
 	if len(args) != 0 {
-		return errors.New("usage: dev bench (RUNS=n in the environment changes the sample size)")
+		return errors.New("usage: bench (RUNS=n in the environment changes the sample size)")
 	}
 	runs := 20
 	if v := os.Getenv("RUNS"); v != "" {
@@ -77,12 +86,13 @@ func Run(args []string, stdout, stderr io.Writer) error {
 			stop(c)
 		}
 	}()
-	start := func(log, name string, arg ...string) error {
+	start := func(log, dir, name string, arg ...string) error {
 		f, err := os.Create(filepath.Join(logs, log+".log"))
 		if err != nil {
 			return err
 		}
 		cmd := exec.Command(name, arg...)
+		cmd.Dir = dir
 		cmd.Stdout, cmd.Stderr = f, f
 		ownGroup(cmd)
 		if err := cmd.Start(); err != nil {
@@ -97,13 +107,18 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		"--var", "MOCK_API_KEY:mock-key",
 		"--var", "ADMIN_API_KEY:" + clientKey,
 	}
-	if err := start("mock", mockBinary); err != nil {
+	mock, err := filepath.Abs(mockBinary)
+	if err != nil {
 		return err
 	}
-	if err := start("go", "wrangler", append([]string{"dev", "--env", "", "--port", strconv.Itoa(goPort)}, vars...)...); err != nil {
+	if err := start("mock", ".", mock); err != nil {
 		return err
 	}
-	if err := start("tinygo", "wrangler", append([]string{"dev", "--env", "tinygo", "--port", strconv.Itoa(tinygoPort)}, vars...)...); err != nil {
+	// wrangler dev finds the Worker's own wrangler.toml by running in its directory.
+	if err := start("go", workerDir, "wrangler", append([]string{"dev", "--env", "", "--port", strconv.Itoa(goPort)}, vars...)...); err != nil {
+		return err
+	}
+	if err := start("tinygo", workerDir, "wrangler", append([]string{"dev", "--env", "tinygo", "--port", strconv.Itoa(tinygoPort)}, vars...)...); err != nil {
 		return err
 	}
 	fmt.Fprintln(stdout, "Building and starting both Workers (this takes a minute)...")

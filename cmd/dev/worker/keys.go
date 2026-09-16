@@ -15,7 +15,7 @@ import (
 // KeysSet stores one secret in fnox and pushes it to the Worker. The value is
 // generated, or read hidden from a terminal, or read as one line from a pipe;
 // it is never an argument, so it is never in a process list or a shell history.
-func KeysSet(stdin io.Reader, stdout, stderr io.Writer, name string, generate, ifMissing bool, env string) error {
+func KeysSet(stdin io.Reader, stdout, stderr io.Writer, name string, generate, ifMissing bool, dir, env string) error {
 	if ifMissing {
 		if v, err := fnoxGet(name); err == nil && v != "" {
 			fmt.Fprintf(stdout, "%s is already in fnox; leaving it\n", name)
@@ -30,7 +30,7 @@ func KeysSet(stdin io.Reader, stdout, stderr io.Writer, name string, generate, i
 		return fmt.Errorf("storing %s in fnox: %w", name, err)
 	}
 	fmt.Fprintf(stdout, "Stored %s in fnox.\n", name)
-	if err := pushSecret(name, value, env); err != nil {
+	if err := pushSecret(dir, name, value, env); err != nil {
 		return fmt.Errorf("pushing %s to the Worker: %w (retry with: mise run keys:push)", name, err)
 	}
 	fmt.Fprintf(stdout, "Pushed %s to the Worker. Check with: mise run status --worker\n", name)
@@ -66,15 +66,15 @@ func secretValue(stdin io.Reader, prompt io.Writer, name string, generate bool) 
 
 // pushSecret is `wrangler secret put`, which reads the value on stdin and
 // deploys a new version of the Worker with it.
-func pushSecret(name, value, env string) error {
-	return fnoxExec(strings.NewReader(value), io.Discard, "wrangler", "secret", "put", name, "--env", env)
+func pushSecret(dir, name, value, env string) error {
+	return fnoxExec(dir, strings.NewReader(value), io.Discard, "wrangler", "secret", "put", name, "--env", env)
 }
 
 // KeysPush reads "NAME<TAB>PROVIDER" lines (provider optional) and pushes
 // every named secret from fnox to the Worker. A secret fnox does not have is
 // reported with fix, {provider} replaced, and the error at the end carries the
 // count so the caller exits non-zero.
-func KeysPush(stdin io.Reader, out io.Writer, env, fix string) error {
+func KeysPush(stdin io.Reader, out io.Writer, dir, env, fix string) error {
 	problems := 0
 	sc := bufio.NewScanner(stdin)
 	for sc.Scan() {
@@ -92,7 +92,7 @@ func KeysPush(stdin io.Reader, out io.Writer, env, fix string) error {
 			problems++
 			continue
 		}
-		if err := pushSecret(name, value, env); err != nil {
+		if err := pushSecret(dir, name, value, env); err != nil {
 			fmt.Fprintf(out, "failed  %s (%v; see mise run logs, or retry mise run keys:push)\n", name, err)
 			problems++
 			continue

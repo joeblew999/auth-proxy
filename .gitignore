@@ -1,14 +1,14 @@
 bin
-/build/
 /grok-oauth-proxy
 /dist/
 npm/grok-oauth-proxy
 npm/grok-oauth-proxy.exe
-# wrangler dev local state (KV, cache)
-/.wrangler/
-# the copy `mise run deploy` runs wrangler on, so its id write-back lands here
-/wrangler.deploy.toml
-# this clone's Worker URLs, written by `mise run setup:url`
+# a Worker's build output and wrangler's local state, next to its wrangler.toml
+build/
+.wrangler/
+# the copy `dev worker deploy` runs wrangler on, so its id write-back lands there
+wrangler.deploy.toml
+# this clone's account facts, written by `dev url`
 /mise.local.toml
 # mise packslip skill links: each developer's `mise skills sync` creates these
 # from the active tool versions. Never commit them; .claude/skills/ holds only

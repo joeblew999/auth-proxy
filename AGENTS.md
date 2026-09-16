@@ -97,11 +97,12 @@ after every Go change, `mise run test` before committing.
 | `internal/xaiauth` | the Grok login: browser PKCE, device flow, refresh, token stores |
 | `internal/mcp` | MCP tools `ask` and `list_models` (excluded from TinyGo builds) |
 | `cmd/server` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
-| `cmd/worker` | Worker entry point: fetch client, KV token store |
+| `cmd/worker` | the proxy as a Cloudflare Worker: entry point (fetch client, KV token store), **its own `wrangler.toml`** and its gitignored `build/`. A Worker owns everything about itself; nothing of it lives at the root |
 | `cmd/gui` | separate module: the GUI (`mise run hello:*`); see its README |
-| `cmd/dev` | developer tooling, not shipped: `url`, `worker` (deploy, wait, keys), `session`, `browser`, `bench`, `sizes`, `deps`, `mcp`, `release`. Each is a package with tests; a mise task that drives one is named after it (`dev:browser`, `dev:session:sync`) |
+| `cmd/dev` | the stack's developer tool, not shipped and not project-specific: `url`, `worker` (deploy, wait, keys; every one takes `--dir`), `session`, `browser`, `sizes`, `deps`, `mcp`, `release`. Each is a package with tests; a mise task that drives one is named after it (`dev:browser`, `dev:session:sync`) |
+| `cmd/bench` | this proxy's Go vs TinyGo comparison in local workerd; project code, so not in `cmd/dev` |
 | `internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
-| `tools/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
+| `cmd/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
 | `cmd/dev/rel` | release tooling behind `dev release ...` (`snapshot`, `packslip`, `publish`) |
 | `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike. Written by `mise run dev:session:verify --update`, checked at pre-push. It is what catches a skill arriving from a marketplace plugin or from claude.ai — the latter cannot be blocked by any project setting, only noticed |
 | `skills/` | the skill this repo's releases ship via packslip |
@@ -122,6 +123,9 @@ Rules that keep the design working:
   with any body, even an empty one, and Go's own client hides this in tests.
 - **Check Worker behaviour in workerd, not only with `go test`.** `mise run bench`
   runs both Worker builds locally against the mock.
+- **A Worker owns its `wrangler.toml` and its `build/`**, in its own directory
+  (`cmd/worker`). Tasks and `dev` reach it through `--dir`, so a second Worker
+  is another directory, not another set of tooling.
 - **`wrangler.toml` names no account and no resource id.** The account is
   `CLOUDFLARE_ACCOUNT_ID` from fnox, the KV namespace is provisioned per account
   on the first deploy and stays linked, and `deploy` runs wrangler on a throwaway

@@ -31,9 +31,11 @@ var (
 		return cmd.Run()
 	}
 
-	// fnoxExec runs a command with fnox's secrets in its environment.
-	fnoxExec = func(stdin io.Reader, stdout io.Writer, args ...string) error {
+	// fnoxExec runs a command in dir with fnox's secrets in its environment.
+	// wrangler finds the Worker's own wrangler.toml by running in its directory.
+	fnoxExec = func(dir string, stdin io.Reader, stdout io.Writer, args ...string) error {
 		cmd := exec.Command("fnox", append([]string{"exec", "--"}, args...)...)
+		cmd.Dir = dir
 		cmd.Stdin = stdin
 		cmd.Stdout = stdout
 		cmd.Stderr = os.Stderr
