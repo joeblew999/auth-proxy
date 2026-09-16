@@ -51,6 +51,10 @@ func Deploy(out io.Writer, dir, env string) error {
 		return fmt.Errorf("reading what wrangler wrote back to %s: %w", copyPath, err)
 	}
 	if len(made) == 0 {
+		if !hasBindings(before) {
+			fmt.Fprintln(out, "no bindings in wrangler.toml; nothing to provision")
+			return nil
+		}
 		fmt.Fprintln(out, "bindings inherited from the deployed Worker; nothing written back")
 		return nil
 	}
@@ -127,4 +131,13 @@ func entriesOf(v any) []map[string]any {
 		return out
 	}
 	return nil
+}
+
+// hasBindings reports whether the config declares any provisionable binding.
+func hasBindings(config []byte) bool {
+	var doc map[string]any
+	if err := toml.Unmarshal(config, &doc); err != nil {
+		return false
+	}
+	return len(bindingIDs(doc)) > 0
 }

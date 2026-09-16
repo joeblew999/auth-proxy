@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -238,5 +239,58 @@ func TestWait(t *testing.T) {
 	defer down.Close()
 	if err := Wait(&out, down.URL, 0); err == nil || !strings.Contains(err.Error(), "did not answer 200") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestCheckJudgesStatusAndBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ok":
+			fmt.Fprint(w, "<h1>Pick a model</h1>")
+		case "/down":
+			w.WriteHeader(http.StatusBadGateway)
+			fmt.Fprint(w, "error code: 1042")
+		}
+	}))
+	defer srv.Close()
+	if code, _, err := check(srv.URL+"/ok", "Pick a model"); err != nil || code != 200 {
+		t.Fatalf("ok: %d %v", code, err)
+	}
+	if _, _, err := check(srv.URL+"/ok", "Nope"); err == nil || !strings.Contains(err.Error(), `does not contain "Nope"`) {
+		t.Fatalf("missing text: %v", err)
+	}
+	if _, _, err := check(srv.URL+"/down", ""); err == nil || !strings.Contains(err.Error(), "answered 502: error code: 1042") {
+		t.Fatalf("down: %v", err)
+	}
+}
+
+func TestWaitReadyReadsTheLog(t *testing.T) {
+	oldSleep := sleep
+	sleep = func(time.Duration) {}
+	t.Cleanup(func() { sleep = oldSleep })
+	log := filepath.Join(t.TempDir(), "dev.log")
+	os.WriteFile(log, []byte("Starting local server...\nReady on http://127.0.0.1:8787\n"), 0o644)
+	if err := waitReady(log, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(log, []byte("ERROR: build failed\n"), 0o644)
+	if err := waitReady(log, time.Minute); err == nil {
+		t.Fatal("an ERROR line was not reported")
+	}
+	os.WriteFile(log, []byte("still starting\n"), 0o644)
+	if err := waitReady(log, 0); err == nil || !strings.Contains(err.Error(), "did not become ready") {
+		t.Fatalf("timeout: %v", err)
+	}
+}
+
+func TestHasBindings(t *testing.T) {
+	if hasBindings([]byte("name = \"app\"\n")) {
+		t.Fatal("a config with no bindings reported some")
+	}
+	if !hasBindings([]byte("name = \"app\"\nkv_namespaces = [{ binding = \"A\" }]\n")) {
+		t.Fatal("a kv binding was not seen")
+	}
+	if !hasBindings([]byte("name = \"app\"\n[env.x]\nr2_buckets = [{ binding = \"B\" }]\n")) {
+		t.Fatal("an env binding was not seen")
 	}
 }

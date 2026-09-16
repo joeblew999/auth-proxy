@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/proc"
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/sizes"
 )
 
@@ -83,7 +84,7 @@ func run(args []string, stdout io.Writer) error {
 	var started []*exec.Cmd
 	defer func() {
 		for _, c := range started {
-			stop(c)
+			proc.Stop(c)
 		}
 	}()
 	start := func(log, dir, name string, arg ...string) error {
@@ -94,7 +95,7 @@ func run(args []string, stdout io.Writer) error {
 		cmd := exec.Command(name, arg...)
 		cmd.Dir = dir
 		cmd.Stdout, cmd.Stderr = f, f
-		ownGroup(cmd)
+		proc.OwnGroup(cmd)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("starting %s: %w", name, err)
 		}

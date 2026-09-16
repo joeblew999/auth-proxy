@@ -6,6 +6,7 @@ require (
 	github.com/gsxhq/gsx v0.1.1
 	github.com/gsxhq/vite v0.3.2
 	github.com/jackielii/tailwind-merge-go v0.0.0-20260726184505-8a911ed0cf9a
+	github.com/syumai/workers-go v0.35.0
 )
 
 require (

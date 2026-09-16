@@ -1,0 +1,19 @@
+name = "grok-oauth-proxy-gui"
+main = "build/go/worker.mjs"
+compatibility_date = "2026-09-07"
+# No account_id: wrangler takes CLOUDFLARE_ACCOUNT_ID from the environment,
+# which fnox provides, so this file is the same for every developer. The page
+# and its assets are all inside the wasm, so the Worker needs no bindings.
+workers_dev = true
+compatibility_flags = [
+  "streams_enable_constructors",
+]
+
+[build]
+command = "mise run hello:build:worker"
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true

@@ -33,6 +33,9 @@ dev worker deploy [--dir DIR] [--env NAME]
     the deployed Worker's bindings were inherited
 dev worker wait URL [--timeout DURATION]
     wait until URL answers 200 (a first deploy's hostname takes a while)
+dev worker smoke [--dir DIR] [--env NAME] [--path P] [--expect TEXT] [--timeout DURATION]
+    run the Worker on local workerd with wrangler dev, request P (default /),
+    and fail unless it answers 200 with TEXT in the body
 dev worker keys set NAME [--dir DIR] [--generate] [--if-missing] [--env NAME]
     store a secret in fnox and push it to the Worker; --generate makes a random
     value instead of prompting, --if-missing leaves an existing one alone
@@ -116,6 +119,20 @@ func Run(args []string, stdout, stderr io.Writer) error {
 			return usageErr("worker wait needs exactly one URL")
 		}
 		return Wait(stdout, fs.Arg(0), *timeout)
+	case "smoke":
+		fs := flags("worker smoke", stderr)
+		dir := dirFlag(fs)
+		env := fs.String("env", "", "wrangler environment to run")
+		path := fs.String("path", "/", "what to request")
+		expect := fs.String("expect", "", "text the body must contain")
+		timeout := fs.Duration("timeout", 3*time.Minute, "how long wrangler dev may take to start")
+		if err := fs.Parse(args[1:]); err != nil {
+			return usageErr("worker smoke: %v", err)
+		}
+		if fs.NArg() != 0 {
+			return usageErr("worker smoke takes no arguments")
+		}
+		return Smoke(stdout, *dir, *env, *path, *expect, *timeout)
 	case "keys":
 		return runKeys(args[1:], stdout, stderr)
 	}

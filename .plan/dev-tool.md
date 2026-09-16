@@ -84,9 +84,10 @@ now demands three 200s in a row.
 Layout, settled 2026-09-16 on the owner's question "should the wrangler be
 with each Worker too": yes. A Worker owns its `wrangler.toml` and its `build/`
 in its own directory (`cmd/worker`); `dev url` and `dev worker ...` take
-`--dir`, and the tasks pass `{{vars.worker}}`. A second Worker (the GUI, when
-Stage B2 makes it one) is another directory and another var, not another set
-of tooling. `cmd/dev` holds nothing of this project any more: the bench moved
+`--dir`, and the tasks pass `{{vars.worker}}`. The second Worker, the GUI,
+proved it the same day: `cmd/gui/wrangler.toml`, a `worker.go` beside
+`main.go`, four one-line tasks, and no new tooling beyond `dev worker smoke`,
+which any Worker directory can use. `cmd/dev` holds nothing of this project any more: the bench moved
 to `cmd/bench` and the mock to `cmd/mock-upstream`.
 
 - **Repo** `github.com/joeblew999/<name>`, releasing `dev` with goreleaser and

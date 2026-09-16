@@ -11,7 +11,10 @@ Run everything through mise from the repo root; nothing here needs remembering.
 | `mise run hello:dev` | Vite plus the Go server with live reload, on http://localhost:5173 |
 | `mise run hello:serve` | build and run the binary on http://localhost:7777 |
 | `mise run hello:build` | `vite build` → `gsx generate` → `go build` (that order: `vite build` empties `dist/`, which the binary embeds) |
-| `mise run hello:check` | formatting, vet, tests, a TinyGo wasm build, and the browser check — also run by `mise run test` |
+| `mise run hello:check` | formatting, vet, tests, a TinyGo wasm build, the browser check and the workerd check — also run by `mise run test` |
+| `mise run hello:workerd` | the same app as a Cloudflare Worker on local workerd (`wrangler dev`) |
+| `mise run hello:smoke` | build the Worker, start it on workerd, request one page and check it |
+| `mise run hello:deploy` | deploy it as `grok-oauth-proxy-gui` and wait for its page; `hello:url` prints where |
 | `mise run dev:browser` | drive the page in a headless Chrome and check the picker actually works (this spike is what it defaults to) |
 
 ## What it proves
@@ -33,6 +36,10 @@ which model** — so it is what the spike builds.
   with the problem and the command that fixes it.
 - **The same components compile under TinyGo** (`cmd/tinygo-render`), because the
   browser topology runs this markup inside a Service Worker.
+- **The same app is a Cloudflare Worker.** `app.go` builds the handler once;
+  `main.go` serves it natively and `worker.go` (built for `js && wasm`) hands it
+  to workers-go. The Vite build and `public/` are inside the wasm, so the Worker
+  needs no bindings, and `wrangler.toml` sits beside the code like every Worker's.
 
 ## Rules for working in here
 

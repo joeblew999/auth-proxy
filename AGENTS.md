@@ -74,7 +74,7 @@ at least once.
 | `mise run dev:session:sync` / `dev:session:verify` / `dev:session:bump` | re-sync the repo's pinned Claude Code skills; hold a fresh session against `SESSION.lock` (`--update` re-records it); move github pins to upstream HEAD |
 | `mise run dev:bootstrap` / `dev:mcp` | install the git hooks and sync skills (runs after `mise install`); check every declared MCP server connects |
 | `mise run dev:browser` | drive an app in a headless Chrome and run its probe script |
-| `mise run hello:*` | the gsx + gsxui spike: `dev`, `build`, `serve`, `check` |
+| `mise run hello:*` | the gsx + gsxui spike: `dev`, `build`, `serve`, `check`, and as a Worker `workerd`, `smoke`, `deploy`, `url` |
 | `mise run deps:list` / `deps:upgrade` | list / interactively apply Go module upgrades in every module |
 | `mise run build` / `build:tinygo` | local binary and Worker; both Workers plus sizes |
 | `mise run deploy` / `deploy:tinygo` | validate `providers.toml`, then deploy from a throwaway copy of `wrangler.toml` |
@@ -98,7 +98,7 @@ after every Go change, `mise run test` before committing.
 | `internal/mcp` | MCP tools `ask` and `list_models` (excluded from TinyGo builds) |
 | `cmd/server` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
 | `cmd/worker` | the proxy as a Cloudflare Worker: entry point (fetch client, KV token store), **its own `wrangler.toml`** and its gitignored `build/`. A Worker owns everything about itself; nothing of it lives at the root |
-| `cmd/gui` | separate module: the GUI (`mise run hello:*`); see its README |
+| `cmd/gui` | separate module: the GUI spike, a native server and a Cloudflare Worker from one handler, with its own `wrangler.toml` (`mise run hello:*`); see its README |
 | `cmd/dev` | the stack's developer tool, not shipped and not project-specific: `url`, `worker` (deploy, wait, keys; every one takes `--dir`), `session`, `browser`, `sizes`, `deps`, `mcp`, `release`. Each is a package with tests; a mise task that drives one is named after it (`dev:browser`, `dev:session:sync`) |
 | `cmd/bench` | this proxy's Go vs TinyGo comparison in local workerd; project code, so not in `cmd/dev` |
 | `internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
@@ -124,8 +124,9 @@ Rules that keep the design working:
 - **Check Worker behaviour in workerd, not only with `go test`.** `mise run bench`
   runs both Worker builds locally against the mock.
 - **A Worker owns its `wrangler.toml` and its `build/`**, in its own directory
-  (`cmd/worker`). Tasks and `dev` reach it through `--dir`, so a second Worker
-  is another directory, not another set of tooling.
+  (`cmd/worker`, `cmd/gui`). Tasks and `dev` reach it through `--dir`, so a
+  second Worker is another directory and a few one-line tasks, not another set
+  of tooling.
 - **`wrangler.toml` names no account and no resource id.** The account is
   `CLOUDFLARE_ACCOUNT_ID` from fnox, the KV namespace is provisioned per account
   on the first deploy and stays linked, and `deploy` runs wrangler on a throwaway

@@ -423,7 +423,16 @@ are untouched). Stage C folds it into the root app.
 
 ### Stage B: hello world round trip in every topology
 
-**Not started as of 2026-09-16.**
+**B1, B2 and B3 done 2026-09-16; B4 to B8 not started.** B1 is `hello:serve`
+plus `dev:browser`: browser, Go server, gsx page with Vite assets, and a click
+that switches panels (no htmx fragment yet, since the picker needs none). B2 is
+`hello:smoke`: `dev worker smoke --dir cmd/gui` starts `wrangler dev` on
+workerd, requests `/?mode=remote` and checks the page; `mise run test` runs it.
+B3 is `hello:deploy`: the same wasm live as `grok-oauth-proxy-gui`, waited for
+at `/healthz`, the page checked on its URL. The Worker is standard Go (decision
+4), embeds the Vite build, and needs no bindings. What made it one Worker
+among two: `cmd/gui/wrangler.toml` beside the code, `worker.go` next to
+`main.go` sharing `newHandler`, and the same `dev worker ...` with `--dir`.
 
 The smallest possible "click → request → Go handler → gsx fragment → swapped into
 the page", once per topology the design needs, before anything real is built. A

@@ -91,6 +91,10 @@ bench = { description = "Go vs TinyGo Worker in local workerd against the mock (
 "dev:browser" = { description = "drive an app in a headless Chrome and run its probe (defaults: the GUI spike)", depends = ["hello:build", "build:dev"], usage = 'arg "[server]" default="cmd/gui/bin/hello-world"; arg "[probe]" default="cmd/gui/tools/browser-check.mjs"; arg "[path]" default="/?mode=remote"', run = 'bin/dev browser "$usage_server" "$usage_probe" "$usage_path"' }
 "hello:dev" = { description = "gsx dev loop for cmd/gui with live reload on http://localhost:5173", dir = "cmd/gui", depends = ["hello:install"], raw = true, run = "npm run dev" }
 "hello:serve" = { description = "run cmd/gui natively on http://localhost:7777", dir = "cmd/gui", depends = ["hello:build"], raw = true, run = "bin/hello-world" }
+"hello:workerd" = { description = "run the GUI Worker locally in workerd (wrangler dev)", dir = "cmd/gui", depends = ["hello:build:worker"], raw = true, run = 'wrangler dev --env ""' }
+"hello:smoke" = { description = "the GUI on local workerd: one page requested and checked", depends = ["hello:build:worker", "build:dev"], run = "bin/dev worker smoke --dir cmd/gui --path /?mode=remote --expect 'Pick a model'" }
+"hello:deploy" = { description = "deploy the GUI Worker (grok-oauth-proxy-gui) and wait for its page", depends = ["hello:build:worker", "build:dev"], run = ["bin/dev worker deploy --dir cmd/gui", 'bin/dev worker wait "$(bin/dev url --worker --dir cmd/gui)/healthz"'] }
+"hello:url" = { description = "the GUI Worker's URL", depends = ["build:dev"], quiet = true, run = "bin/dev url --worker --dir cmd/gui" }
 
 # --- multi-line: run lists and the builds mise skips when up to date -------------
 [tasks.test]
@@ -161,8 +165,16 @@ sources = ["**/*.gsx", "**/*.go", "web/**", "package.json", "vite.config.ts", "g
 outputs = ["bin/hello-world"]
 run = ["npm run build", "go tool gsx generate -q", "go build -o bin/hello-world ."]
 
+[tasks."hello:build:worker"]   # cmd/gui/wrangler.toml [build] calls this by name
+hide = true
+dir = "cmd/gui"
+depends = ["hello:build"]
+sources = ["**/*.go", "dist/**", "public/**", "go.mod", "go.sum"]
+outputs = ["build/go/app.wasm", "build/go/worker.mjs"]
+run = ["go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/go", "GOOS=js GOARCH=wasm go build -o build/go/app.wasm ."]
+
 [tasks."hello:check"]
-description = "cmd/gui: gsx formatting, vet, tests, a TinyGo wasm build, the browser round trip"
+description = "cmd/gui: gsx formatting, vet, tests, a TinyGo wasm build, the browser round trip, the workerd round trip"
 dir = "cmd/gui"
 depends = ["hello:build"]
 run = [
@@ -171,4 +183,5 @@ run = [
   "go test ./...",
   "tinygo build -o /dev/null -target wasm ./cmd/tinygo-render",
   "mise run dev:browser",
+  "mise run hello:smoke",
 ]

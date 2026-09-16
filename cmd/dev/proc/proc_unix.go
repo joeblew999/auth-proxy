@@ -1,14 +1,12 @@
 //go:build unix
 
-package main
+package proc
 
 import (
 	"os/exec"
 	"syscall"
 )
 
-// ownGroup puts the child in its own process group, so that stopping it also
-// stops what it spawned: wrangler dev runs workerd as a child of its own.
 func ownGroup(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
