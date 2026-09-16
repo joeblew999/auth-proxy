@@ -7,8 +7,6 @@ bin
 /cmd/mock-upstream/mock-upstream
 /cmd/bench/bench
 /dist/
-npm/grok-oauth-proxy
-npm/grok-oauth-proxy.exe
 # a Worker's build output and wrangler's local state, next to its wrangler.toml
 build/
 .wrangler/
