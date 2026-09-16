@@ -61,14 +61,208 @@ minimum_release_age_excludes = [
 # account, so they live in gitignored mise.local.toml, written once per clone by
 # `mise run setup:url`. Every --worker flag reads them from there.
 
-# --- tasks live in mise-tasks/ as files, one per task --------------------------
-# Groups become directories: dev/*, dev/skills/*, svc/*, hello/*, keys/*,
-# deps/*, release/*. Top-level scripts (status, models, chat, login, build,
-# deploy, logs, setup, bench, lint) sit at the root. Only `test` and the
-# hidden build:* helpers stay here: wrangler.toml [build] calls
-# `mise run build:worker` by name, and test is the front door.
+# --- tasks ---------------------------------------------------------------------
+# A task is a line or two here: what runs, what it depends on, and for a build
+# which sources and outputs let mise skip it when nothing changed. Anything with
+# a branch, a loop, a parse or an API call is a subcommand of bin/dev (cmd/dev),
+# where it has a test. `mise tasks` lists everything.
 
-# --- build and deploy ----------------------------------------------------------
+# --- build (mise skips these when the outputs are newer than the sources) ------
+
+[tasks."build:cli"]
+hide = true
+sources = ["cmd/server/**/*.go", "internal/**/*", "go.mod", "go.sum"]
+outputs = ["bin/grok-oauth-proxy"]
+run = "go build -o bin/grok-oauth-proxy ./cmd/server"
+
+[tasks."build:dev"]
+hide = true
+sources = ["cmd/dev/**/*.go", "go.mod", "go.sum"]
+outputs = ["bin/dev"]
+run = "go build -o bin/dev ./cmd/dev"
+
+[tasks."build:mock"]
+hide = true
+sources = ["tools/mock-upstream/**/*.go", "go.mod", "go.sum"]
+outputs = ["bin/mock-upstream"]
+run = "go build -o bin/mock-upstream ./tools/mock-upstream"
+
+# wrangler.toml [build] calls this by name.
+[tasks."build:worker"]
+hide = true
+sources = ["cmd/worker/**/*.go", "internal/**/*", "go.mod", "go.sum"]
+outputs = ["build/go/app.wasm", "build/go/worker.mjs"]
+run = [
+  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/go",
+  "GOOS=js GOARCH=wasm go build -o build/go/app.wasm ./cmd/worker",
+]
+
+[tasks."build:worker-tinygo"]
+hide = true
+sources = ["cmd/worker/**/*.go", "internal/**/*", "go.mod", "go.sum"]
+outputs = ["build/tinygo/app.wasm", "build/tinygo/worker.mjs"]
+run = [
+  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=tinygo -o build/tinygo",
+  "tinygo build -o build/tinygo/app.wasm -target wasm -no-debug ./cmd/worker",
+]
+
+[tasks.build]
+description = "Build the local binary (bin/) and the Go Worker (build/go)"
+depends = ["build:cli", "build:worker"]
+
+[tasks."build:tinygo"]
+description = "Build both Workers and compare their sizes"
+depends = ["build", "build:worker-tinygo", "build:dev"]
+run = "bin/dev sizes build/go/app.wasm build/tinygo/app.wasm"
+
+# --- run locally ---------------------------------------------------------------
+
+[tasks.dev]
+description = "Run the proxy on http://127.0.0.1:56121/v1 with real providers (pitchfork's proxy daemon runs this)"
+depends = ["build:cli"]
+raw = true
+run = "fnox exec -- bin/grok-oauth-proxy serve"
+
+[tasks."dev:mock"]
+description = "Run the proxy against the bundled mock, no real keys (the mock must be up: mise run svc:start proxy-mock, or dev:mock-server)"
+depends = ["build:cli"]
+raw = true
+env = { MOCK_API_KEY = "mock-key" }
+run = "fnox exec -- bin/grok-oauth-proxy serve --config tools/mock-upstream/providers.toml"
+
+[tasks."dev:mock-server"]
+description = "Serve the mock upstream in the foreground on 127.0.0.1:18080 (pitchfork's mock daemon runs this)"
+depends = ["build:mock"]
+raw = true
+run = "bin/mock-upstream -addr 127.0.0.1:18080"
+
+[tasks."svc:start"]
+description = "Start a daemon under pitchfork, so dev never blocks a terminal: proxy (real providers) or proxy-mock (with the mock upstream)"
+depends = ["build:cli", "build:mock"]
+raw = true
+usage = 'arg "[daemon]" default="proxy" help="proxy or proxy-mock"'
+run = 'pitchfork start "$usage_daemon"'
+
+[tasks."svc:stop"]
+description = "Stop everything this project started (proxy, proxy-mock, mock)"
+run = "pitchfork stop proxy proxy-mock mock"
+
+[tasks."svc:status"]
+description = "Show what this project has running"
+run = "pitchfork list --project"
+
+[tasks."svc:logs"]
+description = "Tail a daemon's logs"
+raw = true
+usage = 'arg "[daemon]" default="proxy" help="proxy, proxy-mock, or mock"'
+run = 'pitchfork logs "$usage_daemon" --tail'
+
+# --- use it --------------------------------------------------------------------
+# `bin/dev url` decides where a --worker flag points: this clone's deployed
+# Worker, whose workers.dev subdomain it reads once into gitignored
+# mise.local.toml, or the local proxy otherwise.
+
+[tasks.status]
+description = "Check every provider and print the exact fix for anything wrong (--worker: the deployed Worker)"
+depends = ["build:cli", "build:dev"]
+usage = 'flag "--worker" help="Check the deployed Worker instead of the local configuration"'
+run = 'fnox exec -- bin/grok-oauth-proxy status --url "$(bin/dev url --worker=$usage_worker)"'
+
+[tasks.models]
+description = "List model IDs across all providers (--worker: from the deployed Worker; otherwise needs mise run dev)"
+depends = ["build:cli", "build:dev"]
+usage = 'flag "--worker" help="Ask the deployed Worker"'
+run = 'fnox exec -- bin/grok-oauth-proxy models --url "$(bin/dev url --worker=$usage_worker --local http://127.0.0.1:56121)"'
+
+[tasks.chat]
+description = "Send a prompt to a model and stream the answer (--worker: through the deployed Worker)"
+depends = ["build:cli", "build:dev"]
+usage = """
+arg "<model>" help="Model ID such as xai/grok-4.3; see: mise run models"
+arg "[prompt]" default="Say hello in one sentence."
+flag "--worker" help="Go through the deployed Worker instead of mise run dev"
+"""
+run = 'fnox exec -- bin/grok-oauth-proxy chat --url "$(bin/dev url --worker=$usage_worker --local http://127.0.0.1:56121)" "$usage_model" "$usage_prompt"'
+
+[tasks.login]
+description = "Log in to a SuperGrok subscription for providers with auth = \"xai-oauth\" (--worker: log the Worker in with a device code)"
+depends = ["build:cli", "build:dev"]
+raw = true
+usage = 'flag "--worker" help="Log the deployed Worker in"'
+run = 'fnox exec -- bin/grok-oauth-proxy login --url "$(bin/dev url --worker=$usage_worker)"'
+
+[tasks.url]
+description = "Print this clone's deployed Worker URL (--env tinygo: the TinyGo Worker); reads the account's subdomain once into mise.local.toml"
+depends = ["build:dev"]
+quiet = true
+usage = """
+flag "--env <name>" help="wrangler environment, e.g. tinygo" default=""
+flag "--refresh" help="Ask Cloudflare again, after switching accounts"
+"""
+run = 'bin/dev url --worker --env="$usage_env" --refresh=$usage_refresh'
+
+[tasks.logs]
+description = "Stream live logs from the deployed Worker"
+run = 'fnox exec -- wrangler tail --env ""'
+
+# --- keys, setup, deploy --------------------------------------------------------
+# Secret names come from the proxy binary (`keys`), values only ever pass
+# through fnox and wrangler.
+
+[tasks."keys:set"]
+description = "Store a provider's API key in fnox and push it to the Worker (admin: the proxy's client key)"
+depends = ["build:cli", "build:dev"]
+raw = true
+usage = """
+arg "<provider>" help="Provider name from providers.toml, or admin for the proxy's client key"
+flag "--generate" help="Generate a random value instead of prompting (for admin)"
+"""
+run = 'bin/dev worker keys set --generate=$usage_generate "$(bin/grok-oauth-proxy keys "$usage_provider")"'
+
+[tasks."keys:push"]
+description = "Push every secret providers.toml needs from fnox to the Worker, naming any that are missing (--env tinygo: the TinyGo Worker)"
+depends = ["build:cli", "build:dev"]
+usage = 'flag "--env <name>" help="wrangler environment" default=""'
+run = 'bin/grok-oauth-proxy keys | bin/dev worker keys push --env="$usage_env"'
+
+[tasks.setup]
+description = "One-time setup: this clone's Worker URL, the client key if missing, every key pushed, and what is still missing"
+depends = ["build:cli", "build:dev"]
+run = [
+  "bin/dev url --worker",
+  'bin/dev worker keys set --generate --if-missing "$(bin/grok-oauth-proxy keys admin)"',
+  "mise run keys:push",
+  "mise run status --worker",
+]
+
+# wrangler writes the ids of resources it provisions back into the config it
+# deploys from, so `dev worker deploy` runs it on a throwaway copy of
+# wrangler.toml and reports what it created or that bindings were inherited.
+[tasks.deploy]
+description = "Validate providers.toml, then build and deploy the Worker"
+depends = ["build:cli", "build:dev"]
+run = [
+  "bin/grok-oauth-proxy keys >/dev/null",
+  "bin/dev worker deploy",
+  "echo 'Deployed. Check it with: mise run status --worker'",
+]
+
+[tasks."deploy:tinygo"]
+description = "Deploy the TinyGo build as the separate <name>-tinygo Worker (no /mcp), push its keys, wait for it, check it"
+depends = ["build:cli", "build:dev"]
+run = [
+  "bin/grok-oauth-proxy keys >/dev/null",
+  "bin/dev worker deploy --env tinygo",
+  "bin/grok-oauth-proxy keys | bin/dev worker keys push --env tinygo",
+  'bin/dev worker wait "$(bin/dev url --worker --env tinygo)/health"',
+  'fnox exec -- bin/grok-oauth-proxy status --url "$(bin/dev url --worker --env tinygo)"',
+]
+
+# --- checks --------------------------------------------------------------------
+
+[tasks.lint]
+description = "Run hk checks: gofmt, vet, tidy, whitespace, secrets"
+run = "hk check --all"
 
 [tasks.test]
 description = "Check formatting, vet the local and Worker builds, and run all tests"
@@ -81,44 +275,143 @@ run = [
   "mise run hello:check",
 ]
 
-# --- deps: go.mod follows the mise pins, never the reverse -----------------------
+[tasks.bench]
+description = "Run the Go and TinyGo Workers locally against the mock and compare status, size and latency (RUNS=n sets the sample size)"
+depends = ["build:mock", "build:dev"]
+run = "bin/dev bench"
+
+# --- dev: this repo's own tooling (cmd/dev), one task per `dev <group> <verb>` ---
+
+[tasks."dev:bootstrap"]
+description = "Wire a fresh clone: the pinned skills and settings, then the git hooks (runs automatically after mise install)"
+depends = ["dev:session:sync"]
+run = ["hk install", "echo 'git hooks installed by hk'"]
+
+[tasks."dev:session:sync"]
+description = "Write the pinned skills and the .claude/settings.json keys from session.toml"
+depends = ["build:dev"]
+run = "bin/dev session sync"
+
+[tasks."dev:session:check"]
+hide = true
+depends = ["build:dev"]
+run = "bin/dev session check"
+
+[tasks."dev:session:verify"]
+description = "Hold a fresh Claude Code session against SESSION.lock; --update re-records it (needs a Claude Code login; runs at pre-push)"
+depends = ["build:dev"]
+usage = 'flag "--update" help="Re-record SESSION.lock from what the fresh session reports"'
+run = "bin/dev session verify --update=$usage_update"
+
+[tasks."dev:session:bump"]
+description = "Move github pins in session.toml to upstream HEAD, showing what would change first"
+depends = ["build:dev"]
+raw = true
+usage = 'arg "[source]" help="One source, or all github sources when omitted"'
+run = "bin/dev session bump $usage_source"
+
+[tasks."dev:hooks:check"]
+description = "Prove the Claude Code skill hook fires on every write and on no read"
+run = ".claude/hooks/skill-gate.test"
+
+[tasks."dev:mcp"]
+description = "Check every MCP server this repo declares actually connects"
+depends = ["build:dev"]
+run = "bin/dev mcp check"
+
+[tasks."dev:browser"]
+description = "Drive an app in a headless Chrome and run its probe script (defaults: the gsx spike, at /?mode=remote)"
+depends = ["hello:build", "build:dev"]
+usage = """
+arg "[server]" default="cmd/gui/bin/hello-world" help="Server binary to serve"
+arg "[probe]" default="cmd/gui/tools/browser-check.mjs" help="Node probe script to drive the page with"
+arg "[path]" default="/?mode=remote" help="Path to open in the browser"
+"""
+run = 'bin/dev browser "$usage_server" "$usage_probe" "$usage_path"'
+
+# --- deps: go.mod follows the mise pins, never the reverse ----------------------
 # Bump the version in [tools] first, then run these so each go.mod follows.
-# File tasks in mise-tasks/deps/.
 
-# --- bin/dev: this repo's own tooling, one task per `dev <group> <verb>` -------
-# File tasks in mise-tasks/dev/ (skills/*, browser).
+[tasks."deps:list"]
+description = "List available Go module upgrades in every module, without changing anything"
+depends = ["build:dev"]
+run = "bin/dev deps list"
 
-# --- cmd/gui: gsx + gsxui, used exactly as gsx documents ------------
+[tasks."deps:upgrade"]
+description = "Interactively upgrade Go modules in every module, then check the session pins still agree"
+depends = ["build:dev"]
+raw = true
+run = ["bin/dev deps upgrade", "mise run dev:session:check"]
+
+# --- hello: cmd/gui, gsx + gsxui used exactly as gsx documents -----------------
 # Scaffolded with `gsx init --yes` (Vite starter) and `gsxui init` (Vite mode).
-# Order matters: `vite build` empties dist/, and the Go binary embeds dist/, so
-# the npm build must run before any Go build or vet. File tasks in
-# mise-tasks/hello/.
+# `vite build` empties dist/ and the Go binary embeds dist/, so npm builds first.
+
+[tasks."hello:install"]
+hide = true
+dir = "cmd/gui"
+sources = ["package.json", "package-lock.json"]
+outputs = ["node_modules/.package-lock.json"]
+run = "npm ci"
+
+[tasks."hello:build"]
+description = "Build cmd/gui the documented gsx way: vite build, gsx generate, go build (bin/hello-world)"
+dir = "cmd/gui"
+depends = ["hello:install"]
+sources = ["**/*.gsx", "**/*.go", "web/**/*", "package.json", "vite.config.ts", "gsxui.json", "go.mod"]
+outputs = ["bin/hello-world"]
+run = ["npm run build", "go tool gsx generate -q", "go build -o bin/hello-world ."]
+
+[tasks."hello:check"]
+description = "Check cmd/gui: gsx formatting, go vet, tests, a TinyGo wasm build, and the browser round trip"
+dir = "cmd/gui"
+depends = ["hello:build"]
+run = [
+  "go tool gsx fmt -l . || (echo 'unformatted .gsx above; fix with: go tool gsx fmt -w .' && false)",
+  "go vet ./...",
+  "go test ./...",
+  "tinygo build -o /dev/null -target wasm ./cmd/tinygo-render",
+  "mise run dev:browser",
+]
+
+[tasks."hello:dev"]
+description = "gsx dev loop for cmd/gui: Vite + Go server with live reload on http://localhost:5173"
+dir = "cmd/gui"
+depends = ["hello:install"]
+raw = true
+run = "npm run dev"
+
+[tasks."hello:serve"]
+description = "Build and run cmd/gui natively on http://localhost:7777"
+dir = "cmd/gui"
+depends = ["hello:build"]
+raw = true
+run = "bin/hello-world"
 
 # --- release: versioned CLI artifacts plus a packslip manifest -----------------
-# File tasks in mise-tasks/release/ (`mise run release v1.2.0` publishes fully
-# locally: goreleaser + key-signed packslip + gh upload).
-# .github/workflows/release.yml runs release:publish on a tag push as the CI backup.
+# `mise run release v1.2.0` publishes fully locally: goreleaser + key-signed
+# packslip + gh upload. .github/workflows/release.yml runs release:publish on a
+# tag push as the CI backup.
 
-# --- used by wrangler.toml [build]; not for direct use -------------------------
+[tasks.release]
+description = "Publish a GitHub Release fully locally: tag, build, sign, upload (needs gh auth)"
+raw = true
+usage = 'arg "<version>" help="Version to release, e.g. v1.2.0"'
+run = 'mise run release:publish "$usage_version"'
 
-[tasks."build:worker"]
-hide = true
-run = [
-  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/go",
-  "GOOS=js GOARCH=wasm go build -o build/go/app.wasm ./cmd/worker",
-]
+[tasks."release:snapshot"]
+description = "Build release artifacts locally without publishing"
+depends = ["build:dev"]
+run = "bin/dev release snapshot"
 
-[tasks."build:worker-tinygo"]
-hide = true
-run = [
-  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=tinygo -o build/tinygo",
-  "tinygo build -o build/tinygo/app.wasm -target wasm -no-debug ./cmd/worker",
-]
+[tasks."release:packslip"]
+description = "Build the packslip manifest for the local snapshot artifacts and verify it (no signing identity locally, so --no-log)"
+depends = ["build:dev"]
+run = "bin/dev release packslip --bin grok-oauth-proxy --resource skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy"
 
-[tasks."build:cli"]
-hide = true
-run = "go build -o bin/grok-oauth-proxy ./cmd/server"
-
-[tasks."build:dev"]
-hide = true
-run = "go build -o bin/dev ./cmd/dev"
+[tasks."release:publish"]
+description = "Build artifacts, sign the packslip manifest, publish the GitHub Release (CI uses the workflow identity; locally signs with --key and uploads with gh)"
+depends = ["build:dev"]
+raw = true
+usage = 'arg "[version]" help="Version when running locally (CI uses GITHUB_REF_NAME instead)"'
+run = 'bin/dev release publish --bin grok-oauth-proxy --resource skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy --version "$usage_version"'

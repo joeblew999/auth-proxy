@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-#MISE hide=true
-#MISE dir="cmd/gui"
-#MISE sources=["package.json", "package-lock.json"]
-#MISE outputs=["node_modules/.package-lock.json"]
-npm ci

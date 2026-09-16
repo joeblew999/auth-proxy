@@ -6,7 +6,11 @@
 
 - **Every workflow is a mise task.** `mise tasks` lists them. Do not document or
   rely on raw `go`, `wrangler` or `fnox` commands; if a workflow is missing, add a
-  task.
+  task. **A task orchestrates, `dev` computes:** a task is a line or two in
+  `mise.toml` (what runs, `depends`, and for a build the `sources` and `outputs`
+  that let mise skip it when nothing changed); anything with a branch, a loop, a
+  parse or an API call is a subcommand of `cmd/dev`, with a test. No shell
+  scripts.
 - **Every error names its fix.** A config error names the setting, a missing key
   prints `mise run keys:set <provider>`, and so on. Keep it that way in new code.
 - **Providers live only in `providers.toml`.** Secret values live only in fnox
@@ -57,9 +61,10 @@ at least once.
 
 | Task | Purpose |
 |---|---|
-| `mise run dev` / `dev --mock` | local proxy on `127.0.0.1:56121` (real providers, or the bundled mock) |
-| `mise run svc:start` / `svc:stop` / `svc:status` / `svc:logs` | the same proxy as pitchfork daemons, so `dev` never blocks the terminal |
+| `mise run dev` / `dev:mock` | local proxy on `127.0.0.1:56121` (real providers, or the bundled mock) |
+| `mise run svc:start [proxy\|proxy-mock]` / `svc:stop` / `svc:status` / `svc:logs` | the same proxy as pitchfork daemons, so `dev` never blocks the terminal |
 | `mise run status` / `status --worker` | every provider's readiness, with the fix for each problem |
+| `mise run url` / `url --env tinygo` | this clone's deployed Worker URL, from the account in fnox (read once into gitignored `mise.local.toml`) |
 | `mise run models` / `chat <model> [prompt]` | list models, stream a prompt (`--worker` for the deployed Worker) |
 | `mise run login` / `login --worker` | SuperGrok login for `auth = "xai-oauth"` providers |
 | `mise run keys:set <provider>` / `keys:push` | store a key in fnox and push it; push everything |
@@ -70,15 +75,15 @@ at least once.
 | `mise run dev:browser` | drive an app in a headless Chrome and run its probe script |
 | `mise run hello:*` | the gsx + gsxui spike: `dev`, `build`, `serve`, `check` |
 | `mise run deps:list` / `deps:upgrade` | list / interactively apply Go module upgrades in every module |
-| `mise run build` / `build --tinygo` | local binary and Worker; optionally TinyGo plus sizes |
-| `mise run deploy` / `deploy --tinygo` | validate `providers.toml`, then deploy |
+| `mise run build` / `build:tinygo` | local binary and Worker; both Workers plus sizes |
+| `mise run deploy` / `deploy:tinygo` | validate `providers.toml`, then deploy from a throwaway copy of `wrangler.toml` |
 | `mise run release` / `release:snapshot` | publish a GitHub Release (packslip manifest included by the workflow); build the artifacts locally |
-| `mise run logs`, `setup`, `bench` | Worker logs, one-time setup (`setup:url` alone computes this clone's Worker URLs), Go vs TinyGo comparison |
+| `mise run logs`, `setup`, `bench` | Worker logs, one-time setup, Go vs TinyGo comparison |
 
-Every task is a file in `mise-tasks/` (groups are directories: `svc/*`,
-`hello/*`, `dev/skills/*`); only `test` and the hidden `build:*` helpers
-stay in `mise.toml`. Run `mise run lint` after every Go change, `mise run test`
-before committing.
+Every task is in `mise.toml`, one or two lines each; the builds carry
+`sources` and `outputs`, so a second `mise run build` is a no-op. What a task
+cannot say in a line it hands to `bin/dev` (`cmd/dev`). Run `mise run lint`
+after every Go change, `mise run test` before committing.
 
 ## Code layout
 
@@ -93,10 +98,9 @@ before committing.
 | `cmd/server` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
 | `cmd/worker` | Worker entry point: fetch client, KV token store |
 | `cmd/gui` | separate module: the GUI (`mise run hello:*`); see its README |
-| `cmd/dev` | developer tooling, not shipped: `browser`, `session`, `release` subcommands. Every mise task that drives it is named after the command (`dev:browser`) |
+| `cmd/dev` | developer tooling, not shipped: `url`, `worker` (deploy, wait, keys), `session`, `browser`, `bench`, `sizes`, `deps`, `mcp`, `release`. Each is a package with tests; a mise task that drives one is named after it (`dev:browser`, `dev:session:sync`) |
 | `internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `tools/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
-| `mise-tasks/` | every task as a file: groups are directories (`svc/`, `hello/`, `keys/`, `deps/`, `release/`, `dev/skills/`), top-level scripts sit at the root |
 | `cmd/dev/rel` | release tooling behind `dev release ...` (`snapshot`, `packslip`, `publish`) |
 | `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike. Written by `mise run dev:session:verify --update`, checked at pre-push. It is what catches a skill arriving from a marketplace plugin or from claude.ai — the latter cannot be blocked by any project setting, only noticed |
 | `skills/` | the skill this repo's releases ship via packslip |
@@ -121,8 +125,9 @@ Rules that keep the design working:
   `CLOUDFLARE_ACCOUNT_ID` from fnox, the KV namespace is provisioned per account
   on the first deploy and stays linked, and `deploy` runs wrangler on a throwaway
   copy because wrangler writes ids back into the config it deploys from. The
-  Worker URLs are per account too: `mise run setup:url` writes them to
-  gitignored `mise.local.toml`.
+  Worker URL is per account too: `dev url` reads the account's workers.dev
+  subdomain once into gitignored `mise.local.toml`, and `mise run url` prints
+  it.
 
 ## Rules
 

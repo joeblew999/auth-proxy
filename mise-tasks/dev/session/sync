@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Write the pinned skills and the .claude/settings.json keys from session.toml"
-#MISE depends=["build:dev"]
-bin/dev session sync

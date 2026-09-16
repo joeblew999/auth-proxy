@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Build the packslip manifest for the local snapshot artifacts and verify it (no signing identity locally, so --no-log)"
-go run ./cmd/dev release packslip --bin grok-oauth-proxy \
-  --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' | tail -30

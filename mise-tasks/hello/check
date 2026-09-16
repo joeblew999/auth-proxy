@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Check cmd/gui: build, gsx formatting, go vet, a TinyGo wasm build, and the browser round trip"
-#MISE depends=["hello:build"]
-#MISE dir="cmd/gui"
-test -z "$(go tool gsx fmt -l .)" || { go tool gsx fmt -l .; echo "unformatted .gsx; fix with: go tool gsx fmt -w ."; exit 1; }
-go vet ./...
-go test ./...
-tinygo build -o /dev/null -target wasm ./cmd/tinygo-render
-mise run dev:browser

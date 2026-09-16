@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Publish a GitHub Release fully locally: tag, build, sign, upload (needs gh auth)"
-#MISE raw=true
-#USAGE arg "<version>" help="Version to release, e.g. v1.2.0"
-mise run release:publish "$usage_version"

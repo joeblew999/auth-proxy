@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Serve the proxy in the foreground (real providers; pitchfork runs this as the proxy daemon)"
-#MISE depends=["build:cli"]
-#MISE raw=true
-fnox exec -- bin/grok-oauth-proxy serve

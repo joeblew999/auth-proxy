@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="One-time setup: compute the Worker URLs, create the client key if needed, push all keys, and show what is still missing"
-#MISE depends=["setup:url"]
-set -uo pipefail
-if ! fnox get ADMIN_API_KEY >/dev/null 2>&1; then
-  mise run keys:set admin --generate
-fi
-mise run keys:push
-mise run status --worker

@@ -103,6 +103,6 @@ Until then, `mise run deploy` ships the standard Go build.
 
 ## Tasks
 
-- `mise run build --tinygo`: build both Workers and compare sizes
+- `mise run build:tinygo`: build both Workers and compare sizes
 - `mise run bench`: run both Workers locally in workerd against the mock and compare every endpoint
-- `mise run deploy --tinygo`: deploy the TinyGo build as the separate `grok-oauth-proxy-tinygo` Worker
+- `mise run deploy:tinygo`: deploy the TinyGo build as the separate `grok-oauth-proxy-tinygo` Worker

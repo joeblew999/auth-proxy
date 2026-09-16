@@ -14,7 +14,7 @@ Two things. A `session.toml` in the repo root:
 
 ```toml
 # How your repo runs this, quoted back by every error a sync would fix.
-sync_command = "mise run skills:sync"
+sync_command = "mise run dev:session:sync"
 
 # Skills vendored from a GitHub repo at a pinned commit.
 [source.cloudflare]

@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Build artifacts, sign the packslip manifest, publish the GitHub Release (CI uses the workflow identity; locally signs with --key and uploads with gh)"
-#MISE raw=true
-#USAGE arg "[version]" help="Version when running locally (CI uses GITHUB_REF_NAME instead)"
-go run ./cmd/dev release publish --bin grok-oauth-proxy \
-  --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' \
-  --version "$usage_version"

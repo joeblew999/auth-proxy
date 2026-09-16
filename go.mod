@@ -6,6 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/syumai/workers-go v0.35.0
+	golang.org/x/term v0.46.0
 )
 
 require (

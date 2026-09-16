@@ -232,7 +232,7 @@ ID in `wrangler.toml` and the owner's `*.gedw99.workers.dev` URLs in `mise.toml`
 |---|---|
 | Cloudflare account | `CLOUDFLARE_ACCOUNT_ID`, provided by fnox; wrangler reads it from the environment |
 | KV namespace, D1, R2 | bindings **without IDs**. Wrangler provisions them per account on the first deploy and inherits them after. **Verified 2026-09-16:** deploying `GROK_AUTH` with no id reported `env.GROK_AUTH (inherited)` and created nothing. It writes created ids back into the config it deployed from, so `deploy` runs wrangler on a throwaway copy, `wrangler.deploy.toml`, gitignored |
-| Worker URL | computed by `setup:url` from the Worker name and the account's workers.dev subdomain (Cloudflare API), stored in gitignored `mise.local.toml`; every `--worker` task names that fix when it is missing |
+| Worker URL | `dev url` derives it from the Worker name in `wrangler.toml` and the account's workers.dev subdomain, which it reads from the Cloudflare API once into gitignored `mise.local.toml`. Every `--worker` task goes through it, so there is no step to remember; `mise run url` prints it |
 | Secrets | fnox, as today. Each developer keeps their own values; `setup` prompts for any that fnox does not have |
 | Worker name | a per-developer name for development and one shared production name, see §7 |
 

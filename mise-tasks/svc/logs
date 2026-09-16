@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Tail the logs of the running daemons"
-#MISE raw=true
-#USAGE arg "[daemon]" default="proxy" help="proxy, proxy-mock, or mock"
-pitchfork logs "$usage_daemon" --tail

@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Show what this project has running"
-pitchfork list --project

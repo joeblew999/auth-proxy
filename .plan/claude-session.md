@@ -28,7 +28,7 @@ machine gets the same session as the owner's?
 ## The shape this has to take
 
 mise is the spine, and every tool hangs off it the same way: pinned under
-`[tools]`, driven by a task in `mise-tasks/`, bootstrapped by `[hooks]`. fnox
+`[tools]`, driven by a task in `mise.toml`, bootstrapped by `[hooks]`. fnox
 holds the secrets, packslip ships the verified releases and the skills that
 travel with them, hk runs the checks, pitchfork runs the services, goreleaser
 and gh publish. None of them invents its own mechanism, and none is reached
@@ -74,7 +74,7 @@ sentence in a chat window, is not done.
 | 6 ✅ | `mise install` installs the git hooks (`hk install` in `[hooks] postinstall`) | hk registers hooks in `.git/config` (`hook.hk-pre-commit.command`), not `.git/hooks/`, and `.git/config` is per-clone and never committed. So the hook works here but exists on no fresh clone until something installs it, and nothing did. **Note:** an earlier draft of this plan claimed AGENTS.md was wrong to say a pre-commit hook runs. AGENTS.md was right; the check looked in `.git/hooks/` | `git clone` to a temp dir, `mise install`, then `git config --get-regexp '^hook\.'` returns the hk entries |
 | 7 ✅ | Add a **pre-push-only** step running `verify` | `hk run pre-push --plan` says *Hook 'pre-push' not found*: `hk.pkl` is a flat `steps = linters`, which hk maps to pre-commit/check/fix only. Bind the step to pre-push alone — `hk run check` is what the Stop hook runs, and a step leaking into it makes every agent turn ~7s and login-gated. Use the `hk-configure` skill | Unblock a plugin, confirm the push is refused and `hk run check --plan` does not list the step |
 | 8 ✅ | `dev:mcp` task failing on any declared server that does not connect | Nothing noticed four servers shipped at "Needs authentication" | Declare a bad server, confirm it fails |
-| 9 | Ship sessionpin as a packslip release in its own repo, pinned under `[tools]`; `cmd/dev/rel` moves in the same pass | Adoption becomes one `[tools]` line, the same path as fnox, hk, gsx and gsxui, carrying its own skill. Doing `rel` separately pays the repo-creation and wiring cost twice | Both consumed as tool pins; neither directory left here |
+| 9 | Ship sessionpin as a packslip release in its own repo, pinned under `[tools]`; `cmd/dev/rel` moves in the same pass. **Superseded 2026-09-16 by `.plan/dev-tool.md`:** the whole of `cmd/dev` moves, as one tool | Adoption becomes one `[tools]` line, the same path as fnox, hk, gsx and gsxui, carrying its own skill. Doing `rel` separately pays the repo-creation and wiring cost twice | Both consumed as tool pins; neither directory left here |
 
 4-8 are done and committed in `a2665ab`. Each was proved by breaking what it
 guards: unblocking `cloudflare@cloudflare` makes pre-push refuse the push and

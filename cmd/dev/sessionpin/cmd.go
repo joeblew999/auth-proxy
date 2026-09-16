@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/internal/cli"
 )
 
 // syncCmd is how this repo spells "run sync", quoted back in every error that
@@ -52,8 +54,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		}
 		return Check(stdout)
 	case "verify":
-		update := len(args) == 2 && args[1] == "--update"
-		if len(args) > 1 && !update {
+		update, ok := updateFlag(args[1:])
+		if !ok {
 			fmt.Fprint(stderr, usageMessage(args))
 			return errUsage(args)
 		}
@@ -103,4 +105,24 @@ func usageMessage(args []string) string {
 	}
 	b.WriteString(usage)
 	return b.String()
+}
+
+// updateFlag reads verify's only flag. A mise task passes
+// `--update=$usage_update`, which is `--update=` when nobody gave the flag.
+func updateFlag(args []string) (update, ok bool) {
+	if len(args) == 0 {
+		return false, true
+	}
+	if len(args) != 1 {
+		return false, false
+	}
+	name, value, _ := strings.Cut(args[0], "=")
+	if name != "--update" {
+		return false, false
+	}
+	var b cli.Bool
+	if err := b.Set(value); err != nil {
+		return false, false
+	}
+	return bool(b), true
 }

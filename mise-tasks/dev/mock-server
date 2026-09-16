@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Serve the mock upstream in the foreground on 127.0.0.1:18080 (pitchfork runs this as the mock daemon)"
-go run ./tools/mock-upstream -addr 127.0.0.1:18080

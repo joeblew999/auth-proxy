@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="gsx dev loop for cmd/gui: Vite + Go server with live reload on http://localhost:5173"
-#MISE depends=["hello:install"]
-#MISE dir="cmd/gui"
-#MISE raw=true
-npm run dev

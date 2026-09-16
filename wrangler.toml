@@ -33,7 +33,7 @@ head_sampling_rate = 1
 invocation_logs = true
 persist = true
 
-# The same Worker built with TinyGo (mise run deploy --tinygo), deployed as
+# The same Worker built with TinyGo (mise run deploy:tinygo), deployed as
 # grok-oauth-proxy-tinygo. It serves 501 on /mcp; see .plan/tinygo.md.
 # kv_namespaces is not inherited by environments, so it is repeated. Being a
 # separate Worker, it is provisioned its own namespace: its Grok login is its own.
