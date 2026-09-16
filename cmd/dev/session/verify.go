@@ -1,4 +1,4 @@
-package sessionpin
+package session
 
 import (
 	"context"

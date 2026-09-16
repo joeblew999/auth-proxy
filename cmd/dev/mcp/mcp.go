@@ -1,8 +1,8 @@
-// Package mcpcheck proves every MCP server the repo declares actually
+// Package mcp proves every MCP server the repo declares actually
 // connects. .mcp.json declaring a server proves nothing: four were shipped once
 // that all sat at "Needs authentication", which no fresh clone could use. It
 // runs as `dev mcp check`.
-package mcpcheck
+package mcp
 
 import (
 	"errors"
@@ -37,7 +37,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 			fmt.Fprintln(stderr, "  "+b)
 		}
 		fmt.Fprintln(stderr, "Either it needs a per-developer login, in which case drop it from .mcp.json,")
-		fmt.Fprintln(stderr, "or it is misconfigured. Fix .mcp.json, then: mise run dev:mcp")
+		fmt.Fprintln(stderr, "or it is misconfigured. Fix .mcp.json, then: mise run mcp:check")
 		return fmt.Errorf("%d MCP server(s) not usable", len(bad))
 	}
 	return nil

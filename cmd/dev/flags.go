@@ -1,14 +1,13 @@
 package main
 
-import (
-	"flag"
-	"os"
-)
+import "flag"
 
-type flagSet struct{ *flag.FlagSet }
-
-func newFlagSet(name string) *flag.FlagSet {
-	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	return fs
+// flagSetT is a flag set that also keeps the positionals a stage found after
+// its flags, wherever they appeared; Args returns them.
+type flagSetT struct {
+	*flag.FlagSet
+	rest []string
 }
+
+// Args are the positionals after the directory, for `dev run DIR -- ARGS`.
+func (f *flagSetT) Args() []string { return f.rest }

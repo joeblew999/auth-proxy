@@ -7,7 +7,7 @@
 // installed. gsxui tests its own behaviour modules with Playwright; if this
 // grows past a handful of checks, switch to that rather than growing this.
 //
-// Run it through mise: `mise run dev:browser` starts the server and Chrome, with
+// Run it through mise: `mise run browser` starts the server and Chrome, with
 // this spike and this script as the defaults.
 //
 //   node browser-check.mjs <devtools-endpoint> <page-url>

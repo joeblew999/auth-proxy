@@ -2,7 +2,7 @@
 
 **Status: PROPOSED, facts checked 2026-09-15, awaiting the decisions in §7.
 Re-checked 2026-09-16: A1 and A2 done, A3 and A4 untouched, nothing of Stage B
-or C started. Names below follow the move to `cmd/` and `dev:session:*`
+or C started. Names below follow the move to `cmd/` and `session:*`
 (`c762bd6`); the dated results keep the names they had.**
 Replaces an earlier draft that split the proxy and the GUI into two repos over
 tooling differences. Both are Go compiled to wasm on Cloudflare through
@@ -249,18 +249,18 @@ machine.
 | `hk-configure`, `hk-debug` | hk's packslip release, the same way | linked |
 | `wrangler`, `durable-objects`, `workers-best-practices`, `cloudflare` | `skills/` in github.com/cloudflare/skills at the commit in `session.toml`, vendored into `.claude/skills` with every file hashed in `SKILLS.lock` | vendored. cloudflare/skills has no releases, which is the one reason `session.toml` exists; `.plan/done/claude-session.md` has the whole story. On 2026-09-15 they reached this machine only through a stale global plugin, which the generated settings now block |
 
-1. **`dev:session:sync`, run by `mise install`** (its `postinstall` hook runs
-   `dev:bootstrap`: sync, then `hk install`), vendors the cloudflare skills at
+1. **`session:sync`, run by `mise install`** (its `postinstall` hook runs
+   `bootstrap`: sync, then `hk install`), vendors the cloudflare skills at
    their pinned commit into `.claude/skills/` and generates the
    `.claude/settings.json` keys; mise links the packslip skills itself. The
    result is committed. **Never global.** When it adds or changes a skill, the
    task itself tells the developer to restart Claude Code, so no one has to
    remember it.
-2. **`dev:session:verify` proves they load:** it runs a fresh headless Claude
+2. **`session:verify` proves they load:** it runs a fresh headless Claude
    Code session (`claude -p`) in the repo and holds what it reports against
    `SESSION.lock`, failing on anything missing or anything extra. It needs a
    login and ~7s, so it is bound to **pre-push**. `mise run test` runs the cheap
-   file-level `dev:session:check` (skills present and matching their pins,
+   file-level `session:check` (skills present and matching their pins,
    settings matching `session.toml`), which is also all CI could run.
 3. **Enforced by tests:** `mise run test` fails when `.claude/skills/` differs from
    the pins or when `.gsx` files are unformatted. Generated `*.x.go` files are
@@ -270,7 +270,7 @@ machine.
    `.claude/hooks/skill-gate`, loads the skills that cover a file before any
    tool changes it: `.gsx` gets gsx and gsxui, `.pkl` gets hk-configure,
    `wrangler.toml` (or `.json`, `.jsonc`) gets wrangler, and a Bash command
-   counts only when it is shaped like a write. `dev:hooks:check` in
+   counts only when it is shaped like a write. `hooks:check` in
    `mise run test` runs its case matrix. Durable Object files get nothing yet,
    because none exist; map them when B4 creates one. The `*.x.go` edit block
    from the first draft was never built, and with the files gitignored and
@@ -281,7 +281,7 @@ machine.
    site, never invented.
 6. **Done 2026-09-16.** Eight skills are in `.claude/skills`, four vendored and
    four linked from packslip tools, synced by `mise install` and proven to load
-   by `dev:session:verify`. The picker written without them was replaced (A2
+   by `session:verify`. The picker written without them was replaced (A2
    result below).
 
 ### 5.3 Proven on a clean machine
@@ -340,7 +340,7 @@ are untouched). Stage C folds it into the root app.
     run the documented order.
   - A `go get -tool` run by hand had bumped `golang.org/x/tools` in the root
     module; the root `go.mod` was restored.
-- **mise tasks** (`mise tasks | grep gui`): `gui:dev`, `gui:build`,
+- **mise tasks** (`mise tasks | grep gui`): `gui:run:dev`, `gui:build`,
   `gui:serve`, `gui:check` (build, `gsx fmt -l`, `go vet`, TinyGo wasm), and
   hidden `gui:install` (`npm ci`, skipped when the lockfile is unchanged).
   `mise run test` runs `gui:check`. Each task was run through mise, from a
@@ -355,11 +355,11 @@ are untouched). Stage C folds it into the root app.
   `wrangler`, `durable-objects`, `workers-best-practices`) are in
   `.claude/skills`, pinned in `SKILLS.lock`, synced by the mise `postinstall`
   hook, drift-checked by `mise run test`, and proven loadable by
-  `mise run dev:session:verify` (a headless `claude -p` session lists all six). The
+  `mise run session:verify` (a headless `claude -p` session lists all six). The
   tooling is Go (`cmd/dev`) with tests, after the shell version mis-parsed `ps`
-  output twice. `dev:session:check` warns when a Claude Code session predates the
+  output twice. `session:check` warns when a Claude Code session predates the
   skills, since a session only reads them at startup. Since then: the tasks
-  are `dev:session:sync|check|verify`; gsx and gsxui come from packslip
+  are `session:sync|check|verify`; gsx and gsxui come from packslip
   releases carrying their own skills, so `templ-to-gsx-migration` went and
   `gsxui`, `hk-configure` and `hk-debug` arrived; and `verify` holds the whole
   session against `SESSION.lock`. `.plan/done/claude-session.md` has that work.
@@ -386,7 +386,7 @@ are untouched). Stage C folds it into the root app.
   - **The page buffers its render.** The gsx scaffold renders straight to the
     `ResponseWriter`, so a failure part way through logged "superfluous
     WriteHeader" and served half a page.
-- **`mise run dev:browser`** is the new check:
+- **`mise run browser`** is the new check:
   `bin/dev browser` serves the app on a free port, starts a headless Chrome, and
   a probe drives it over the
   DevTools protocol (Node's built-in WebSocket, no dependency). It proves the
@@ -424,7 +424,7 @@ are untouched). Stage C folds it into the root app.
 ### Stage B: hello world round trip in every topology
 
 **B1, B2 and B3 done 2026-09-16; B4 to B8 not started.** B1 is `gui:serve`
-plus `dev:browser`: browser, Go server, gsx page with Vite assets, and a click
+plus `browser`: browser, Go server, gsx page with Vite assets, and a click
 that switches panels (no htmx fragment yet, since the picker needs none). B2 is
 `gui:smoke`: `dev worker smoke --dir cmd/gui` starts `wrangler dev` on
 workerd, requests `/?mode=remote` and checks the page; `mise run test` runs it.

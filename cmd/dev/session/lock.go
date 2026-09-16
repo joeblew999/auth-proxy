@@ -1,4 +1,4 @@
-package sessionpin
+package session
 
 import (
 	"crypto/sha256"

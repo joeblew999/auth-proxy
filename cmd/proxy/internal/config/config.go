@@ -55,7 +55,7 @@ func (p *Provider) IsXAI() bool {
 // token store and is reported by the proxy.
 func (p *Provider) Problem() (problem, fix string) {
 	if p.Auth == AuthKey && p.Key == "" {
-		return fmt.Sprintf("key %s is not set", p.KeyName), "mise run keys:set " + p.Name
+		return fmt.Sprintf("key %s is not set", p.KeyName), "mise run secrets:set " + p.Name
 	}
 	return "", ""
 }

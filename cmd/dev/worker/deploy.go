@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/fnox"
 )
 
 // deployCopy is what wrangler actually deploys from. wrangler writes the ids
@@ -39,7 +41,7 @@ func Deploy(out io.Writer, dir, env string) error {
 		return err
 	}
 	defer os.Remove(copyPath)
-	if err := fnoxExec(dir, nil, out, "wrangler", "deploy", "--config", deployCopy, "--env", env); err != nil {
+	if err := fnox.Exec(dir, nil, out, "wrangler", "deploy", "--config", deployCopy, "--env", env); err != nil {
 		return fmt.Errorf("wrangler deploy failed: %w", err)
 	}
 	after, err := os.ReadFile(copyPath)

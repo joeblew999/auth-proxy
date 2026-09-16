@@ -1,4 +1,4 @@
-package sessionpin
+package session
 
 import (
 	"encoding/json"
@@ -28,7 +28,7 @@ type pins struct {
 type claudePins struct {
 	BlockedPlugins []string `toml:"blocked_plugins"`
 	// ClaudeAIConnectors is a pointer so that leaving it out means "not this
-	// repo's business" rather than "off": a repo adopting sessionpin must not
+	// repo's business" rather than "off": a repo adopting session must not
 	// silently lose its connectors by not mentioning them.
 	ClaudeAIConnectors *bool `toml:"claude_ai_connectors"`
 	ApproveMCPServers  bool  `toml:"approve_mcp_servers"`

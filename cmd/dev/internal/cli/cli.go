@@ -1,14 +1,15 @@
-// Package cli holds what every dev subcommand shares.
+// Package cli holds what every dev command shares: how flags and the
+// directory a stage acts on are read.
 package cli
 
 import (
+	"flag"
 	"fmt"
 	"strings"
 )
 
-// Bool is a flag.Value for booleans that also takes "" as false. A mise task
-// passes `--flag=$usage_flag`, and usage_flag is empty when nobody gave the
-// flag, which the standard bool flag rejects.
+// Bool is a flag.Value for booleans that also takes "" as false, so a task
+// may pass `--flag=$var` with the variable unset.
 type Bool bool
 
 func (b *Bool) String() string { return fmt.Sprint(bool(*b)) }
@@ -27,4 +28,39 @@ func (b *Bool) Set(s string) error {
 		return fmt.Errorf("want true or false, got %q", s)
 	}
 	return nil
+}
+
+// DirAnd parses "DIR [flags and positionals in any order]": the directory a
+// command acts on comes first, and positional must be how many positionals
+// follow. Flags may come anywhere, because mise appends what the developer
+// typed after a task name to the command.
+func DirAnd(fs *flag.FlagSet, args []string, positional int) (dir string, rest []string, err error) {
+	if len(args) == 0 || args[0] == "" || args[0][0] == '-' {
+		return "", nil, fmt.Errorf("%s: the directory comes first", fs.Name())
+	}
+	rest, err = ParseInterleaved(fs, args[1:])
+	if err != nil {
+		return "", nil, fmt.Errorf("%s: %w", fs.Name(), err)
+	}
+	if len(rest) != positional {
+		return "", nil, fmt.Errorf("%s: wrong arguments", fs.Name())
+	}
+	return args[0], rest, nil
+}
+
+// ParseInterleaved parses flags wherever they appear and returns the
+// positionals.
+func ParseInterleaved(fs *flag.FlagSet, args []string) ([]string, error) {
+	var positionals []string
+	for len(args) > 0 {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		args = fs.Args()
+		if len(args) > 0 {
+			positionals = append(positionals, args[0])
+			args = args[1:]
+		}
+	}
+	return positionals, nil
 }

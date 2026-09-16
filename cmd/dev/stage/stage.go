@@ -1,9 +1,9 @@
-// Package app builds, runs and checks one command directory from what it
+// Package stage builds, runs and checks one command directory from what it
 // finds there: a Go main, a package.json (Vite), gsx sources, a wrangler.toml
 // (a Worker, one wasm per environment). mise names a stage per directory;
 // this does the rest, so a new command is new lines in mise.toml, not new
 // tooling.
-package app
+package stage
 
 import (
 	"fmt"

@@ -70,7 +70,7 @@ func Check(out io.Writer, server, probe, path string) error {
 	chrome, err := findChrome(os.Getenv, exec.LookPath, fileExists)
 	if errors.Is(err, errNoChrome) {
 		fmt.Fprintf(out, "SKIPPED: no Chrome found, so the browser checks did not run.\n"+
-			"Install Google Chrome or Chromium, or point at one: CHROME=/path/to/chrome mise run dev:browser\n")
+			"Install Google Chrome or Chromium, or point at one: CHROME=/path/to/chrome mise run browser\n")
 		return nil
 	}
 	if err != nil {

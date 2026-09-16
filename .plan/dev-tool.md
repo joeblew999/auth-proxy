@@ -55,19 +55,19 @@ generic part must be one released tool, pinned like fnox and hk.
 | Before | After |
 |---|---|
 | 41 files in `mise-tasks/`, `tools/bench.sh`, `tools/push-keys.sh` | 43 tasks in `mise.toml`, none longer than five `run` lines, none with a branch |
-| `build`, `build:cli`, `build:dev`, `build:worker` rebuilt every time | each has `sources` and `outputs`; a second `mise run build` finishes in 12 ms with "sources up-to-date, skipping" |
+| `build`, `build:cli`, `dev:build`, `build:worker` rebuilt every time | each has `sources` and `outputs`; a second `mise run build` finishes in 12 ms with "sources up-to-date, skipping" |
 | `dev --mock`, `build --tinygo`, `deploy --tinygo`, `svc:start --mock` | `dev:mock`, `build:tinygo`, `deploy:tinygo`, `svc:start proxy-mock` |
 | `setup/url` in bash, `PROXY_URL` guards in five tasks | `dev url [--worker] [--env] [--local]`: every `--worker` flag resolves through it, the subdomain is read once into `mise.local.toml`, a missing credential names its fix |
 | `deploy` in bash: copy, wrangler, `grep` for ids | `dev worker deploy`: the same, reporting created ids or "inherited" from a TOML diff |
-| `push-keys.sh`, `keys/set` | `dev worker keys push` (names on stdin) and `keys set` (value hidden, generated, or piped) |
+| `push-keys.sh`, `keys/set` | `dev secrets push` (names on stdin) and `keys set` (value hidden, generated, or piped) |
 | `bench.sh`: background pids, `pkill -P`, "Terminated: 15" on every run | `dev bench`: process groups, clean exit, same table |
 | `deps/*`: a hard-coded list of two modules | `dev deps list|upgrade` finds every `go.mod` |
 | `dev/mcp`: `grep -i` over `claude mcp list` | `dev mcp check` |
 | sizes in `printf` arithmetic, twice | `dev sizes` |
 
-`cmd/dev` is now: `url`, `worker` (deploy, wait, smoke, keys), `session`,
-`browser`, `sizes`, `deps`, `mcp`, `release`, `proc`. Each is a package with
-tests. `golang.org/x/term` was added for the hidden prompt.
+`cmd/dev` is now one package per thing, named as the tasks name it: `stage`,
+`worker`, `secrets`, `session`, `mcp`, `browser`, `deps`, `release`, `sizes`,
+`fnox`, `proc`. Each has tests. `golang.org/x/term` was added for the hidden prompt.
 
 **The shape that makes step 3 a copy, not a port (2026-09-16):** the owner's
 rule, "a handful of commands, a task per stage of each, the dev tooling does
@@ -79,13 +79,13 @@ half. The stack half names nothing of this
 project. It reaches the project through `[vars]` (`app`, `worker`) and three
 tasks the project must supply: `check` (what `test` runs after the stack's own
 checks), `validate` (what `deploy` runs first) and `secrets` (`NAME<TAB>OWNER`
-lines; `keys:push` pipes them to `dev worker keys push`, `keys:set` resolves a
+lines; `secrets:push` pipes them to `dev secrets push`, `secrets:set` resolves a
 provider name or `admin` against them). `dev init` will write the stack half
 verbatim and stub the three.
 
 **Proved by running**, not by reading: `status`, `status --worker`,
 `models --worker`, `url`, `url --env tinygo`, `build` twice, `build:tinygo`,
-`dev:session:check`, `dev:hooks:check`, `dev:mcp`, `deps:list`, `bench`,
+`session:check`, `hooks:check`, `mcp:check`, `deps:list`, `bench`,
 `deploy` (inherited binding, Worker green), `deploy:tinygo` (inherited, both
 keys pushed, hostname waited for), `svc:start proxy-mock`, `models` through it,
 `svc:stop`, and `mise run test`. The one thing that failed on the way was the
@@ -126,7 +126,7 @@ to `cmd/bench` and the mock to `cmd/mock-upstream`.
   `grok-oauth-proxy bench`), else `cmd/<project>tool`.
 
 This supersedes item 9 of `.plan/done/claude-session.md`, which moved only
-sessionpin and rel.
+the session pinner and the release tool.
 
 ## Decisions needed
 

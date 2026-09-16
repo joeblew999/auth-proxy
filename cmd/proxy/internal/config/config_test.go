@@ -77,7 +77,7 @@ func TestProblemNamesTheFix(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 	problem, fix := cfg.Provider("groq").Problem()
-	if !strings.Contains(problem, "GROQ_API_KEY") || fix != "mise run keys:set groq" {
+	if !strings.Contains(problem, "GROQ_API_KEY") || fix != "mise run secrets:set groq" {
 		t.Errorf("Problem() = %q, %q", problem, fix)
 	}
 }

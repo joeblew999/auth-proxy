@@ -1,9 +1,9 @@
-// Package sessionpin keeps the repo's Claude Code skills pinned. It writes them
+// Package session keeps the repo's Claude Code skills pinned. It writes them
 // from their upstreams into .claude/skills, checks that the copy on disk still
 // matches the pins, and proves that a fresh session can actually load them.
 //
 // What is pinned lives in session.toml; this package only reads it.
-package sessionpin
+package session
 
 import (
 	"bytes"

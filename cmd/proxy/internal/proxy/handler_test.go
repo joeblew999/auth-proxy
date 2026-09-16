@@ -178,7 +178,7 @@ key = "GROQ_API_KEY"`, upstream.URL), map[string]string{"ADMIN_API_KEY": clientK
 		Error map[string]string `json:"error"`
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &body)
-	if w.Code != http.StatusServiceUnavailable || body.Error["fix"] != "mise run keys:set groq" || !strings.Contains(body.Error["message"], "GROQ_API_KEY") {
+	if w.Code != http.StatusServiceUnavailable || body.Error["fix"] != "mise run secrets:set groq" || !strings.Contains(body.Error["message"], "GROQ_API_KEY") {
 		t.Errorf("status = %d, body = %s", w.Code, w.Body.String())
 	}
 	if n := len(upstream.seen()); n != 0 {
@@ -274,7 +274,7 @@ func TestClientKeyRequired(t *testing.T) {
 	cfg := loadConfig(t, "[providers.a]\nbase_url = \"http://127.0.0.1:1/v1\"\nauth = \"none\"", nil)
 	noKey := NewHandler(Options{Upstream: &Upstream{Config: cfg, Client: http.DefaultClient}})
 	w = do(t, noKey, http.MethodGet, "/v1/models", "", "anything")
-	if w.Code != http.StatusInternalServerError || !strings.Contains(w.Body.String(), "mise run keys:set admin") {
+	if w.Code != http.StatusInternalServerError || !strings.Contains(w.Body.String(), "mise run secrets:set admin") {
 		t.Errorf("unset admin key: status = %d, body = %s", w.Code, w.Body.String())
 	}
 }
@@ -305,7 +305,7 @@ key = "GROQ_API_KEY"`, map[string]string{"ADMIN_API_KEY": clientKey})
 		}
 		fixes[p.Name] = p.Fix
 	}
-	if status.Default != "xai" || fixes["groq"] != "mise run keys:set groq" || fixes["xai"] != "mise run login --worker" {
+	if status.Default != "xai" || fixes["groq"] != "mise run secrets:set groq" || fixes["xai"] != "mise run login --worker" {
 		t.Errorf("status = %s", w.Body.String())
 	}
 }

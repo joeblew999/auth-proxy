@@ -15,11 +15,11 @@ ever hold one key.
 Run everything through mise from the repo root; `mise tasks` lists it all.
 
 - `mise run dev` — proxy locally on `http://127.0.0.1:56121/v1`
-- `mise run proxy:mock` — same, against the bundled mock, no real keys
+- `mise run proxy:run:mock` — same, against the bundled mock, no real keys
 - `mise run status` — every provider's readiness, with the fix for each problem
 - `mise run models` / `chat <model> [prompt]` — list models, stream a prompt
 - `mise run login` — SuperGrok login for `auth = "xai-oauth"` providers
-- `mise run keys:set <provider>` / `keys:push` — store keys in fnox, push to Worker
+- `mise run secrets:set <provider>` / `secrets:push` — store keys in fnox, push to Worker
 - `mise run deploy` — validate `providers.toml`, then deploy the Worker
 
 `mise run proxy:status`, `proxy:models`, `proxy:chat`, `proxy:login` talk to the

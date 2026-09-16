@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Which tool calls load a skill, and which stay silent. Run by
-# mise run dev:hooks:check. Each case is: expected skills, tool, tool_input.
+# mise run hooks:check. Each case is: expected skills, tool, tool_input.
 #
 # The Bash cases are the point: the gate must fire on every way an agent in
 # auto mode edits a file, and on nothing else. A read that fires costs ~10KB of

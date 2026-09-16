@@ -12,7 +12,7 @@
 # in a commit message loads nothing -- that was 10KB of context per mention.
 # Prints additionalContext when something matched, nothing otherwise.
 #
-# Tested by mise run dev:hooks:check; add a case there with any change here.
+# Tested by mise run hooks:check; add a case there with any change here.
 set -euo pipefail
 
 payload=$(cat)

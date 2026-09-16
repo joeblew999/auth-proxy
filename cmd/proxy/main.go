@@ -43,7 +43,8 @@ Commands (usually run through mise; see "mise tasks"):
   models [--url URL]                        list model IDs across all providers
   chat   [--url URL] MODEL [PROMPT]         send a prompt and stream the answer
   login  [--config FILE] [--url URL]        log in to Grok (browser locally, device code for --url)
-  keys   [--config FILE] [PROVIDER|admin]   print the secret names providers.toml needs
+  secrets [--config FILE] [PROVIDER|admin]  print the secret names providers.toml needs, as NAME<TAB>OWNER
+  validate [--config FILE]                  fail on any mistake in providers.toml, say nothing otherwise
 
 --url talks to a running proxy (such as the deployed Worker) using ADMIN_API_KEY.
 Providers come from providers.toml, built into the binary unless --config is given.
@@ -56,7 +57,7 @@ func main() {
 		command, args = args[0], args[1:]
 	}
 	commands := map[string]func([]string) error{
-		"serve": serve, "status": status, "models": models, "chat": chat, "login": login, "keys": keys,
+		"serve": serve, "status": status, "models": models, "chat": chat, "login": login, "secrets": secrets, "validate": validate,
 	}
 	run, ok := commands[command]
 	switch {
@@ -173,7 +174,7 @@ func printStatus(out io.Writer, source, def string, adminSet bool, providers []p
 	if adminSet {
 		fmt.Fprintln(out, "client key: set")
 	} else {
-		fmt.Fprintf(out, "client key: %s is not set -> mise run keys:set admin\n", config.AdminKeyName)
+		fmt.Fprintf(out, "client key: %s is not set -> mise run secrets:set admin\n", config.AdminKeyName)
 	}
 	fmt.Fprintln(out)
 	tw := tabwriter.NewWriter(out, 0, 2, 2, ' ', 0)
@@ -323,9 +324,22 @@ func deviceLogin(url string) error {
 	return nil
 }
 
-func keys(args []string) error {
+// validate loads the providers file and says nothing when it is sound; deploy
+// runs it first, so a mistake never reaches the Worker.
+func validate(args []string) error {
 	var configPath string
-	fs, err := flags("keys", args, func(fs *flag.FlagSet) {
+	if _, err := flags("validate", args, func(fs *flag.FlagSet) {
+		fs.StringVar(&configPath, "config", "", "providers file")
+	}); err != nil {
+		return err
+	}
+	_, err := bootstrap.LoadConfig(configPath)
+	return err
+}
+
+func secrets(args []string) error {
+	var configPath string
+	fs, err := flags("secrets", args, func(fs *flag.FlagSet) {
 		fs.StringVar(&configPath, "config", "", "providers file")
 	})
 	if err != nil {
@@ -367,7 +381,7 @@ func keys(args []string) error {
 func proxyRequest(method, baseURL, path string, body []byte) (*http.Response, error) {
 	key := os.Getenv(config.AdminKeyName)
 	if key == "" {
-		return nil, fmt.Errorf("%s is not set; run this through mise so fnox provides it, or set it with: mise run keys:set admin", config.AdminKeyName)
+		return nil, fmt.Errorf("%s is not set; run this through mise so fnox provides it, or set it with: mise run secrets:set admin", config.AdminKeyName)
 	}
 	req, err := http.NewRequest(method, strings.TrimRight(baseURL, "/")+path, bytes.NewReader(body))
 	if err != nil {

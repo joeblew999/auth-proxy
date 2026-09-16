@@ -86,7 +86,7 @@ func (h *handler) requireKey(next http.HandlerFunc) http.HandlerFunc {
 		expected := h.config().AdminKey
 		if expected == "" {
 			writeError(w, &Error{Status: http.StatusInternalServerError,
-				Message: config.AdminKeyName + " is not set, so no client can be authorised", Fix: "mise run keys:set admin"})
+				Message: config.AdminKeyName + " is not set, so no client can be authorised", Fix: "mise run secrets:set admin"})
 			return
 		}
 		provided := r.URL.Query().Get("key")

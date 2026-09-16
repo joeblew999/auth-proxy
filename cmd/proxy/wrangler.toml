@@ -16,7 +16,7 @@ kv_namespaces = [
 ]
 
 # Providers come from providers.toml, built into the Worker; secrets are pushed
-# with `mise run keys:push`. Nothing provider-specific belongs in this file.
+# with `mise run secrets:push`. Nothing provider-specific belongs in this file.
 
 # Optional: route upstream traffic through a Cloudflare Tunnel instead of the
 # Worker's own fetch.

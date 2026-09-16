@@ -1,11 +1,11 @@
-# sessionpin
+# session
 
 One file decides which Claude Code skills a repo has.
 
 Skills reach a session from several places at once: a repo's own `.claude/skills`,
 marketplace plugins installed per-developer, and skills synced from claude.ai.
 They can collide — the same skill name, from the same upstream, at two versions,
-and which one a session loads is luck. `sessionpin` makes `session.toml` the only
+and which one a session loads is luck. `session` makes `session.toml` the only
 thing that decides, and proves it.
 
 ## Adopting it
@@ -14,7 +14,7 @@ Two things. A `session.toml` in the repo root:
 
 ```toml
 # How your repo runs this, quoted back by every error a sync would fix.
-sync_command = "mise run dev:session:sync"
+sync_command = "mise run session:sync"
 
 # Skills vendored from a GitHub repo at a pinned commit.
 [source.cloudflare]
@@ -30,7 +30,7 @@ module_dir = "."
 skills     = ["gsx"]
 
 # The rest of the session, generated into .claude/settings.json. Leave a key
-# out and sessionpin does not manage that setting at all -- a repo never loses
+# out and session does not manage that setting at all -- a repo never loses
 # something by not mentioning it. Omit [claude] entirely and no settings file
 # is written.
 [claude]

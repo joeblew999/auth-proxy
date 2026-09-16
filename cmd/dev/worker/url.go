@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/fnox"
 )
 
 const (
@@ -102,7 +104,7 @@ func subdomain(refresh bool) (string, error) {
 }
 
 func credential(name string) (string, error) {
-	v, err := fnoxGet(name)
+	v, err := fnox.Get(name)
 	if err != nil || v == "" {
 		return "", fmt.Errorf("%s is not in fnox; store it with: fnox set -g %s", name, name)
 	}

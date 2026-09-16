@@ -1,4 +1,4 @@
-package sessionpin
+package session
 
 import (
 	"io"
@@ -165,7 +165,7 @@ func TestCheckSettingsCatchesHandEdits(t *testing.T) {
 func TestSyncCommandComesFromPins(t *testing.T) {
 	t.Chdir(t.TempDir())
 	defer func(old string) { syncCmd = old }(syncCmd)
-	syncCmd = "sessionpin sync"
+	syncCmd = "dev session sync"
 	if err := writeFile("session.toml", "sync_command = \"just skills\"\n[source.a]\nrepo = \"o/r\"\nref = \"abc\"\nskills = [\"z\"]\n"); err != nil {
 		t.Fatal(err)
 	}

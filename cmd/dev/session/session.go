@@ -1,10 +1,10 @@
-// Package sessionpin keeps a repo's Claude Code skills pinned, and keeps the
+// Package session keeps a repo's Claude Code skills pinned, and keeps the
 // rest of the repo's Claude Code session from being decided somewhere else.
 //
 // What is pinned lives in session.toml; this package only reads it. It runs as
 // `dev session ...` through cmd/dev, so every developer workflow stays in one
 // binary.
-package sessionpin
+package session
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ import (
 // syncCmd is how this repo spells "run sync", quoted back in every error that
 // a sync would fix. session.toml sets it to the mise task; the default covers
 // a repo that runs the dev binary directly.
-var syncCmd = "mise run dev:session:sync"
+var syncCmd = "mise run session:sync"
 
 const usage = `dev session: pin a repo's Claude Code skills, plugins and MCP servers to session.toml.
 

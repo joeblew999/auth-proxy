@@ -1,9 +1,9 @@
-// Package rel publishes a GitHub Release fully locally: goreleaser builds the
+// Package release publishes a GitHub Release fully locally: goreleaser builds the
 // artifacts, packslip signs the manifest, gh uploads everything. No workflow.
 //
 // It runs as `dev release ...` through cmd/dev. The binary name and the skill
 // resource come from flags, the repo slug from the origin remote.
-package rel
+package release
 
 import (
 	"fmt"

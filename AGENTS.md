@@ -14,15 +14,15 @@
   `.claude/hooks/` is the one script left, because it has to work before anything
   is built.
 - **Every error names its fix.** A config error names the setting, a missing key
-  prints `mise run keys:set <provider>`, and so on. Keep it that way in new code.
+  prints `mise run secrets:set <provider>`, and so on. Keep it that way in new code.
 - **Providers live only in `providers.toml`.** Secret values live only in fnox
-  (`mise run keys:set`) and Worker secrets (`mise run keys:push`).
+  (`mise run secrets:set`) and Worker secrets (`mise run secrets:push`).
 - **hk owns the checks.** `mise run lint` runs them (`hk check --all`: gofmt,
   vet, tidy, whitespace, secrets). Ask the hk MCP server to plan checks before
   execution; scope to changed files; prefer safe fixes. A Stop hook runs
   `hk run check --safe` after every agent turn, and the pre-commit hook runs
   the same on commit. `hk run check` must stay cheap: the expensive,
-  login-gated `dev:session:verify` is bound to **pre-push** only.
+  login-gated `session:verify` is bound to **pre-push** only.
 
 ## Working rules from the owner
 
@@ -37,7 +37,7 @@ at least once.
   the relevant skill before the work it covers: gsx before any `.gsx`, the
   Cloudflare skills before wrangler config or Durable Objects. A PreToolUse hook
   (`.claude/hooks/skill-gate`) does this for `.gsx`, `.pkl` and wrangler config
-  on every write, by any tool; `mise run dev:hooks:check` proves it. GUI work
+  on every write, by any tool; `mise run hooks:check` proves it. GUI work
   uses only the gsx and gsxui CLIs and patterns from gsxui's own site; never
   hand-invented components.
 - **Use tools the way their authors document them.** Do not work around a tool's
@@ -66,20 +66,20 @@ and does the rest. `mise tasks` lists everything; these are the ones to know.
 
 | Task | Purpose |
 |---|---|
-| `mise run proxy:run` (alias `dev`) / `proxy:mock` | the proxy on `127.0.0.1:56121` with real providers, or against the bundled mock |
+| `mise run proxy:run` (alias `dev`) / `proxy:run:mock` | the proxy on `127.0.0.1:56121` with real providers, or against the bundled mock |
 | `mise run proxy:deploy` (alias `deploy`) / `proxy:deploy:tinygo` | validate `providers.toml`, then deploy the proxy Worker; or its TinyGo build as the `-tinygo` Worker |
 | `mise run proxy:url` (alias `url`) / `proxy:logs` (alias `logs`) / `proxy:workerd` | this clone's proxy Worker URL, its live logs, the Worker on local workerd |
-| `mise run gui:run` / `gui:dev` / `gui:workerd` / `gui:deploy` / `gui:url` | the GUI natively, with live reload, on local workerd, deployed, its URL |
-| `mise run status` / `models` / `chat <model> [prompt]` / `login` | the proxy CLI against the local proxy; `proxy:status` and the rest against the deployed Worker |
+| `mise run gui:run` / `gui:run:dev` / `gui:workerd` / `gui:deploy` / `gui:url` | the GUI natively, with live reload, on local workerd, deployed, its URL |
+| `mise run status` / `models` / `chat <model> [prompt]` / `login` | the proxy CLI against the local proxy; `proxy:status:worker` and the rest against the deployed Worker |
 | `mise run setup` | one-time: Worker URL, client key if missing, every key pushed, what is still missing |
-| `mise run keys:set <name\|provider\|admin> [--generate]` / `keys:push [--env tinygo]` | store a secret in fnox and push it; push everything the project's `secrets` task lists |
+| `mise run secrets:set <name\|provider\|admin> [--generate]` / `secrets:push [--env tinygo]` | store a secret in fnox and push it; push everything the project's `secrets` task lists |
 | `mise run build` / `<cmd>:build` | every command, or one; a Worker's wasm per environment (`--env tinygo`) |
 | `mise run check` / `<cmd>:check` | the project's checks, or one command's: gsx fmt, vet, test, the workerd round trip, the browser probe |
 | `mise run test` / `lint` | lint, the session and hook checks, then `check`; hk alone |
 | `mise run bench` | Go vs TinyGo proxy Worker in local workerd against the mock |
 | `mise run svc:start <daemon>` / `svc:stop` / `svc:status` / `svc:logs <daemon>` | the daemons in `pitchfork.toml` (`proxy`, `proxy-mock`, `mock`), so nothing blocks a terminal |
-| `mise run dev:session:sync` / `dev:session:verify` / `dev:session:bump` | re-sync the pinned Claude Code skills; hold a fresh session against `SESSION.lock` (`--update` re-records); move github pins to upstream HEAD |
-| `mise run dev:bootstrap` / `dev:mcp` / `dev:hooks:check` / `dev:browser` | wire a fresh clone (runs after `mise install`); every MCP server connects; the skill hook fires right; drive an app in a headless Chrome |
+| `mise run session:sync` / `session:verify` / `session:bump` | re-sync the pinned Claude Code skills; hold a fresh session against `SESSION.lock` (`--update` re-records); move github pins to upstream HEAD |
+| `mise run bootstrap` / `mcp:check` / `hooks:check` / `browser` | wire a fresh clone (runs after `mise install`); every MCP server connects; the skill hook fires right; drive an app in a headless Chrome |
 | `mise run deps:list` / `deps:upgrade` | Go module upgrades in every module |
 | `mise run release <version>` / `release:snapshot` | publish a GitHub Release fully locally; build the artifacts only |
 
@@ -105,15 +105,15 @@ test` before committing.
 | `cmd/proxy` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
 | `cmd/proxy` | the proxy, its own Go module: `main.go` is the CLI (`serve`, `status`, `models`, `chat`, `login`, `keys`), `worker.go` the Cloudflare Worker (fetch client, KV token store), **its own `wrangler.toml`**, its gitignored `build/`, and `internal/` with everything the two share. A command owns everything about itself; nothing of it lives at the root |
 | `cmd/gui` | the GUI spike, its own Go module: a native server and a Cloudflare Worker from one handler, with its own `wrangler.toml` (`mise run gui:*`); see its README |
-| `cmd/dev` | the stack's developer tool, its own Go module, not shipped and not project-specific: the stages `build`, `run`, `check` (package `app`, which reads a command directory) and `deploy`, `url`, `logs`, `smoke`, `wait`, `keys` (package `worker`, every one taking the Worker's directory), plus `session`, `browser`, `sizes`, `deps`, `mcp`, `release`. Each is a package with tests |
+| `cmd/dev` | the stack's developer tool, its own Go module, not shipped and not project-specific. One package per thing, named as the tasks name it: `stage` (`build`, `wasm`, `check`, `run`, `workerd`, from what a command directory holds), `worker` (`deploy`, `url`, `logs`, `smoke`, `wait`, each taking the Worker's directory), `secrets`, `session`, `mcp`, `browser`, `deps`, `release`, `sizes`, `fnox` (the one way to a secret), `proc`. Each has tests |
 | `cmd/bench` | this proxy's Go vs TinyGo comparison in local workerd; its own module, project code, so not in `cmd/dev` |
 | `go.work` | the one file at the root that knows Go: it lists the five modules, so a build or test in any of them sees the others |
 | `cmd/proxy/internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `cmd/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
-| `cmd/dev/rel` | release tooling behind `dev release ...` (`snapshot`, `packslip`, `publish`) |
-| `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike. Written by `mise run dev:session:verify --update`, checked at pre-push. It is what catches a skill arriving from a marketplace plugin or from claude.ai — the latter cannot be blocked by any project setting, only noticed |
+| `cmd/dev/release` | release tooling behind `dev release ...` (`snapshot`, `packslip`, `publish`) |
+| `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike. Written by `mise run session:verify --update`, checked at pre-push. It is what catches a skill arriving from a marketplace plugin or from claude.ai — the latter cannot be blocked by any project setting, only noticed |
 | `skills/` | the skill this repo's releases ship via packslip |
-| `session.toml` + `cmd/dev/sessionpin` | what this repo pins: `[source.*]` blocks (gomod or github) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). `mise run dev:session:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |
+| `session.toml` + `cmd/dev/session` | what this repo pins: `[source.*]` blocks (gomod or github) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). `mise run session:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |
 
 Rules that keep the design working:
 

@@ -20,7 +20,7 @@ port = 56121
 ready_http = { url = "http://127.0.0.1:56121/health", timeout = "15s" }
 
 [daemons.proxy-mock]
-run = "mise run proxy:mock"
+run = "mise run proxy:run:mock"
 port = 56121
 ready_http = { url = "http://127.0.0.1:56121/health", timeout = "15s" }
 depends = ["mock"]

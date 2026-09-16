@@ -1,4 +1,4 @@
-package mcpcheck
+package mcp
 
 import (
 	"strings"

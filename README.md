@@ -34,7 +34,7 @@ mise run status         # every provider: ok, or the exact command that fixes it
 2. Store the key, which pushes it to the Worker too, then deploy:
 
    ```bash
-   mise run keys:set groq
+   mise run secrets:set groq
    mise run deploy
    ```
 
@@ -63,7 +63,7 @@ saying what to change.
 | Where | Start | Base URL |
 |---|---|---|
 | Locally | `mise run dev` | `http://127.0.0.1:56121/v1` |
-| Locally, no real keys | `mise run proxy:mock` | `http://127.0.0.1:56121/v1` |
+| Locally, no real keys | `mise run proxy:run:mock` | `http://127.0.0.1:56121/v1` |
 | Cloudflare | `mise run deploy` | what `mise run url` prints, plus `/v1` |
 
 Clients use the base URL with the client key (`ADMIN_API_KEY`, created by
@@ -110,7 +110,7 @@ provider, IDs are left unprefixed.
 | `POST /v1/chat/completions` and other `/v1/*` | proxied to the provider chosen by `model` |
 | `GET /v1/models` | all providers' models |
 | `POST /mcp` | MCP tools |
-| `GET /admin/status` | provider readiness with fixes (what `mise run proxy:status` shows) |
+| `GET /admin/status` | provider readiness with fixes (what `mise run proxy:status:worker` shows) |
 | `POST /admin/auth/start`, `GET`/`POST /admin/auth/status` | Grok device login (what `mise run login --worker` drives) |
 | `POST /admin/tokens` | store Grok tokens manually |
 | `GET /health` | public liveness check |
@@ -138,7 +138,7 @@ mise run bench    # both Worker builds in local workerd against the mock
 
 The Claude Code session here is pinned too: `session.toml` and `mise.toml` name
 every skill, `.claude/skills/SESSION.lock` lists every skill a session may have,
-and `mise run dev:session:verify` (run at pre-push) fails on anything else. One
+and `mise run session:verify` (run at pre-push) fails on anything else. One
 thing no repo file can block: skills synced from claude.ai reach every session
 whatever the project settings say. verify can only notice them and name them.
 

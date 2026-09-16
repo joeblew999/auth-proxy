@@ -3,7 +3,7 @@
 # goes to `default`.
 #
 # Only secret NAMES go here, never values. Set a value with
-#   mise run keys:set <provider>
+#   mise run secrets:set <provider>
 # then check everything with `mise run status` and ship with `mise run deploy`.
 #
 # Per provider:

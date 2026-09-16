@@ -1,4 +1,4 @@
-package app
+package stage
 
 import (
 	"os"
