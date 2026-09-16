@@ -81,7 +81,7 @@ and does the rest. `mise tasks` lists everything; these are the ones to know.
 | `mise run session:sync` / `session:verify` / `session:bump` | re-sync the pinned Claude Code skills; hold a fresh session against `SESSION.lock` (`--update` re-records); move github pins to upstream HEAD |
 | `mise run bootstrap` / `mcp:check` / `hooks:check` / `browser` | wire a fresh clone (runs after `mise install`); every MCP server connects; the skill hook fires right; drive an app in a headless Chrome |
 | `mise run deps:list` / `deps:upgrade` | Go module upgrades in every module |
-| `mise run release <version>` / `release:snapshot` | publish a GitHub Release fully locally; build the artifacts only |
+| `mise run release <version>` / `release:snapshot` | publish a GitHub Release of the proxy (in CI, the pushed tag); or build, sign and verify without publishing |
 
 Every task is one line in `mise.toml`. The file has two halves: **the stack**,
 which names nothing of this project and is meant to be identical in every repo
@@ -110,7 +110,7 @@ test` before committing.
 | `go.work` | the one file at the root that knows Go: it lists the five modules, so a build or test in any of them sees the others |
 | `cmd/proxy/internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `cmd/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
-| `cmd/dev/release` | release tooling behind `dev release ...` (`snapshot`, `packslip`, `publish`) |
+| `cmd/dev/release` | `dev release DIR [VERSION] [--snapshot]`: goreleaser, packslip, gh, from conventions (binary named after the repo, every `skills/*` shipped, goreleaser config generated) |
 | `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike. Written by `mise run session:verify --update`, checked at pre-push. It is what catches a skill arriving from a marketplace plugin or from claude.ai — the latter cannot be blocked by any project setting, only noticed |
 | `skills/` | the skill this repo's releases ship via packslip |
 | `session.toml` + `cmd/dev/session` | what this repo pins: `[source.*]` blocks (a GitHub repo at a commit, for an upstream that ships no releases) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). `mise run session:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |

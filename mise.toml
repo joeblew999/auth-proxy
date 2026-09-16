@@ -56,8 +56,7 @@ minimum_release_age_excludes = [
 # ------------------------------------------------------------------------------
 
 [vars]
-app = "grok-oauth-proxy"   # the released binary and the skill
-worker = "cmd/proxy"       # the Worker whose secrets keys:* manage
+worker = "cmd/proxy"   # the Worker whose secrets secrets:* manage
 
 # ==============================================================================
 # The stack
@@ -172,25 +171,15 @@ raw = true
 run = "pitchfork logs --tail"
 
 [tasks.release]
-description = "publish a GitHub Release fully locally: <version>"
+description = "publish a GitHub Release of the proxy: <version> locally, the pushed tag in CI"
+depends = ["dev:build"]
 raw = true
-run = "mise run release:publish --version"
+run = "bin/dev release cmd/proxy"
 
 [tasks."release:snapshot"]
-description = "build release artifacts locally, publish nothing"
+description = "build the release, sign and verify its manifest, publish nothing"
 depends = ["dev:build"]
-run = "bin/dev release snapshot"
-
-[tasks."release:packslip"]
-description = "build and verify the packslip manifest for the snapshot"
-depends = ["dev:build"]
-run = "bin/dev release packslip --bin {{vars.app}} --resource skill/{{vars.app}}=repo:skills/{{vars.app}}"
-
-[tasks."release:publish"]
-description = "build, sign, publish (CI signs with its identity; locally --key and gh) [--version v1.2.0]"
-depends = ["dev:build"]
-raw = true
-run = "bin/dev release publish --bin {{vars.app}} --resource skill/{{vars.app}}=repo:skills/{{vars.app}}"
+run = "bin/dev release cmd/proxy --snapshot"
 
 # ==============================================================================
 # This project: four commands, the same stages for each

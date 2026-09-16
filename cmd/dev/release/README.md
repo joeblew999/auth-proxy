@@ -1,27 +1,12 @@
-# rel
+# release
 
-Publish a GitHub Release fully locally: goreleaser builds the artifacts,
-packslip signs the manifest, gh uploads everything. No workflow.
+`dev release DIR [VERSION]` publishes a GitHub Release of one command
+directory: goreleaser builds it for linux, darwin and windows on amd64 and
+arm64, packslip signs the manifest, gh uploads. `--snapshot` builds, signs with
+a throwaway key and verifies, publishing nothing.
 
-## Adopting it
-
-Two things. A `.goreleaser.yml` in the repo root, and a way to run this
-command (`go run ./cmd/dev release ...`, a mise task):
-
-```bash
-go run ./cmd/dev release snapshot
-# build release artifacts locally without publishing
-
-go run ./cmd/dev release packslip --bin mytool --resource 'skill/mytool=repo:skills/mytool'
-# build the packslip manifest for the snapshot artifacts and verify it
-# (--resource is repeatable; omit it when the release ships no skill)
-
-go run ./cmd/dev release publish --bin mytool --resource 'skill/mytool=repo:skills/mytool' --version v1.2.0
-# tag, build, sign, upload. In CI, GITHUB_REF_NAME and GITHUB_SHA supply
-# the tag and commit instead of --version and HEAD.
-```
-
-The repo slug comes from the origin remote, so no owner or repo name is
-committed anywhere. The local signing key is ephemeral (a temp file), and
-the manifest is unlogged (`--no-log`); CI signs with the workflow identity
-instead.
+Nothing is configured per repo. The binary is named after the repo (or
+`--name`), every directory under `skills/` ships as a skill, and the goreleaser
+config is generated unless the repo keeps a `.goreleaser.yml` of its own. The
+same command runs locally, where VERSION tags and pushes, and in CI, where the
+pushed tag is the version and packslip signs with the workflow's identity.
