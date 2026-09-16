@@ -458,6 +458,9 @@ else
     echo "working tree is dirty; commit first" >&2
     exit 1
   fi
+  # goreleaser needs a token env even though gh authenticates from its own
+  # keychain; reuse it when set, else ask gh for one.
+  export GITHUB_TOKEN="${GITHUB_TOKEN:-$(mise exec -- gh auth token 2>/dev/null)}"
   goreleaser release --clean --config .goreleaser.yml --release-notes <(echo "Release $tag")
   key=${RUNNER_TEMP:-/tmp}/packslip-local.key
   rm -f "$key" "$key.pub"
