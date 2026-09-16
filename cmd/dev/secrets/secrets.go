@@ -16,6 +16,7 @@ import (
 
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/fnox"
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/internal/cli"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/worker"
 )
 
 const Usage = `dev secrets set DIR NAME|OWNER [--names LIST] [--generate] [--if-missing] [--env NAME]
@@ -103,7 +104,8 @@ func Set(stdin io.Reader, stdout, stderr io.Writer, name string, generate, ifMis
 	if err := push(dir, name, value, env); err != nil {
 		return fmt.Errorf("pushing %s to the Worker: %w (retry with: mise run secrets:push)", name, err)
 	}
-	fmt.Fprintf(stdout, "Pushed %s to the Worker. Check with: mise run proxy:status:worker\n", name)
+	target, _ := worker.Name(dir, env)
+	fmt.Fprintf(stdout, "Pushed %s to %s.\n", name, target)
 	return nil
 }
 
@@ -135,9 +137,14 @@ func value(stdin io.Reader, prompt io.Writer, name string, generate bool) (strin
 }
 
 // push is `wrangler secret put`, which reads the value on stdin and deploys a
-// new version of the Worker with it.
+// new version of the Worker with it. The Worker is named, so a developer's
+// suffixed copy gets its own secrets.
 func push(dir, name, value, env string) error {
-	return fnox.Exec(dir, strings.NewReader(value), io.Discard, "wrangler", "secret", "put", name, "--env", env)
+	target, err := worker.Name(dir, env)
+	if err != nil {
+		return err
+	}
+	return fnox.Exec(dir, strings.NewReader(value), io.Discard, "wrangler", "secret", "put", name, "--env", env, "--name", target)
 }
 
 // Push reads "NAME<TAB>OWNER" lines (owner optional) and pushes every named
@@ -163,7 +170,7 @@ func Push(stdin io.Reader, out io.Writer, dir, env, fix string) error {
 			continue
 		}
 		if err := push(dir, name, v, env); err != nil {
-			fmt.Fprintf(out, "failed  %s (%v; see mise run logs, or retry mise run secrets:push)\n", name, err)
+			fmt.Fprintf(out, "failed  %s (%v; retry with: mise run secrets:push)\n", name, err)
 			problems++
 			continue
 		}

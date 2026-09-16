@@ -211,14 +211,21 @@ func TestWaitReadyReadsTheLog(t *testing.T) {
 	}
 }
 
-func TestHasBindings(t *testing.T) {
-	if hasBindings([]byte("name = \"app\"\n")) {
-		t.Fatal("a config with no bindings reported some")
+func TestSuffixGivesADeveloperTheirOwnWorkers(t *testing.T) {
+	t.Setenv(SuffixEnv, "alice")
+	var cfg wranglerConfig
+	toml.Decode("name = \"app\"\n[env.tinygo]\nmain = \"x.mjs\"\n[env.live]\nname = \"app-live\"\n", &cfg)
+	for env, want := range map[string]string{"": "app-alice", "tinygo": "app-alice-tinygo", "live": "app-live-alice"} {
+		if got := workerName(cfg, env); got != want {
+			t.Errorf("env %q: got %q, want %q", env, got, want)
+		}
 	}
-	if !hasBindings([]byte("name = \"app\"\nkv_namespaces = [{ binding = \"A\" }]\n")) {
-		t.Fatal("a kv binding was not seen")
+	got := string(withSuffix([]byte("name = \"app\"\nmain = \"x\"\n[env.live]\nname = \"app-live\"  # own\n")))
+	if got != "name = \"app-alice\"\nmain = \"x\"\n[env.live]\nname = \"app-live-alice\"  # own\n" {
+		t.Fatalf("copy:\n%s", got)
 	}
-	if !hasBindings([]byte("name = \"app\"\n[env.x]\nr2_buckets = [{ binding = \"B\" }]\n")) {
-		t.Fatal("an env binding was not seen")
+	t.Setenv(SuffixEnv, "")
+	if string(withSuffix([]byte("name = \"app\"\n"))) != "name = \"app\"\n" {
+		t.Fatal("no suffix must leave the config alone")
 	}
 }

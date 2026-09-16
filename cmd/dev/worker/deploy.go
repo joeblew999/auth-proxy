@@ -37,7 +37,7 @@ func Deploy(out io.Writer, dir, env string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", src, err)
 	}
-	if err := os.WriteFile(copyPath, before, 0o644); err != nil {
+	if err := os.WriteFile(copyPath, withSuffix(before), 0o644); err != nil {
 		return err
 	}
 	defer os.Remove(copyPath)
@@ -48,22 +48,34 @@ func Deploy(out io.Writer, dir, env string) error {
 	if err != nil {
 		return err
 	}
+	// wrangler has just printed the bindings it deployed with. What it wrote
+	// back into the copy, if anything, is the only thing it does not print.
 	made, err := created(before, after)
 	if err != nil {
 		return fmt.Errorf("reading what wrangler wrote back to %s: %w", copyPath, err)
 	}
-	if len(made) == 0 {
-		if !hasBindings(before) {
-			fmt.Fprintln(out, "no bindings in wrangler.toml; nothing to provision")
-			return nil
-		}
-		fmt.Fprintln(out, "bindings inherited from the deployed Worker; nothing written back")
-		return nil
-	}
 	for _, m := range made {
-		fmt.Fprintln(out, "created and linked:", m)
+		fmt.Fprintln(out, "written back by wrangler, kept out of git:", m)
 	}
 	return nil
+}
+
+// withSuffix renames the Workers in a config for the developer's suffix, the
+// top-level name and any environment that sets its own; an environment
+// without one follows the top-level name as wrangler derives it.
+func withSuffix(config []byte) []byte {
+	if os.Getenv(SuffixEnv) == "" {
+		return config
+	}
+	lines := strings.Split(string(config), "\n")
+	for i, line := range lines {
+		if rest, ok := strings.CutPrefix(line, "name = \""); ok {
+			if name, tail, ok := strings.Cut(rest, "\""); ok {
+				lines[i] = "name = \"" + suffixed(name) + "\"" + tail
+			}
+		}
+	}
+	return []byte(strings.Join(lines, "\n"))
 }
 
 // bindingIDs maps "<env>/<kind>/<binding>" to the id the config gives it, ""
@@ -133,13 +145,4 @@ func entriesOf(v any) []map[string]any {
 		return out
 	}
 	return nil
-}
-
-// hasBindings reports whether the config declares any provisionable binding.
-func hasBindings(config []byte) bool {
-	var doc map[string]any
-	if err := toml.Unmarshal(config, &doc); err != nil {
-		return false
-	}
-	return len(bindingIDs(doc)) > 0
 }

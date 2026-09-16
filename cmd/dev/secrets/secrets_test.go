@@ -4,11 +4,22 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/fnox"
 )
+
+// aWorker makes the test run in a directory holding a Worker called app, so
+// push has a name to give wrangler.
+func aWorker(t *testing.T) {
+	t.Helper()
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile("wrangler.toml", []byte("name = \"app\"\nmain = \"x.mjs\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func stubFnox(t *testing.T, values map[string]string) (stored *[]string, pushed *[]string) {
 	t.Helper()
@@ -48,9 +59,11 @@ func TestResolveMapsOwnersToSecrets(t *testing.T) {
 }
 
 func TestPushNamesTheFixForEachMissingSecret(t *testing.T) {
+	aWorker(t)
+	t.Setenv("WORKER_SUFFIX", "alice")
 	_, pushed := stubFnox(t, map[string]string{"A": "va", "B": ""})
 	var out bytes.Buffer
-	err := Push(strings.NewReader("A\tprov-a\nB\tprov-b\n\nC\n"), &out, "cmd/w", "tinygo", "mise run secrets:set {provider}")
+	err := Push(strings.NewReader("A\tprov-a\nB\tprov-b\n\nC\n"), &out, ".", "tinygo", "mise run secrets:set {provider}")
 	if err == nil || err.Error() != "2 secret(s) not pushed" {
 		t.Fatalf("err = %v", err)
 	}
@@ -59,12 +72,13 @@ func TestPushNamesTheFixForEachMissingSecret(t *testing.T) {
 			t.Errorf("output lacks %q:\n%s", want, out.String())
 		}
 	}
-	if len(*pushed) != 1 || (*pushed)[0] != "cmd/w: wrangler secret put A --env tinygo <- va" {
+	if len(*pushed) != 1 || (*pushed)[0] != ".: wrangler secret put A --env tinygo --name app-alice-tinygo <- va" {
 		t.Fatalf("pushed %q", *pushed)
 	}
 }
 
 func TestSet(t *testing.T) {
+	aWorker(t)
 	stored, pushed := stubFnox(t, map[string]string{})
 	var out bytes.Buffer
 	if err := Set(strings.NewReader(""), &out, &out, "K", true, false, ".", ""); err != nil {
@@ -73,7 +87,7 @@ func TestSet(t *testing.T) {
 	if len(*stored) != 1 || len((*stored)[0]) != len("K=")+64 {
 		t.Fatalf("generated: stored %q", *stored)
 	}
-	if len(*pushed) != 1 || !strings.HasPrefix((*pushed)[0], ".: wrangler secret put K --env  <- ") {
+	if len(*pushed) != 1 || !strings.HasPrefix((*pushed)[0], ".: wrangler secret put K --env  --name app <- ") {
 		t.Fatalf("pushed %q", *pushed)
 	}
 	if err := Set(strings.NewReader("typed\n"), &out, &out, "P", false, false, ".", ""); err != nil || (*stored)[1] != "P=typed" {

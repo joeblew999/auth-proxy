@@ -136,6 +136,10 @@ mise run test     # lint, wasm vet, all tests, skills + spike checks
 mise run bench    # both Worker builds in local workerd against the mock
 ```
 
+Working on the Worker beside someone? `mise set --file mise.local.toml WORKER_SUFFIX=<you>`
+once, and every Worker you deploy gets that suffix, URL, logs and secrets included;
+unset means the shared one.
+
 The Claude Code session here is pinned too: `session.toml` and `mise.toml` name
 every skill, `.claude/skills/SESSION.lock` lists every skill a session may have,
 and `mise run session:verify` (run at pre-push) fails on anything else. One

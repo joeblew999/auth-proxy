@@ -111,7 +111,7 @@ test` before committing.
 | `cmd/proxy/internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `cmd/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
 | `cmd/dev/release` | `dev release DIR [VERSION] [--snapshot]`: goreleaser, packslip, gh, from conventions (binary named after the repo, every `skills/*` shipped, goreleaser config generated) |
-| `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike. Written by `mise run session:verify --update`, checked at pre-push. It is what catches a skill arriving from a marketplace plugin or from claude.ai — the latter cannot be blocked by any project setting, only noticed |
+| `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike, and which Claude Code recorded it. Written by `mise run session:verify --update`, checked at pre-push. A Claude Code upgrade changes the built-ins, so verify re-records the lock for it and says what moved; anything arriving without an upgrade fails: a marketplace plugin, or a skill synced from claude.ai, which no project setting can block, only notice |
 | `skills/` | the skill this repo's releases ship via packslip |
 | `session.toml` + `cmd/dev/session` | what this repo pins: `[source.*]` blocks (a GitHub repo at a commit, for an upstream that ships no releases) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). `mise run session:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |
 
@@ -135,6 +135,10 @@ Rules that keep the design working:
   Worker is another directory and a few one-line tasks, not another set of
   tooling. An environment whose `main` lives under `build/tinygo` is built with
   TinyGo; any other with Go.
+- **Deploying beside someone:** `mise set --file mise.local.toml WORKER_SUFFIX=<you>`
+  once, and every Worker you deploy is `<name>-<you>`, with its URL, logs and
+  secrets following. Unset, as in CI and on the shared production deploy, means
+  the committed name. Nothing personal reaches a committed file.
 - **`wrangler.toml` names no account and no resource id.** The account is
   `CLOUDFLARE_ACCOUNT_ID` from fnox, the KV namespace is provisioned per account
   on the first deploy and stays linked, and `deploy` runs wrangler on a throwaway

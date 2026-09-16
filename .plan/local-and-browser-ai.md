@@ -485,6 +485,6 @@ topology that cannot round-trip changes the design before code depends on it.
 | 3 | Is the Local Network Access prompt acceptable for local models on the hosted GUI? | Yes: one prompt per site. Without it, local models work only through the native binary |
 | 4 | Worker built with Go or TinyGo? | Go for now, because MCP needs it. The Service Worker is TinyGo either way, so all shared code must stay TinyGo-safe (tested) |
 | 5 | Import go-htmx4's `kit/` or copy the parts? | Import `kit/live` and `kit/httpx`; copy only the room Durable Object's JS |
-| 6 | One shared Worker, or one per developer? | Per developer for development (Worker name suffixed with the developer's name, set by `setup`), and one shared production Worker deployed from `main` |
+| 6 | One shared Worker, or one per developer? | **Done 2026-09-16:** `WORKER_SUFFIX` in gitignored `mise.local.toml` suffixes every Worker a developer deploys, URL, logs and secrets included; unset (CI, the shared deploy) is the committed name |
 | 7 | Which platforms must setup support? | macOS now. **fnox on Linux is deferred** (owner, 2026-09-15), so Linux developers cannot deploy yet. CI on Linux still runs `mise install` + `mise run test`, which need no secrets |
 | 8 | Should browser models require installing the app (Add to Dock or Home Screen) for reliable caching on Safari? | Recommend it rather than require it: cache in the browser tab too, and show a "keep models offline" prompt that explains installation |

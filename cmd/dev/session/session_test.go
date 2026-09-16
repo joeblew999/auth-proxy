@@ -98,6 +98,20 @@ func TestLoadPinsRejectsUnknownKeys(t *testing.T) {
 	}
 }
 
+func TestLoadPinsAllowsOnlyClaudeSettings(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := writeFile("session.toml", "[claude]\nblocked_plugins = [\"x@y\"]\n"); err != nil {
+		t.Fatal(err)
+	}
+	p, err := loadPins()
+	if err != nil {
+		t.Fatalf("a repo pinning only its Claude settings was rejected: %v", err)
+	}
+	if len(p.Source) != 0 || len(p.Claude.BlockedPlugins) != 1 {
+		t.Fatalf("got %+v", p)
+	}
+}
+
 func TestLoadPinsRejectsBadSource(t *testing.T) {
 	t.Chdir(t.TempDir())
 	if err := writeFile("session.toml", "[source.a]\nskills = [\"z\"]\n"); err != nil {
@@ -217,5 +231,16 @@ func TestCheckPortablePathsCatchesAbsoluteCommands(t *testing.T) {
 	}
 	if err := checkPortablePaths(); err != nil {
 		t.Errorf("checkPortablePaths = %v; want bare commands to pass", err)
+	}
+}
+
+func TestSessionLockRecordsWhichClaudeCodeWroteIt(t *testing.T) {
+	names, by := parseSessionLock(formatSessionLock([]string{"gsx", "wrangler"}, "2.1.272"))
+	if by != "2.1.272" || strings.Join(names, ",") != "gsx,wrangler" {
+		t.Fatalf("got %v by %q", names, by)
+	}
+	names, by = parseSessionLock("# an older lock\nwrangler\ngsx\n")
+	if by != "" || strings.Join(names, ",") != "gsx,wrangler" {
+		t.Fatalf("old format: got %v by %q", names, by)
 	}
 }

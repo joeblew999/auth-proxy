@@ -33,7 +33,7 @@ func Wait(out io.Writer, url string, timeout time.Duration) error {
 		}
 		streak = 0
 		if time.Now().After(deadline) {
-			return fmt.Errorf("%s did not answer 200 steadily within %s; look at: mise run logs", url, timeout)
+			return fmt.Errorf("%s did not answer 200 steadily within %s; look at its logs (dev logs DIR)", url, timeout)
 		}
 		fmt.Fprintf(out, "waiting for %s to come online...\n", url)
 		sleep(5 * time.Second)

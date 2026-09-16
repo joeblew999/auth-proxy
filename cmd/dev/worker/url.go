@@ -42,17 +42,40 @@ func readWrangler(path string) (wranglerConfig, error) {
 	return cfg, nil
 }
 
+// SuffixEnv names the variable that gives a developer their own copy of every
+// Worker: with WORKER_SUFFIX=alice, grok-oauth-proxy deploys as
+// grok-oauth-proxy-alice, its URL, logs and secrets following. It lives in
+// gitignored mise.local.toml, so the committed config stays everyone's and an
+// unset variable, as in CI, means the shared name.
+const SuffixEnv = "WORKER_SUFFIX"
+
+func suffixed(name string) string {
+	if s := strings.TrimPrefix(os.Getenv(SuffixEnv), "-"); s != "" {
+		return name + "-" + s
+	}
+	return name
+}
+
 // workerName is the Worker wrangler deploys env to: the environment's own
 // name when it sets one, otherwise <name>-<env>, and plain <name> for the
-// top-level environment.
+// top-level environment; with the developer's suffix, when set.
 func workerName(cfg wranglerConfig, env string) string {
 	if env == "" {
-		return cfg.Name
+		return suffixed(cfg.Name)
 	}
 	if e, ok := cfg.Env[env]; ok && e.Name != "" {
-		return e.Name
+		return suffixed(e.Name)
 	}
-	return cfg.Name + "-" + env
+	return suffixed(cfg.Name) + "-" + env
+}
+
+// Name is the Worker that dir's config deploys env to, suffix included.
+func Name(dir, env string) (string, error) {
+	cfg, err := readWrangler(filepath.Join(dir, wranglerFile))
+	if err != nil {
+		return "", err
+	}
+	return workerName(cfg, env), nil
 }
 
 // URL is the address to talk to: the workers.dev URL of the Worker in dir when
@@ -181,7 +204,7 @@ func writeLocal(path, key, value string) error {
 	sort.Strings(keys)
 	var b strings.Builder
 	b.WriteString("# Written by `dev url` from the Cloudflare account in fnox. Gitignored: it is\n")
-	b.WriteString("# this clone's. After switching accounts: mise run url --refresh\n")
+	b.WriteString("# this clone's. After switching accounts: dev url DIR --worker --refresh\n")
 	b.WriteString("[env]\n")
 	for _, k := range keys {
 		fmt.Fprintf(&b, "%s = %s\n", k, strconv.Quote(env[k]))

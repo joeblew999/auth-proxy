@@ -52,9 +52,6 @@ func loadPins() (pins, error) {
 	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
 		return pins{}, fmt.Errorf("%s: unknown key %q; fix the file, then: "+syncCmd, pinsFile, undecoded[0])
 	}
-	if len(p.Source) == 0 {
-		return pins{}, fmt.Errorf("%s lists no skills", pinsFile)
-	}
 	names := p.names()
 	for _, name := range names {
 		s := p.Source[name]
