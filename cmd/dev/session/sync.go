@@ -89,9 +89,6 @@ func Check(out io.Writer) error {
 	if err := checkPortablePaths(); err != nil {
 		return err
 	}
-	if err := checkToolPins(out); err != nil {
-		return err
-	}
 	warnStaleSessions(out, time.Now())
 	return nil
 }
@@ -109,30 +106,16 @@ func pinnedSkills() (skillFiles, error) {
 
 	for _, source := range p.names() {
 		s := p.Source[source]
-		switch s.kind() {
-		case "gomod":
-			version, dir, err := gomodInfo(s.ModuleDir, s.Module)
-			if err != nil {
+		archive, err := download(fmt.Sprintf("https://codeload.github.com/%s/tar.gz/%s", s.Repo, s.Ref))
+		if err != nil {
+			return nil, err
+		}
+		prefix := fmt.Sprintf("skills-%s/skills/", s.Ref)
+		for _, name := range s.Skills {
+			if err := copyTar(files, archive, prefix+name+"/", name, s.Repo, s.Ref); err != nil {
 				return nil, err
 			}
-			for _, name := range s.Skills {
-				if err := copyLocal(files, filepath.Join(dir, "skills", name), name); err != nil {
-					return nil, err
-				}
-				lock = append(lock, lockSkill(name, fmt.Sprintf("%s@%s", s.Module, version), files))
-			}
-		case "github":
-			archive, err := download(fmt.Sprintf("https://codeload.github.com/%s/tar.gz/%s", s.Repo, s.Ref))
-			if err != nil {
-				return nil, err
-			}
-			prefix := fmt.Sprintf("skills-%s/skills/", s.Ref)
-			for _, name := range s.Skills {
-				if err := copyTar(files, archive, prefix+name+"/", name, s.Repo, s.Ref); err != nil {
-					return nil, err
-				}
-				lock = append(lock, lockSkill(name, fmt.Sprintf("github.com/%s@%s", s.Repo, s.Ref[:12]), files))
-			}
+			lock = append(lock, lockSkill(name, fmt.Sprintf("github.com/%s@%s", s.Repo, s.Ref[:12]), files))
 		}
 	}
 

@@ -113,7 +113,7 @@ test` before committing.
 | `cmd/dev/release` | release tooling behind `dev release ...` (`snapshot`, `packslip`, `publish`) |
 | `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike. Written by `mise run session:verify --update`, checked at pre-push. It is what catches a skill arriving from a marketplace plugin or from claude.ai — the latter cannot be blocked by any project setting, only noticed |
 | `skills/` | the skill this repo's releases ship via packslip |
-| `session.toml` + `cmd/dev/session` | what this repo pins: `[source.*]` blocks (gomod or github) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). `mise run session:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |
+| `session.toml` + `cmd/dev/session` | what this repo pins: `[source.*]` blocks (a GitHub repo at a commit, for an upstream that ships no releases) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). `mise run session:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |
 
 Rules that keep the design working:
 

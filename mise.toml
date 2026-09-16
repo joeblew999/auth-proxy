@@ -107,7 +107,7 @@ depends = ["dev:build"]
 run = "bin/dev session verify"
 
 [tasks."session:bump"]
-description = "move github pins in session.toml to upstream HEAD (one source, or all)"
+description = "move a pin in session.toml to upstream HEAD (one source, or all)"
 depends = ["dev:build"]
 raw = true
 run = "bin/dev session bump"
@@ -140,10 +140,7 @@ run = "bin/dev deps list"
 description = "upgrade Go modules interactively, in every module"
 depends = ["dev:build"]
 raw = true
-run = [
-  "bin/dev deps upgrade",
-  "mise run session:check",
-]
+run = "bin/dev deps upgrade"
 
 [tasks."secrets:set"]
 description = "store a secret in fnox and push it: <name|provider|admin> [--generate] [--if-missing]"

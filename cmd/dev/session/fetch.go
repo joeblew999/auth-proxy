@@ -15,38 +15,6 @@ import (
 	"strings"
 )
 
-// gomodInfo returns a module's pinned version and its directory in the module
-// cache, downloading it when needed. dir is the module whose go.mod pins it.
-func gomodInfo(dir, module string) (version, modDir string, err error) {
-	if err := run(dir, "go", "mod", "download", module); err != nil {
-		return "", "", err
-	}
-	version, err = output(dir, "go", "list", "-m", "-f", "{{.Version}}", module)
-	if err != nil {
-		return "", "", err
-	}
-	modDir, err = output(dir, "go", "list", "-m", "-f", "{{.Dir}}", module)
-	return version, modDir, err
-}
-
-func copyLocal(files skillFiles, src, name string) error {
-	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		rel, err := filepath.Rel(src, p)
-		if err != nil {
-			return err
-		}
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		files[path.Join(name, filepath.ToSlash(rel))] = data
-		return nil
-	})
-}
-
 func copyTar(files skillFiles, archive []byte, prefix, name, repo, ref string) error {
 	gz, err := gzip.NewReader(bytes.NewReader(archive))
 	if err != nil {

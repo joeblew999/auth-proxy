@@ -16,18 +16,13 @@ Two things. A `session.toml` in the repo root:
 # How your repo runs this, quoted back by every error a sync would fix.
 sync_command = "mise run session:sync"
 
-# Skills vendored from a GitHub repo at a pinned commit.
+# Skills vendored from a GitHub repo at a pinned commit: for an upstream that
+# ships no releases. A tool that ships a packslip release carries its own
+# skill, which mise pins and links; it needs no entry here.
 [source.cloudflare]
 repo = "cloudflare/skills"
 ref  = "b052c32bab7dd493513260228a36c88294f343f1"
 skills = ["wrangler", "durable-objects"]
-
-# Skills read out of a Go module in the local module cache, at the version
-# the named directory's go.mod pins.
-[source.gsx]
-module     = "github.com/joeblew999/gsx"
-module_dir = "."
-skills     = ["gsx"]
 
 # The rest of the session, generated into .claude/settings.json. Leave a key
 # out and session does not manage that setting at all -- a repo never loses
@@ -55,7 +50,7 @@ the session commands read no file they are not pointed at.
 | `dev session sync` | write `.claude/skills` from the pins, and the `.claude/settings.json` keys `[claude]` implies |
 | `dev session check` | fail when either has drifted. Put this in CI and in your test task |
 | `dev session verify` | ask a fresh Claude Code session which skills it *actually* sees |
-| `dev session bump [source]` | move github pins to upstream HEAD |
+| `dev session bump [source]` | move a pin to upstream HEAD |
 
 `sync` writes only what it owns: skills it wrote before, and three settings keys.
 Hooks, permissions and anything else in `.claude/settings.json` are left alone,

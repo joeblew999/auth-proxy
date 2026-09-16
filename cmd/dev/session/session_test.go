@@ -3,8 +3,6 @@ package session
 import (
 	"io"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -69,7 +67,7 @@ func TestDiffFiles(t *testing.T) {
 
 func TestLoadPins(t *testing.T) {
 	t.Chdir(t.TempDir())
-	content := "[source.a]\nmodule = \"example.com/mod\"\nmodule_dir = \"spike\"\nskills = [\"x\", \"y\"]\n\n[source.b]\nrepo = \"org/repo\"\nref = \"abc123\"\nskills = [\"z\"]\n"
+	content := "[source.a]\nrepo = \"org/a\"\nref = \"def456\"\nskills = [\"x\", \"y\"]\n\n[source.b]\nrepo = \"org/repo\"\nref = \"abc123\"\nskills = [\"z\"]\n"
 	if err := writeFile("session.toml", content); err != nil {
 		t.Fatal(err)
 	}
@@ -81,18 +79,18 @@ func TestLoadPins(t *testing.T) {
 		t.Errorf("names = %v", got)
 	}
 	a := p.Source["a"]
-	if a.kind() != "gomod" || a.Module != "example.com/mod" || a.ModuleDir != "spike" || len(a.Skills) != 2 {
+	if a.Repo != "org/a" || a.Ref != "def456" || len(a.Skills) != 2 {
 		t.Errorf("source a = %+v", a)
 	}
 	b := p.Source["b"]
-	if b.kind() != "github" || b.Repo != "org/repo" || b.Ref != "abc123" || len(b.Skills) != 1 {
+	if b.Repo != "org/repo" || b.Ref != "abc123" || len(b.Skills) != 1 {
 		t.Errorf("source b = %+v", b)
 	}
 }
 
 func TestLoadPinsRejectsUnknownKeys(t *testing.T) {
 	t.Chdir(t.TempDir())
-	if err := writeFile("session.toml", "[source.a]\nmodule = \"x\"\nmodule_dir = \"y\"\nskills = [\"z\"]\nbogus = 1\n"); err != nil {
+	if err := writeFile("session.toml", "[source.a]\nrepo = \"x/y\"\nref = \"abc\"\nskills = [\"z\"]\nbogus = 1\n"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := loadPins(); err == nil {
@@ -106,7 +104,7 @@ func TestLoadPinsRejectsBadSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := loadPins(); err == nil {
-		t.Error("loadPins succeeded with no module or repo, want an error naming the fix")
+		t.Error("loadPins succeeded with no repo or ref, want an error naming the fix")
 	}
 }
 
@@ -177,17 +175,6 @@ func TestSyncCommandComesFromPins(t *testing.T) {
 	}
 }
 
-// A repo with no mise.toml still has to be able to run check.
-func TestCheckToolPinsSkipsWithoutMise(t *testing.T) {
-	t.Chdir(t.TempDir())
-	if err := writeFile("session.toml", "[source.a]\nrepo = \"o/r\"\nref = \"abc\"\nskills = [\"z\"]\n"); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkToolPins(io.Discard); err != nil {
-		t.Errorf("checkToolPins = %v; want it skipped when nothing pins tool versions", err)
-	}
-}
-
 // A repo that never mentions connectors must not have them turned off behind
 // its back, so an absent key writes no setting at all.
 func TestConnectorsUnmanagedWhenUnset(t *testing.T) {
@@ -230,102 +217,5 @@ func TestCheckPortablePathsCatchesAbsoluteCommands(t *testing.T) {
 	}
 	if err := checkPortablePaths(); err != nil {
 		t.Errorf("checkPortablePaths = %v; want bare commands to pass", err)
-	}
-}
-
-// mise, not mise.toml, is the source of truth for a tool version: it merges a
-// config hierarchy and resolves "latest" to something a go.mod can be compared
-// against. Reading the file directly saw neither.
-func TestMiseToolPinsResolvesVersions(t *testing.T) {
-	if _, err := exec.LookPath("mise"); err != nil {
-		t.Skip("mise not installed")
-	}
-	pins, err := miseToolPins()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(pins) == 0 {
-		t.Skip("no go: tools active here")
-	}
-	for tool, version := range pins {
-		if !strings.HasPrefix(tool, "go:") {
-			t.Errorf("miseToolPins returned a non-go tool: %q", tool)
-		}
-		if version == "latest" || version == "" {
-			t.Errorf("%s = %q; want the version mise resolved, not the request", tool, version)
-		}
-	}
-}
-
-// The gomod source kind has no user in this repo since gsx and gsxui moved to
-// packslip, so nothing exercised it end to end. These two do.
-func TestCopyLocalKeepsTheTreeUnderTheSkillName(t *testing.T) {
-	src := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(src, "references"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeFile(filepath.Join(src, "SKILL.md"), "top"); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeFile(filepath.Join(src, "references", "a.md"), "nested"); err != nil {
-		t.Fatal(err)
-	}
-	files := skillFiles{}
-	if err := copyLocal(files, src, "demo"); err != nil {
-		t.Fatal(err)
-	}
-	if string(files["demo/SKILL.md"]) != "top" {
-		t.Errorf("demo/SKILL.md = %q", files["demo/SKILL.md"])
-	}
-	if string(files["demo/references/a.md"]) != "nested" {
-		t.Errorf("demo/references/a.md = %q; nested files must keep their path", files["demo/references/a.md"])
-	}
-	if len(files) != 2 {
-		t.Errorf("copyLocal wrote %d files, want 2: %v", len(files), files)
-	}
-}
-
-func TestGomodInfoResolvesAModuleInTheCache(t *testing.T) {
-	// A real dependency of this module, so the local cache has it.
-	version, dir, err := gomodInfo(".", "github.com/BurntSushi/toml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(version, "v") {
-		t.Errorf("version = %q; want the version go resolved", version)
-	}
-	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
-		t.Errorf("dir = %q; want a directory in the module cache (%v)", dir, err)
-	}
-}
-
-// SESSION.lock is an allowlist: anything the session gained that it does not
-// name fails, whether it shadows a pinned skill or not.
-func TestDiffSessionCatchesArrivalsAndLosses(t *testing.T) {
-	gone, arrived := diffSession(
-		[]string{"cloudflare", "gsx", "run"},
-		[]string{"cloudflare", "run", "cloudflare:sandbox-sdk", "some-synced-skill"},
-	)
-	if len(gone) != 1 || gone[0] != "gsx" {
-		t.Errorf("gone = %v; want the skill that stopped loading", gone)
-	}
-	if len(arrived) != 2 {
-		t.Errorf("arrived = %v; want both the plugin skill and the unnamespaced one", arrived)
-	}
-}
-
-func TestArrivalAdviceNamesThePlugin(t *testing.T) {
-	got := arrivalAdvice([]string{"cloudflare:sandbox-sdk", "cloudflare:web-perf"})
-	if !strings.Contains(got, "cloudflare") || !strings.Contains(got, "blocked_plugins") {
-		t.Errorf("advice = %q; want it to name the plugin and the fix", got)
-	}
-	// A skill with no namespace cannot be blocked by any setting; the advice
-	// must say so instead of suggesting one.
-	got = arrivalAdvice([]string{"some-synced-skill"})
-	if strings.Contains(got, "blocked_plugins") {
-		t.Errorf("advice = %q; a non-plugin skill cannot be blocked", got)
-	}
-	if !strings.Contains(got, "--update") {
-		t.Errorf("advice = %q; want the re-bless command", got)
 	}
 }

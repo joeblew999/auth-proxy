@@ -21,25 +21,13 @@ func Bump(out io.Writer, sources []string) error {
 	names := p.names()
 	if len(sources) > 0 {
 		for _, name := range sources {
-			s, ok := p.Source[name]
-			if !ok {
+			if _, ok := p.Source[name]; !ok {
 				return fmt.Errorf("%s has no [source.%s]", pinsFile, name)
-			}
-			if s.kind() != "github" {
-				return fmt.Errorf("[source.%s] is %s, not github; nothing to bump", name, s.kind())
 			}
 		}
 		names = sources
 	}
-	var github []string
-	for _, name := range names {
-		if p.Source[name].kind() == "github" {
-			github = append(github, name)
-		}
-	}
-	if len(github) == 0 {
-		return fmt.Errorf("%s names no github sources; nothing to bump", pinsFile)
-	}
+	github := names
 
 	oldFiles, err := pinnedSkills()
 	if err != nil {
@@ -130,7 +118,7 @@ func rewriteRefs(path string, p pins) error {
 			section = strings.Trim(trimmed, "[]")
 		}
 		if name, ok := strings.CutPrefix(section, "source."); ok {
-			if s, known := p.Source[name]; known && s.kind() == "github" && strings.HasPrefix(trimmed, "ref") {
+			if s, known := p.Source[name]; known && strings.HasPrefix(trimmed, "ref") {
 				indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
 				line = indent + `ref = "` + s.Ref + `"`
 			}
