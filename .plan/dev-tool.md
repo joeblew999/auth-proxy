@@ -1,18 +1,10 @@
 # Plan: one dev tool for every repo on this stack
 
-**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo. Every command is its own
-Go module (`cmd/proxy` owns the proxy's `internal/`, `cmd/dev` is standalone,
-`go.work` at the root ties the five together); `mise.toml` is one block per
-task, one field per line (never compressed onto one line: the owner rejected
-that as unreadable), a stack half that names nothing of this project and a project half
-that is a grid of four commands by stage; `dev build|run|check DIR` reads a
-command directory and does the rest; every Worker stage takes its directory;
-`cmd/dev` holds nothing project-specific; `mise-tasks/` and the shell helpers
-are gone. Step 3 is DEFERRED by the owner
-the same day: this repo first, made right on this stack, and nothing extracted
-until it is. Not `joeblew999/.github` (the fleet task library: nu bodies in
-TOML includes, reusable workflows) and not the go-htmx4 way (a template repo
-with `mise run rename`); the owner wants neither used here yet.**
+**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo. STEP 3 IN PROGRESS the
+same evening on the owner's "do it all": the tool lives at
+`github.com/joeblew999/dev` (local clone beside this repo, two commits,
+`mise run test` green, a signed snapshot release proven). Blocked on one act
+only the owner can approve: creating the public GitHub repo (see step 3).**
 
 ## The question
 
@@ -128,12 +120,60 @@ to `cmd/bench` and the mock to `cmd/mock-upstream`.
 This supersedes item 9 of `.plan/done/claude-session.md`, which moved only
 the session pinner and the release tool.
 
+## Step 3, 2026-09-16 evening: what happened
+
+Sequence (a) and the local half of (b) are done; (c) waits on the repo.
+
+- **(a) moved.** `cmd/dev` is the root of `github.com/joeblew999/dev`
+  (module `github.com/joeblew999/dev`, `main.go` at the root, the same
+  packages). Its own stack files: `mise.toml` (build, check, test, skill,
+  release, release:snapshot; `bootstrap` after `mise install`), `hk.pkl`, the
+  two workflows, `AGENTS.md`. Tests moved with it; `mise run test` is green.
+- **The skill is generated.** `dev skill` renders `skills/dev/SKILL.md` from
+  the verb table's own usage strings, and `dev skill --check` (in `check`)
+  fails when it drifts. This is the owner's "take a golang cli and generate
+  the stuff an AI needs": the manual is the code's. MCP tool schemas can come
+  from the same table later.
+- **Fly beside Cloudflare** (owner, same evening: the gsx forks must stay
+  deployable the way upstream does it, and upstream uses Fly for what is not
+  a Worker). `app` reads the directory: `wrangler.toml` means Workers,
+  `fly.toml` means Fly, both is an error. `deploy`, `url`, `logs`, `wait` and
+  `secrets` are the same verbs on both; a Fly deploy runs `flyctl deploy
+  --config DIR/fly.toml .` from the repo root as build context, which is how
+  gsxhq/gsx and gsxhq/gsxui deploy, with anything after `--` going to flyctl
+  (`--ha=false`, `--remote-only`). Secrets go through `flyctl secrets import`
+  on stdin. **Not exercised for real:** no Fly account or token exists on this
+  machine, so the Fly path is proven only through the tool's exec seam.
+- **Names generalised:** `WORKER_SUFFIX` is `DEPLOY_SUFFIX` (a Fly app is not a
+  Worker), `dev url --worker` is `dev url --deployed`. The `worker` package is
+  `cloudflare`.
+- **A snapshot before the first tag** derived a bare commit as the version,
+  which packslip rejects; fixed (`0.0.0-<commit>`), and the snapshot now signs
+  and verifies with the skill in the manifest.
+- **(b) blocked:** creating the public repo (`gh repo create joeblew999/dev
+  --public --source=. --remote=origin --push`) is an act the agent's
+  permissions refuse; the owner creates it or approves it. Then: tag v0.1.0,
+  the release workflow publishes, and (c) follows here: pin
+  `packslip:github.com/joeblew999/dev = "0.1.0"`, tasks call `dev`, `cmd/dev`
+  and `dev:build` go, `--worker` becomes `--deployed` and `WORKER_SUFFIX`
+  `DEPLOY_SUFFIX` in the tasks and docs, `session:verify --update` admits the
+  `dev` skill, `mise run test` and CI green.
+
+## Later, per the owner (2026-09-16)
+
+Rename this repo to `auth-proxy` and detach it from the `dvcrn` fork: it is
+not Grok-specific and far from what it started as. Cheap now: the binary, the
+Workers and the skill are named from the repo slug, so a rename is the module
+path in five `go.mod` files, the `name` in two `wrangler.toml`, the skill
+directory, and the docs. Detaching a fork is a GitHub support request or a
+fresh repo with the history pushed. Not started.
+
 ## Decisions needed
 
 | # | Question | Recommendation |
 |---|---|---|
-| 0 | When? | Owner's call, once this repo is right. Until then every improvement lands here, where it is proven by `mise run test` and a real deploy |
-| 1 | The tool's name and repo | anything but `dev`, which is the binary; pick one that reads as the stack's name |
+| 0 | When? | Decided 2026-09-16 evening: now ("do it all"). Every improvement to the tool lands in its repo and is proven here by the pin |
+| 1 | The tool's name and repo | `joeblew999/dev`, proposed and not objected to. The binary and the repo share the name, which `release` handles (the binary is named after the repo) |
 | 2 | Does `bench` move? | No. It knows this proxy's endpoints |
 | 3 | `dev init` overwrites nothing or refuses on an existing file? | Refuses, and names the file |
 
