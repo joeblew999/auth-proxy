@@ -118,6 +118,63 @@ Not "the code is written" — each is a thing someone can run and watch.
 Result today, from a fresh session: 25 skills — the repo's 8 and Claude Code's
 17 built-ins. Before: 36, including 11 from a plugin nothing here controlled.
 
+## The failing output, kept
+
+Criterion D: a check only watched passing is not evidence. Each was broken on
+purpose and this is what it said.
+
+`verify` at pre-push, with `cloudflare@cloudflare` removed from
+`blocked_plugins` and re-synced:
+
+```
+skills_verify – error: skills reached this session that .claude/skills/SESSION.lock does not allow:
+skills_verify –   cloudflare:agents-sdk
+skills_verify –   cloudflare:build-agent
+skills_verify –   cloudflare:build-mcp
+skills_verify –   cloudflare:building-ai-agent-on-cloudflare
+skills_verify –   cloudflare:building-mcp-server-on-cloudflare
+skills_verify –   cloudflare:cloudflare
+skills_verify –   cloudflare:durable-objects
+skills_verify –   cloudflare:sandbox-sdk
+...
+these came from the cloudflare plugin(s); add them to blocked_plugins in skills.toml
+```
+
+All 11, where the shadow check it replaced found 4.
+
+`check`, with a hand-edit to the generated settings:
+
+```
+error: .claude/settings.json does not match [claude] in skills.toml:
+  changed: enabledPlugins
+  missing: disableClaudeAiConnectors
+fix with: mise run dev:skills:sync
+```
+
+`verify` with no lock yet:
+
+```
+error: .claude/skills/SESSION.lock does not exist yet; record what this session
+is allowed with: mise run dev:skills:verify --update
+```
+
+Scoping, which is the part that could silently cost 7s on every agent turn:
+
+```
+$ hk run pre-push --plan   →  ✓ skills_verify
+$ hk run check --plan      →  (absent)
+```
+
+Fresh clone, nothing done to it:
+
+```
+$ git config --get-regexp '^hook\.'     →  (nothing)
+$ mise run dev:bootstrap
+$ git config --get-regexp '^hook\..*event'
+hook.hk-pre-commit.event pre-commit
+hook.hk-pre-push.event pre-push
+```
+
 ## Open decisions
 
 - **claude.ai connectors are off in this repo** (`claude_ai_connectors = false`),
