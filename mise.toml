@@ -2,48 +2,38 @@
 # Providers live in providers.toml. Secret values live in fnox and are pushed to
 # the Worker by the keys:* tasks, so nothing else needs remembering.
 
+# Runtimes.
 [tools]
 go = "1.27"
-# packslip: verified manifest plus version-matched skills when shipped.
-"packslip:github.com/jdx/fnox" = "latest"
 node = "24"
-# Pinned: a looser "4" lets mise keep any older 4.x already installed, and 4.97's
-# local runtime rejects wrangler.toml's compatibility_date.
-"npm:wrangler" = "4.131.1"
-# Pinned to match TINYGO_VERSION in workers-go's Makefile.
-tinygo = "0.42.0"
-# TinyGo shells out to wasm-opt for every wasm build.
-"aqua:WebAssembly/binaryen" = "121"
-# GUI toolchain from our own forks, via packslip: verified binaries plus
-# version-matched skills. Inside the module, builds use go.mod's tool pin
-# (go tool gsx); the fork tracks upstream, so the versions agree.
+tinygo = "0.42.0"   # must match TINYGO_VERSION in workers-go's Makefile
+"aqua:WebAssembly/binaryen" = "121"   # TinyGo shells out to wasm-opt
+
+# Secrets, releases, services. packslip: means a verified manifest plus
+# version-matched skills when the publisher ships them.
+"packslip:github.com/jdx/fnox" = "latest"
 "packslip:github.com/joeblew999/gsx" = "latest"
 "packslip:github.com/joeblew999/gsxui" = "latest"
-# Local models: an OpenAI-compatible server on 127.0.0.1:11435.
-"go:github.com/ardanlabs/kronk/cmd/kronk" = "1.32.6"
-# Upgrades go.mod files to match the pins above; see: mise run deps:list.
-"go:github.com/oligot/go-mod-upgrade" = "latest"
-# Release artifacts, signed by goreleaser; the release job adds a packslip
-# manifest with the skill. Folded in from mise.development.toml so `mise tasks`
-# lists the release path per rule zero.
 goreleaser = "latest"
-# Signs the packslip manifest. Same CLI the release job uses, so the manifest
-# can be built and inspected locally before a tag push.
 packslip = "latest"
-# Creates GitHub releases and uploads assets, so `mise run release` needs no
-# workflow: tag, build, manifest, publish, all from the task.
 gh = "latest"
-# Supervises the local proxy (and mock) as daemons: start, logs, stop.
-# See pitchfork.toml and: mise run svc:start / svc:logs / svc:stop.
 pitchfork = "latest"
+
+# Cloudflare. A looser "4" lets mise keep any older 4.x already installed, and
+# 4.97's local runtime rejects wrangler.toml's compatibility_date.
+"npm:wrangler" = "4.131.1"
+
+# Go tools. Inside spikes/hello-world, builds use go.mod's tool pin
+# (go tool gsx); the fork tracks upstream, so the versions agree.
+"go:github.com/ardanlabs/kronk/cmd/kronk" = "1.32.6"   # local models on 127.0.0.1:11435
+"go:github.com/oligot/go-mod-upgrade" = "latest"   # see: mise run deps:list
 
 [hooks]
 postinstall = { task = "dev:skills:sync" }
 
-# Skills the active tools ship themselves (packslip backend) link into
-# .claude/skills alongside the vendored copies from skills.toml. mise preserves
-# real directories, so the two never fight. None of our tools ship one yet;
-# when one does, delete its source from skills.toml and let mise own it.
+# Packslip skills link into .claude/skills alongside the vendored copies from
+# skills.toml. mise preserves real directories, so the two never fight. When a
+# tool ships its skill, delete its source from skills.toml and let mise own it.
 [settings.skills]
 auto_sync = true
 prune = true
@@ -60,14 +50,11 @@ PROXY_URL_TINYGO = "https://grok-oauth-proxy-tinygo.gedw99.workers.dev"
 description = "Run the proxy locally on http://127.0.0.1:56121/v1 (--mock: against the bundled mock, no real keys)"
 depends = ["build:cli"]
 raw = true
-usage = 'flag "--mock" help="Serve tools/mock-upstream/providers.toml against a local mock upstream"'
+usage = 'flag "--mock" help="Serve tools/mock-upstream/providers.toml (needs the mock daemon: mise run svc:start --mock)"'
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
 if [ "${usage_mock:-false}" = "true" ]; then
-  go build -o bin/mock-upstream ./tools/mock-upstream
-  bin/mock-upstream &
-  trap 'kill $! 2>/dev/null' EXIT
   MOCK_API_KEY=mock-key fnox exec -- bin/grok-oauth-proxy serve --config tools/mock-upstream/providers.toml
 else
   fnox exec -- bin/grok-oauth-proxy serve
@@ -252,7 +239,7 @@ mise run dev:skills:check
 # --- bin/dev: this repo's own tooling, one task per `dev <group> <verb>` -------
 
 [tasks."dev:skills:sync"]
-description = "Put the pinned gsx and Cloudflare skills into .claude/skills (runs automatically after mise install)"
+description = "Write the skills from skills.toml into .claude/skills (runs automatically after mise install)"
 depends = ["build:dev"]
 run = "bin/dev skills sync"
 
@@ -262,10 +249,11 @@ depends = ["build:dev"]
 run = "bin/dev skills verify"
 
 [tasks."dev:skills:bump"]
-description = "Move the Cloudflare pin in skills.toml to upstream HEAD, showing what would change first"
+description = "Move github pins in skills.toml to upstream HEAD, showing what would change first"
 depends = ["build:dev"]
 raw = true
-run = "bin/dev skills bump"
+usage = 'arg "[source]" help="One source, or all github sources when omitted"'
+run = 'bin/dev skills bump $usage_source'
 
 [tasks."dev:skills:check"]
 hide = true
@@ -392,31 +380,15 @@ description = "Run the Go and TinyGo Workers locally against the mock and compar
 run = "tools/bench.sh"
 
 # --- release: versioned CLI artifacts plus a packslip manifest -----------------
-# SSOT: the whole release is mise tasks. `mise run release v1.2.0` tags,
-# builds, signs the packslip with the workflow identity, and publishes.
-# .github/workflows/release.yml does the same on a tag push for CI.
+# `mise run release v1.2.0` publishes fully locally (goreleaser + key-signed
+# packslip + gh upload). .github/workflows/release.yml runs release:publish on
+# a tag push as the CI backup.
 
 [tasks.release]
-description = "Cut a release: tag <version> and push; CI builds, signs, publishes (needs gh auth)"
+description = "Publish a GitHub Release fully locally: tag, build, sign, upload (needs gh auth)"
 usage = 'arg "<version>" help="Version to release, e.g. v1.2.0"'
 raw = true
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-version="$usage_version"
-case "$version" in v*) tag="$version";; *) tag="v$version";; esac
-if git rev-parse "$tag" >/dev/null 2>&1; then
-  echo "tag $tag already exists" >&2
-  exit 1
-fi
-if [ -n "$(git status --porcelain)" ]; then
-  echo "working tree is dirty; commit first" >&2
-  exit 1
-fi
-git tag "$tag"
-git push origin "$tag" main
-echo "tagged $tag; CI builds and publishes. Watch with: mise exec -- gh run list --limit 3"
-'''
+run = "mise run release:publish \"$usage_version\""
 
 [tasks."release:snapshot"]
 description = "Build release artifacts locally without publishing"
