@@ -1,11 +1,10 @@
-// Package mcp proves every MCP server the repo declares actually
-// connects. .mcp.json declaring a server proves nothing: four were shipped once
-// that all sat at "Needs authentication", which no fresh clone could use. It
-// runs as `dev mcp check`.
-package mcp
+// The MCP servers are part of the session: .mcp.json declaring one proves
+// nothing, four were shipped once that all sat at "Needs authentication",
+// which no fresh clone could use. `dev session mcp` asks each to connect.
+
+package session
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -13,18 +12,8 @@ import (
 	"strings"
 )
 
-const usage = `dev mcp check   run "claude mcp list" and fail on any server that does not connect
-`
-
-// Usage is the help text cmd/dev prints for this command.
-func Usage() string { return usage }
-
-// Run dispatches the mcp subcommand. Args are everything after "mcp".
-func Run(args []string, stdout, stderr io.Writer) error {
-	if len(args) != 1 || args[0] != "check" {
-		fmt.Fprint(stderr, usage)
-		return errors.New("usage: dev mcp check")
-	}
+// MCP runs `claude mcp list` and fails on any server that does not connect.
+func MCP(stdout, stderr io.Writer) error {
 	out, err := exec.Command("claude", "mcp", "list").CombinedOutput()
 	fmt.Fprint(stdout, string(out))
 	if err != nil && len(out) == 0 {
@@ -37,7 +26,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 			fmt.Fprintln(stderr, "  "+b)
 		}
 		fmt.Fprintln(stderr, "Either it needs a per-developer login, in which case drop it from .mcp.json,")
-		fmt.Fprintln(stderr, "or it is misconfigured. Fix .mcp.json, then: mise run mcp:check")
+		fmt.Fprintln(stderr, "or it is misconfigured. Fix .mcp.json, then: mise run session:mcp")
 		return fmt.Errorf("%d MCP server(s) not usable", len(bad))
 	}
 	return nil

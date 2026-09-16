@@ -1,6 +1,6 @@
 //go:build unix
 
-package proc
+package worker
 
 import (
 	"os/exec"

@@ -7,7 +7,6 @@
 package session
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -21,62 +20,47 @@ import (
 // a repo that runs the dev binary directly.
 var syncCmd = "mise run session:sync"
 
-const usage = `dev session: pin a repo's Claude Code skills, plugins and MCP servers to session.toml.
-
-  dev session sync     write .claude/skills and the .claude/settings.json keys session.toml implies
-  dev session check    fail when either has drifted from session.toml (run it in CI)
-  dev session verify [--update]
-                    hold a fresh Claude Code session against SESSION.lock; --update records it
-  dev session bump [source]
-                    move github pins in session.toml to upstream HEAD
-
-Run from the repo root. See session.toml for what is pinned.
+// Usage is what cmd/dev prints for this verb.
+const Usage = `dev session sync             write .claude/skills and the .claude/settings.json keys session.toml implies
+dev session check            fail when either has drifted from session.toml
+dev session verify [--update]  hold a fresh Claude Code session against SESSION.lock; --update records it
+dev session bump [source]    move a pin in session.toml to upstream HEAD
+dev session mcp              every MCP server .mcp.json declares connects
 `
 
-// Run dispatches the session subcommand. Args are everything after "session".
-func Run(args []string, stdout, stderr io.Writer) error {
+// Run is `dev session sync|check|verify|bump|mcp`.
+func Run(verb string, args []string, stdout, stderr io.Writer) error {
 	applySyncCommand()
 	if len(args) == 0 {
-		fmt.Fprint(stderr, usageMessage(nil))
-		return errUsage(nil)
+		return cli.Usagef("session: sync, check, verify, bump or mcp")
 	}
 	switch args[0] {
 	case "sync":
 		if err := requireNoArgs(args); err != nil {
-			fmt.Fprint(stderr, usageMessage(args))
 			return err
 		}
 		return Sync(stdout)
 	case "check":
 		if err := requireNoArgs(args); err != nil {
-			fmt.Fprint(stderr, usageMessage(args))
 			return err
 		}
 		return Check(stdout)
 	case "verify":
 		update, ok := updateFlag(args[1:])
 		if !ok {
-			fmt.Fprint(stderr, usageMessage(args))
-			return errUsage(args)
+			return cli.Usagef("session verify takes only --update")
 		}
 		return Verify(stdout, update)
 	case "bump":
 		return Bump(stdout, args[1:])
-	default:
-		fmt.Fprint(stderr, usageMessage(args))
-		return errUsage(args)
+	case "mcp":
+		if err := requireNoArgs(args); err != nil {
+			return err
+		}
+		return MCP(stdout, stderr)
 	}
+	return cli.Usagef("session: unknown subcommand %q", args[0])
 }
-
-// Usage writes the session help text.
-func Usage(w io.Writer) { fmt.Fprint(w, usage) }
-
-// UsageError means the arguments were wrong; the caller prints the usage.
-type UsageError struct{ args []string }
-
-func (e *UsageError) Error() string { return "usage" }
-
-func errUsage(args []string) error { return &UsageError{args: args} }
 
 // applySyncCommand takes sync_command from session.toml before anything runs,
 // so that commands which never load the pins -- verify reads only the lock --
@@ -93,18 +77,9 @@ func applySyncCommand() {
 
 func requireNoArgs(args []string) error {
 	if len(args) != 1 {
-		return errUsage(args)
+		return cli.Usagef("session %s takes no arguments", args[0])
 	}
 	return nil
-}
-
-func usageMessage(args []string) string {
-	var b strings.Builder
-	if len(args) > 0 {
-		fmt.Fprintf(&b, "unknown command %q\n\n", strings.Join(args, " "))
-	}
-	b.WriteString(usage)
-	return b.String()
 }
 
 // updateFlag reads verify's only flag. A mise task passes

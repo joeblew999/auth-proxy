@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"crypto/rand"
 	"encoding/hex"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -19,7 +18,7 @@ import (
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/internal/cli"
 )
 
-const usage = `dev secrets set DIR NAME|OWNER [--names LIST] [--generate] [--if-missing] [--env NAME]
+const Usage = `dev secrets set DIR NAME|OWNER [--names LIST] [--generate] [--if-missing] [--env NAME]
     store a secret in fnox and push it to the Worker in DIR; --generate makes a
     random value instead of prompting, --if-missing leaves an existing one
     alone. With --names, the project's "NAME<TAB>OWNER" lines, an owner such as
@@ -30,21 +29,12 @@ dev secrets push DIR [--env NAME] [--fix TEMPLATE]
     any problem makes the exit code 1
 `
 
-// UsageError means the arguments were wrong; cmd/dev prints usage on it.
-type UsageError struct{ msg string }
-
-func (e *UsageError) Error() string { return e.msg }
-
-// Usage is the help text cmd/dev prints for these commands.
-func Usage() string { return usage }
-
-// Run dispatches. Args are everything after "secrets".
-func Run(args []string, stdout, stderr io.Writer) error {
+// Run is `dev secrets set|push`.
+func Run(verb string, args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
-		return &UsageError{"secrets: set or push"}
+		return cli.Usagef("secrets: set or push")
 	}
-	fs := flag.NewFlagSet("secrets "+args[0], flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs := cli.Flags("secrets "+args[0], stderr)
 	env := fs.String("env", "", "wrangler environment to push to")
 	switch args[0] {
 	case "set":
@@ -54,7 +44,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		names := fs.String("names", "", "the project's NAME<TAB>OWNER lines, so an owner resolves to its secret")
 		dir, rest, err := cli.DirAnd(fs, args[1:], 1)
 		if err != nil {
-			return &UsageError{err.Error()}
+			return err
 		}
 		name, err := Resolve(*names, rest[0])
 		if err != nil {
@@ -65,11 +55,11 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		fix := fs.String("fix", "mise run secrets:set {provider}", "what to run for a secret fnox does not have")
 		dir, _, err := cli.DirAnd(fs, args[1:], 0)
 		if err != nil {
-			return &UsageError{err.Error()}
+			return err
 		}
 		return Push(os.Stdin, stdout, dir, *env, *fix)
 	}
-	return &UsageError{fmt.Sprintf("secrets: unknown subcommand %q", args[0])}
+	return cli.Usagef("secrets: unknown subcommand %q", args[0])
 }
 
 // Resolve turns what the developer typed into a secret name, given the

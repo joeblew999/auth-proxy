@@ -9,7 +9,6 @@
 package release
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -20,7 +19,7 @@ import (
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/internal/cli"
 )
 
-const usage = `dev release DIR [VERSION] [--snapshot] [--name NAME]
+const Usage = `dev release DIR [VERSION] [--snapshot] [--name NAME]
     publish a GitHub Release of the command in DIR: tag VERSION (vX.Y.Z; in CI
     the pushed tag), build every platform with goreleaser, sign the packslip
     manifest, upload. --snapshot builds, signs with a throwaway key and
@@ -30,31 +29,22 @@ const usage = `dev release DIR [VERSION] [--snapshot] [--name NAME]
 Needs goreleaser, packslip and gh, and a clean tree to publish.
 `
 
-// UsageError means the arguments were wrong; the caller prints the usage.
-type UsageError struct{ msg string }
-
-func (e *UsageError) Error() string { return e.msg }
-
-// Usage is the help text cmd/dev prints for this command.
-func Usage() string { return usage }
-
-// Run dispatches. Args are everything after "release".
-func Run(args []string, stdout, stderr io.Writer) error {
-	fs := flag.NewFlagSet("release", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+// Run is `dev release DIR [VERSION]`.
+func Run(verb string, args []string, stdout, stderr io.Writer) error {
+	fs := cli.Flags(verb, stderr)
 	var snapshot cli.Bool
 	fs.Var(&snapshot, "snapshot", "build, sign with a throwaway key and verify; publish nothing")
 	name := fs.String("name", "", "the binary's name (default: the repo's)")
 	if len(args) == 0 || args[0] == "" || strings.HasPrefix(args[0], "-") {
-		return &UsageError{"release: the command directory comes first"}
+		return cli.Usagef("release: the command directory comes first")
 	}
 	dir := args[0]
 	rest, err := cli.ParseInterleaved(fs, args[1:])
 	if err != nil {
-		return &UsageError{"release: " + err.Error()}
+		return cli.Usagef("release: %v", err)
 	}
 	if len(rest) > 1 {
-		return &UsageError{"release: at most one VERSION"}
+		return cli.Usagef("release: at most one VERSION")
 	}
 	version := ""
 	if len(rest) == 1 {

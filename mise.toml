@@ -115,20 +115,15 @@ run = "bin/dev session bump"
 description = "prove the Claude Code skill hook fires on every write and no read"
 run = ".claude/hooks/skill-gate.test"
 
-[tasks."mcp:check"]
+[tasks."session:mcp"]
 description = "every MCP server .mcp.json declares connects"
 depends = ["dev:build"]
-run = "bin/dev mcp check"
+run = "bin/dev session mcp"
 
 [tasks."dev:check"]
 description = "vet and test the dev tool itself"
 depends = ["dev:build"]
 run = "bin/dev check cmd/dev"
-
-[tasks.browser]
-description = "serve an app, drive it in a headless Chrome, run a probe: <server> <probe> [path]"
-depends = ["dev:build"]
-run = "bin/dev browser"
 
 [tasks."deps:list"]
 description = "Go module upgrades available, in every module"

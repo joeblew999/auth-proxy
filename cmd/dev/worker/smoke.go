@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/proc"
 )
 
 // Smoke runs the Worker in dir on local workerd through `wrangler dev`, asks
@@ -34,11 +32,11 @@ func Smoke(out io.Writer, dir, env, path, expect string, timeout time.Duration) 
 	cmd := exec.Command("wrangler", "dev", "--env", env, "--ip", "127.0.0.1", "--port", strconv.Itoa(port))
 	cmd.Dir = dir
 	cmd.Stdout, cmd.Stderr = logf, logf
-	proc.OwnGroup(cmd)
+	ownGroup(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("starting wrangler dev in %s: %w", dir, err)
 	}
-	defer proc.Stop(cmd)
+	defer stop(cmd)
 
 	if err := waitReady(logf.Name(), timeout); err != nil {
 		log, _ := os.ReadFile(logf.Name())

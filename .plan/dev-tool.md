@@ -66,8 +66,8 @@ generic part must be one released tool, pinned like fnox and hk.
 | sizes in `printf` arithmetic, twice | `dev sizes` |
 
 `cmd/dev` is now one package per thing, named as the tasks name it: `stage`,
-`worker`, `secrets`, `session`, `mcp`, `browser`, `deps`, `release`, `sizes`,
-`fnox`, `proc`. Each has tests. `golang.org/x/term` was added for the hidden prompt.
+`worker`, `secrets`, `session`, `release`, `deps`, `fnox`. Every verb has the
+one shape in `internal/cli`; each package has tests. `golang.org/x/term` was added for the hidden prompt.
 
 **The shape that makes step 3 a copy, not a port (2026-09-16):** the owner's
 rule, "a handful of commands, a task per stage of each, the dev tooling does

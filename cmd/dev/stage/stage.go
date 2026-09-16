@@ -16,8 +16,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/browser"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/sizes"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/internal/cli"
+
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/worker"
 )
 
@@ -171,11 +171,11 @@ func buildWorker(out io.Writer, d Dir, env string) error {
 		if err != nil {
 			return err
 		}
-		raw, gz, err := sizes.Measure(filepath.Join(d.Path, wasm))
+		raw, gz, err := measure(filepath.Join(d.Path, wasm))
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(os.Stderr, sizes.Line(filepath.Join(d.Path, wasm), raw, gz))
+		fmt.Fprint(os.Stderr, sizeLine(filepath.Join(d.Path, wasm), raw, gz))
 	}
 	return nil
 }
@@ -190,10 +190,10 @@ func stale(input, output string) bool {
 	return err != nil || o.ModTime().Before(in.ModTime())
 }
 
-// Run runs the directory's binary under fnox with args, replacing this
+// Exec runs the directory's binary under fnox with args, replacing this
 // process so signals reach it directly; or, as a Worker, wrangler dev in the
 // directory.
-func Run(path string, asWorker bool, env string, args []string) error {
+func Exec(path string, asWorker bool, env string, args []string) error {
 	d, err := Inspect(path)
 	if err != nil {
 		return err
@@ -243,10 +243,60 @@ func Check(out io.Writer, path, reqPath, expect string) error {
 			return err
 		}
 	}
-	if probe := filepath.Join(d.Path, "tools", "browser-check.mjs"); exists(probe) {
-		if err := browser.Check(out, filepath.Join("bin", d.Name), probe, reqPath); err != nil {
+	if script := filepath.Join(d.Path, "tools", "browser-check.mjs"); exists(script) {
+		if err := probe(out, filepath.Join("bin", d.Name), script, reqPath); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// Usage is what cmd/dev prints for the stage verbs.
+const Usage = `dev build DIR                             npm ci when stale, vite build, gsx generate, go build to bin/<dir>
+dev wasm DIR [--env NAME]                 the Worker's wasm for the environment (build/tinygo means TinyGo)
+dev check DIR [--path P] [--expect TEXT]  gsx fmt, vet, test, the workerd round trip, the browser probe
+dev run DIR [-- ARGS]                     bin/<dir> under fnox, replacing this process
+dev workerd DIR [--env NAME]              the Worker on local workerd (wrangler dev)
+`
+
+// Run is every stage verb. DIR comes first; flags may follow anywhere.
+func Run(verb string, args []string, stdout, stderr io.Writer) error {
+	fs := cli.Flags(verb, stderr)
+	switch verb {
+	case "build":
+		dir, _, err := cli.DirAnd(fs, args, 0)
+		if err != nil {
+			return err
+		}
+		return Build(stdout, dir, false, "")
+	case "wasm":
+		env := fs.String("env", "", "wrangler environment")
+		dir, _, err := cli.DirAnd(fs, args, 0)
+		if err != nil {
+			return err
+		}
+		return Build(stdout, dir, true, *env)
+	case "check":
+		path := fs.String("path", "/", "what the smoke check and the browser probe request")
+		expect := fs.String("expect", "", "text the smoke check's body must contain")
+		dir, _, err := cli.DirAnd(fs, args, 0)
+		if err != nil {
+			return err
+		}
+		return Check(stdout, dir, *path, *expect)
+	case "run":
+		dir, rest, err := cli.DirAnd(fs, args, -1)
+		if err != nil {
+			return err
+		}
+		return Exec(dir, false, "", rest)
+	case "workerd":
+		env := fs.String("env", "", "wrangler environment")
+		dir, rest, err := cli.DirAnd(fs, args, -1)
+		if err != nil {
+			return err
+		}
+		return Exec(dir, true, *env, rest)
+	}
+	return cli.Usagef("stage: unknown verb %q", verb)
 }

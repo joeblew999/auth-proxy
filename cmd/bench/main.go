@@ -10,6 +10,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -20,9 +21,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/proc"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/sizes"
 )
 
 const (
@@ -84,7 +82,7 @@ func run(args []string, stdout io.Writer) error {
 	var started []*exec.Cmd
 	defer func() {
 		for _, c := range started {
-			proc.Stop(c)
+			stop(c)
 		}
 	}()
 	start := func(log, dir, name string, arg ...string) error {
@@ -95,7 +93,7 @@ func run(args []string, stdout io.Writer) error {
 		cmd := exec.Command(name, arg...)
 		cmd.Dir = dir
 		cmd.Stdout, cmd.Stderr = f, f
-		proc.OwnGroup(cmd)
+		ownGroup(cmd)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("starting %s: %w", name, err)
 		}
@@ -131,11 +129,11 @@ func run(args []string, stdout io.Writer) error {
 
 	fmt.Fprintln(stdout)
 	for _, f := range wasm {
-		raw, gz, err := sizes.Measure(f)
+		raw, gz, err := measure(f)
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(stdout, sizes.Line(f, raw, gz))
+		fmt.Fprint(stdout, sizeLine(f, raw, gz))
 	}
 	fmt.Fprintln(stdout)
 	fmt.Fprintf(stdout, "latency: mean of %d requests\n", runs)
@@ -225,4 +223,33 @@ func probe(port int, r request) (code int, size int64, dur time.Duration, err er
 		return 0, 0, 0, err
 	}
 	return resp.StatusCode, n, time.Since(begin), nil
+}
+
+// sizeLine formats one file's sizes, in KB, aligned for the table.
+func sizeLine(name string, raw, gzipped int64) string {
+	return fmt.Sprintf("%-24s raw %6d KB   gzip %6d KB\n", name, raw/1024, gzipped/1024)
+}
+
+type counter struct{ n int64 }
+
+func (c *counter) Write(p []byte) (int, error) { c.n += int64(len(p)); return len(p), nil }
+
+// measure returns a file's size raw and after gzip at best compression.
+func measure(path string) (raw, gzipped int64, err error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, 0, err
+	}
+	var c counter
+	w, err := gzip.NewWriterLevel(&c, gzip.BestCompression)
+	if err != nil {
+		return 0, 0, err
+	}
+	if _, err := w.Write(data); err != nil {
+		return 0, 0, err
+	}
+	if err := w.Close(); err != nil {
+		return 0, 0, err
+	}
+	return int64(len(data)), c.n, nil
 }

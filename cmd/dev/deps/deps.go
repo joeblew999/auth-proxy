@@ -3,7 +3,6 @@
 package deps
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -11,20 +10,19 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+
+	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/internal/cli"
 )
 
-const usage = `dev deps list      list available Go module upgrades in every module, changing nothing
+// Usage is what cmd/dev prints for this verb.
+const Usage = `dev deps list      list available Go module upgrades in every module, changing nothing
 dev deps upgrade   interactively upgrade Go modules in every module
 `
 
-// Usage is the help text cmd/dev prints for these commands.
-func Usage() string { return usage }
-
-// Run dispatches the deps subcommand. Args are everything after "deps".
-func Run(args []string, stdout, stderr io.Writer) error {
+// Run is `dev deps list|upgrade`.
+func Run(verb string, args []string, stdout, stderr io.Writer) error {
 	if len(args) != 1 || (args[0] != "list" && args[0] != "upgrade") {
-		fmt.Fprint(stderr, usage)
-		return errors.New("usage: dev deps list|upgrade")
+		return cli.Usagef("deps: list or upgrade")
 	}
 	dirs, err := Modules(".")
 	if err != nil {

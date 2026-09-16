@@ -386,7 +386,7 @@ are untouched). Stage C folds it into the root app.
   - **The page buffers its render.** The gsx scaffold renders straight to the
     `ResponseWriter`, so a failure part way through logged "superfluous
     WriteHeader" and served half a page.
-- **`mise run browser`** is the new check:
+- **The browser probe** (`dev check` runs it for `cmd/gui`) is the new check:
   `bin/dev browser` serves the app on a free port, starts a headless Chrome, and
   a probe drives it over the
   DevTools protocol (Node's built-in WebSocket, no dependency). It proves the

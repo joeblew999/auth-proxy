@@ -14,7 +14,6 @@ Run everything through mise from the repo root; nothing here needs remembering.
 | `mise run gui:check` | `dev check cmd/gui`: gsx formatting, vet, tests, the workerd round trip and the browser probe; `gui:check:tinygo` proves the components compile under TinyGo. `mise run test` runs both |
 | `mise run gui:workerd` | the same app as a Cloudflare Worker on local workerd (`wrangler dev`) |
 | `mise run gui:deploy` | deploy it as `grok-oauth-proxy-gui` and wait for its page; `gui:url` prints where |
-| `mise run browser` | drive the page in a headless Chrome and check the picker actually works (this spike is what it defaults to) |
 
 ## What it proves
 

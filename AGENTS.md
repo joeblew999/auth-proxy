@@ -79,7 +79,7 @@ and does the rest. `mise tasks` lists everything; these are the ones to know.
 | `mise run bench` | Go vs TinyGo proxy Worker in local workerd against the mock |
 | `mise run svc:start <daemon>` / `svc:stop` / `svc:status` / `svc:logs <daemon>` | the daemons in `pitchfork.toml` (`proxy`, `proxy-mock`, `mock`), so nothing blocks a terminal |
 | `mise run session:sync` / `session:verify` / `session:bump` | re-sync the pinned Claude Code skills; hold a fresh session against `SESSION.lock` (`--update` re-records); move github pins to upstream HEAD |
-| `mise run bootstrap` / `mcp:check` / `hooks:check` / `browser` | wire a fresh clone (runs after `mise install`); every MCP server connects; the skill hook fires right; drive an app in a headless Chrome |
+| `mise run bootstrap` / `session:mcp` / `hooks:check` | wire a fresh clone (runs after `mise install`); every MCP server connects; the skill hook fires right |
 | `mise run deps:list` / `deps:upgrade` | Go module upgrades in every module |
 | `mise run release <version>` / `release:snapshot` | publish a GitHub Release of the proxy (in CI, the pushed tag); or build, sign and verify without publishing |
 
@@ -105,7 +105,7 @@ test` before committing.
 | `cmd/proxy` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
 | `cmd/proxy` | the proxy, its own Go module: `main.go` is the CLI (`serve`, `status`, `models`, `chat`, `login`, `keys`), `worker.go` the Cloudflare Worker (fetch client, KV token store), **its own `wrangler.toml`**, its gitignored `build/`, and `internal/` with everything the two share. A command owns everything about itself; nothing of it lives at the root |
 | `cmd/gui` | the GUI spike, its own Go module: a native server and a Cloudflare Worker from one handler, with its own `wrangler.toml` (`mise run gui:*`); see its README |
-| `cmd/dev` | the stack's developer tool, its own Go module, not shipped and not project-specific. One package per thing, named as the tasks name it: `stage` (`build`, `wasm`, `check`, `run`, `workerd`, from what a command directory holds), `worker` (`deploy`, `url`, `logs`, `smoke`, `wait`, each taking the Worker's directory), `secrets`, `session`, `mcp`, `browser`, `deps`, `release`, `sizes`, `fnox` (the one way to a secret), `proc`. Each has tests |
+| `cmd/dev` | the stack's developer tool, its own Go module, not shipped and not project-specific. One package per thing, named as the tasks name it: `stage` (`build`, `wasm`, `check`, `run`, `workerd`, from what a command directory holds; the browser probe lives here), `worker` (`deploy`, `url`, `logs`, `smoke`, `wait`, each taking the Worker's directory), `secrets`, `session` (the Claude Code session, MCP servers included), `release`, `deps`, `fnox` (the one way to a secret). Every verb has the one shape in `internal/cli`; each package has tests |
 | `cmd/bench` | this proxy's Go vs TinyGo comparison in local workerd; its own module, project code, so not in `cmd/dev` |
 | `go.work` | the one file at the root that knows Go: it lists the five modules, so a build or test in any of them sees the others |
 | `cmd/proxy/internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |

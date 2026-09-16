@@ -1,7 +1,8 @@
-// Package browser drives an app in a headless Chrome. A server-rendered page can
-// be checked with curl, but a page whose point is client-side behaviour (a picker
-// that swaps models with no round trip) cannot: that needs a real browser.
-package browser
+// The browser probe: a server-rendered page can be checked with curl, but a
+// page whose point is client-side behaviour (a picker that swaps models with
+// no round trip) cannot. That needs a real browser.
+
+package stage
 
 import (
 	"context"
@@ -64,13 +65,14 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// Check builds nothing: mise has already built server. It serves the app on a
-// free port, points a headless Chrome at it, and runs probe under node.
-func Check(out io.Writer, server, probe, path string) error {
+// probe builds nothing: the stage has already built server. It serves the app
+// on a free port, points a headless Chrome at it, and runs the probe script
+// under node.
+func probe(out io.Writer, server, probe, path string) error {
 	chrome, err := findChrome(os.Getenv, exec.LookPath, fileExists)
 	if errors.Is(err, errNoChrome) {
 		fmt.Fprintf(out, "SKIPPED: no Chrome found, so the browser checks did not run.\n"+
-			"Install Google Chrome or Chromium, or point at one: CHROME=/path/to/chrome mise run browser\n")
+			"Install Google Chrome or Chromium, or point at one: CHROME=/path/to/chrome mise run gui:check\n")
 		return nil
 	}
 	if err != nil {
