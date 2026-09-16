@@ -1,29 +1,36 @@
 #!/usr/bin/env bash
-# Load the skills that cover a file before it is edited.
+# Load the skills that cover a file before it is touched, by any tool.
 #
 # Claude Code only auto-loads skill names and descriptions, not their bodies, so
 # invoking the right one is left to the model's judgement -- which is how gsx
 # markup or hk config gets hand-invented. This makes it the harness's job.
 #
-# Reads a PreToolUse payload on stdin; prints additionalContext when the file
-# maps to one or more skills, nothing otherwise. Every skill it can serve lives
-# in .claude/skills, so adding one is a word in the case below.
+# Reads a PreToolUse payload on stdin. Write and Edit carry one file_path; Bash
+# carries a command, and any word in it ending in a covered extension counts,
+# because heredocs and sed are how an agent in auto mode edits files. Prints
+# additionalContext when something matched, nothing otherwise.
 set -euo pipefail
 
 payload=$(cat)
-path=$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty')
-[ -n "$path" ] || exit 0
+tool=$(printf '%s' "$payload" | jq -r '.tool_name // empty')
 
-case "$path" in
-  # Editing gsx markup needs both: gsx is the syntax, gsxui the components you
-  # are meant to reach for instead of hand-rolling one.
-  *.gsx)  skills="gsx gsxui" ;;
-  *.pkl)  skills="hk-configure" ;;
-  *)      exit 0 ;;
+case "$tool" in
+  Write|Edit) paths=$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty') ;;
+  Bash)       paths=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' | tr -s ' \n\t;|&<>()"'"'"'' '\n') ;;
+  *)          exit 0 ;;
 esac
 
+skills=""
+for p in $paths; do
+  case "$p" in
+    *.gsx) skills+=" gsx gsxui" ;;   # gsx is the syntax, gsxui the components to reach for
+    *.pkl) skills+=" hk-configure" ;;
+  esac
+done
+[ -n "$skills" ] || exit 0
+
 context=""
-for skill in $skills; do
+for skill in $(printf '%s\n' $skills | awk '!seen[$0]++'); do
   body=".claude/skills/$skill/SKILL.md"
   [ -f "$body" ] || continue
   context+="--- $skill ---"$'\n'"$(cat "$body")"$'\n\n'
@@ -33,7 +40,7 @@ done
 jq -n --arg c "$context" '{
   hookSpecificOutput: {
     hookEventName: "PreToolUse",
-    additionalContext: ("These skills cover this file. Follow them rather than "
-      + "inferring syntax or hand-writing components:\n\n" + $c)
+    additionalContext: ("These skills cover a file this call touches. Follow them rather "
+      + "than inferring syntax or hand-writing components:\n\n" + $c)
   }
 }'
