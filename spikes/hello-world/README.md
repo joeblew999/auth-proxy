@@ -12,7 +12,7 @@ Run everything through mise from the repo root; nothing here needs remembering.
 | `mise run hello:serve` | build and run the binary on http://localhost:7777 |
 | `mise run hello:build` | `vite build` → `gsx generate` → `go build` (that order: `vite build` empties `dist/`, which the binary embeds) |
 | `mise run hello:check` | formatting, vet, tests, a TinyGo wasm build, and the browser check — also run by `mise run test` |
-| `mise run hello:browser` | drive the page in a headless Chrome and check the picker actually works |
+| `mise run dev:browser` | drive the page in a headless Chrome and check the picker actually works (this spike is what it defaults to) |
 
 ## What it proves
 

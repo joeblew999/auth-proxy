@@ -1,0 +1,22 @@
+# Where the repo's Claude Code skills come from. `mise run dev:skills:sync`
+# writes them into .claude/skills; `mise run dev:skills:bump` moves a github
+# pin to upstream HEAD. Nothing in cmd/dev/skills names a skill or a pin.
+#
+# Two source kinds:
+#   [source.<name>] with module + module_dir: skills read out of a Go module
+#   in the local module cache, at the version module_dir's go.mod pins.
+#   kind defaults to "gomod" when module is set.
+#   [source.<name>] with repo + ref: skills extracted from a GitHub tarball
+#   at a pinned commit. kind defaults to "github" when repo is set.
+
+[source.gsx]
+# The module the skills are read out of, and the go.mod that pins it.
+module = "github.com/gsxhq/gsx"
+module_dir = "spikes/hello-world"
+skills = ["gsx"]
+
+[source.cloudflare]
+repo = "cloudflare/skills"
+# No tags or releases upstream, so this is a commit. Move it with bump.
+ref = "b052c32bab7dd493513260228a36c88294f343f1"
+skills = ["wrangler", "durable-objects", "workers-best-practices", "cloudflare"]

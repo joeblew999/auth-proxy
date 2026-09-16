@@ -1,4 +1,4 @@
-package main
+package skills
 
 import (
 	"context"
@@ -12,11 +12,11 @@ import (
 	"time"
 )
 
-// verifySkills asks a fresh headless Claude Code session which skills it can
-// see. The file check cannot catch a SKILL.md that is present but never loads
-// (bad frontmatter, wrong folder name); this can. It starts its own session, so
-// it does not depend on the session the developer is in.
-func verifySkills(out io.Writer) error {
+// Verify asks a fresh headless Claude Code session which skills it can see. The
+// file check cannot catch a SKILL.md that is present but never loads (bad
+// frontmatter, wrong folder name); this can. It starts its own session, so it
+// does not depend on the session the developer is in.
+func Verify(out io.Writer) error {
 	if _, err := exec.LookPath("claude"); err != nil {
 		return fmt.Errorf("claude CLI not found; install Claude Code to run this check")
 	}
@@ -48,7 +48,7 @@ func verifySkills(out io.Writer) error {
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("a fresh Claude Code session cannot see: %s\nit answered:\n%scheck the SKILL.md frontmatter, then: mise run skills:sync",
+		return fmt.Errorf("a fresh Claude Code session cannot see: %s\nit answered:\n%scheck the SKILL.md frontmatter, then: mise run dev:skills:sync",
 			strings.Join(missing, ", "), indent(string(answer)))
 	}
 
@@ -61,7 +61,7 @@ func verifySkills(out io.Writer) error {
 func lockedSkillNames() ([]string, error) {
 	data, err := os.ReadFile(filepath.Join(skillsDir, lockFile))
 	if err != nil {
-		return nil, fmt.Errorf("%w; run: mise run skills:sync", err)
+		return nil, fmt.Errorf("%w; run: mise run dev:skills:sync", err)
 	}
 	var names []string
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {

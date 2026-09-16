@@ -55,8 +55,12 @@ at least once.
 | `mise run login` / `login --worker` | SuperGrok login for `auth = "xai-oauth"` providers |
 | `mise run keys:set <provider>` / `keys:push` | store a key in fnox and push it; push everything |
 | `mise run test` | gofmt check, vet (native and wasm), all tests |
+| `mise run dev:skills:sync` / `dev:skills:verify` / `dev:skills:bump` | re-sync the repo's pinned Claude Code skills; prove a fresh session loads them; move github pins to upstream HEAD |
+| `mise run dev:browser` | drive an app in a headless Chrome and run its probe script |
+| `mise run deps:list` / `deps:upgrade` | list / interactively apply Go module upgrades in every module |
 | `mise run build` / `build --tinygo` | local binary and Worker; optionally TinyGo plus sizes |
 | `mise run deploy` / `deploy --tinygo` | validate `providers.toml`, then deploy |
+| `mise run release` / `release:snapshot` | publish a GitHub Release (packslip manifest included by the workflow); build the artifacts locally |
 | `mise run logs`, `setup`, `bench` | Worker logs, one-time setup, Go vs TinyGo comparison |
 
 Run `mise run test` after every Go change.
@@ -75,7 +79,9 @@ Run `mise run test` after every Go change.
 | `worker.go` | Worker entry point: fetch client, KV token store |
 | `config.go` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `tools/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
-| `cmd/dev` | developer tooling, not shipped: skill syncing and the headless-browser check |
+| `cmd/dev` | developer tooling, not shipped. `cmd/dev/main.go` only parses arguments; `cmd/dev/skills` and `cmd/dev/browser` are the two tools it dispatches to, and every mise task that drives it is named after the command (`dev:skills:sync`, `dev:browser`) |
+| `skills.toml` | which skills to vendor: `[source.*]` blocks, gomod or github; the only place a skill or pin is named |
+| `skills/` | the skill this repo's releases ship via packslip |
 | `spikes/hello-world` | separate module: the GUI toolchain spike (`mise run hello:*`); see its README |
 
 Rules that keep the design working:

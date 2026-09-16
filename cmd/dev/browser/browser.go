@@ -1,4 +1,7 @@
-package main
+// Package browser drives an app in a headless Chrome. A server-rendered page can
+// be checked with curl, but a page whose point is client-side behaviour (a picker
+// that swaps models with no round trip) cannot: that needs a real browser.
+package browser
 
 import (
 	"context"
@@ -13,11 +16,6 @@ import (
 	"runtime"
 	"time"
 )
-
-// A server-rendered page can be checked with curl, but the picker's point is
-// that choosing a mode swaps to that mode's models in the browser, with no
-// round trip. That needs a real browser. This starts the app and a headless
-// Chrome, hands both to the probe script, and cleans up after itself.
 
 // chromePaths are where a headless-capable browser usually lives, per OS. The
 // CHROME environment variable wins over all of them.
@@ -66,13 +64,13 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// browserCheck builds nothing: mise has already built server. It serves the app
-// on a free port, points a headless Chrome at it, and runs probe under node.
-func browserCheck(out io.Writer, server, probe, path string) error {
+// Check builds nothing: mise has already built server. It serves the app on a
+// free port, points a headless Chrome at it, and runs probe under node.
+func Check(out io.Writer, server, probe, path string) error {
 	chrome, err := findChrome(os.Getenv, exec.LookPath, fileExists)
 	if errors.Is(err, errNoChrome) {
 		fmt.Fprintf(out, "SKIPPED: no Chrome found, so the browser checks did not run.\n"+
-			"Install Google Chrome or Chromium, or point at one: CHROME=/path/to/chrome mise run hello:browser\n")
+			"Install Google Chrome or Chromium, or point at one: CHROME=/path/to/chrome mise run dev:browser\n")
 		return nil
 	}
 	if err != nil {

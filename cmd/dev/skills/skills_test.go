@@ -1,12 +1,15 @@
-package main
+package skills
 
 import (
-	"errors"
-	"runtime"
+	"os"
 	"strings"
 	"testing"
 	"time"
 )
+
+func writeFile(name, content string) error {
+	return os.WriteFile(name, []byte(content), 0o644)
+}
 
 // ps prints start times in the machine's locale, which broke the shell version
 // of this twice, so elapsed time is parsed here and tested.
@@ -61,60 +64,54 @@ func TestDiffFiles(t *testing.T) {
 	}
 }
 
+func TestLoadPins(t *testing.T) {
+	t.Chdir(t.TempDir())
+	content := "[source.a]\nmodule = \"example.com/mod\"\nmodule_dir = \"spike\"\nskills = [\"x\", \"y\"]\n\n[source.b]\nrepo = \"org/repo\"\nref = \"abc123\"\nskills = [\"z\"]\n"
+	if err := writeFile("skills.toml", content); err != nil {
+		t.Fatal(err)
+	}
+	p, err := loadPins()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := p.names(); len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Errorf("names = %v", got)
+	}
+	a := p.Source["a"]
+	if a.kind() != "gomod" || a.Module != "example.com/mod" || a.ModuleDir != "spike" || len(a.Skills) != 2 {
+		t.Errorf("source a = %+v", a)
+	}
+	b := p.Source["b"]
+	if b.kind() != "github" || b.Repo != "org/repo" || b.Ref != "abc123" || len(b.Skills) != 1 {
+		t.Errorf("source b = %+v", b)
+	}
+}
+
+func TestLoadPinsRejectsUnknownKeys(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := writeFile("skills.toml", "[source.a]\nmodule = \"x\"\nmodule_dir = \"y\"\nskills = [\"z\"]\nbogus = 1\n"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadPins(); err == nil {
+		t.Error("loadPins succeeded with an unknown key, want an error naming the fix")
+	}
+}
+
+func TestLoadPinsRejectsBadSource(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := writeFile("skills.toml", "[source.a]\nskills = [\"z\"]\n"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadPins(); err == nil {
+		t.Error("loadPins succeeded with no module or repo, want an error naming the fix")
+	}
+}
+
 func TestWarnStaleSessionsSaysNothingWithoutSkills(t *testing.T) {
 	var out strings.Builder
 	t.Chdir(t.TempDir())
 	warnStaleSessions(&out, time.Now())
 	if out.Len() != 0 {
 		t.Errorf("warned without a skills directory: %q", out.String())
-	}
-}
-
-// findChrome has to work on a machine that has Chrome in /Applications, one
-// that has chromium on PATH, and one that has neither.
-func TestFindChrome(t *testing.T) {
-	onPath := func(name string) (string, error) {
-		if name == "chromium" {
-			return "/usr/local/bin/chromium", nil
-		}
-		return "", errors.New("not found")
-	}
-	none := func(string) (string, error) { return "", errors.New("not found") }
-	never := func(string) bool { return false }
-	only := func(want string) func(string) bool {
-		return func(path string) bool { return path == want }
-	}
-	env := func(value string) func(string) string {
-		return func(key string) string {
-			if key == "CHROME" {
-				return value
-			}
-			return ""
-		}
-	}
-	installed := chromePaths[runtime.GOOS][0]
-
-	for name, tc := range map[string]struct {
-		getenv   func(string) string
-		lookPath func(string) (string, error)
-		exists   func(string) bool
-		want     string
-		wantErr  error
-	}{
-		"CHROME wins":       {env("/opt/my-chrome"), none, only("/opt/my-chrome"), "/opt/my-chrome", nil},
-		"CHROME is missing": {env("/opt/gone"), onPath, never, "", nil},
-		"installed":         {env(""), none, only(installed), installed, nil},
-		"on PATH":           {env(""), onPath, never, "/usr/local/bin/chromium", nil},
-		"nowhere":           {env(""), none, never, "", errNoChrome},
-	} {
-		got, err := findChrome(tc.getenv, tc.lookPath, tc.exists)
-		switch {
-		case tc.wantErr != nil && !errors.Is(err, tc.wantErr):
-			t.Errorf("%s: err = %v, want %v", name, err, tc.wantErr)
-		case tc.want != "" && got != tc.want:
-			t.Errorf("%s: findChrome() = %q, want %q", name, got, tc.want)
-		case tc.want == "" && tc.wantErr == nil && err == nil:
-			t.Errorf("%s: findChrome() = %q, want an error naming the problem", name, got)
-		}
 	}
 }

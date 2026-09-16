@@ -4,6 +4,9 @@
 
 [tools]
 go = "1.27"
+# TODO: packslip:github.com/jdx/fnox once GITHUB_TOKEN is valid again. The
+# fnox token in the keychain is dead (401), and packslip needs the API where
+# the default backend does not. Retry after rotating the token.
 fnox = "latest"
 node = "24"
 # Pinned: a looser "4" lets mise keep any older 4.x already installed, and 4.97's
@@ -21,9 +24,26 @@ tinygo = "0.42.0"
 "go:github.com/gsxhq/gsxui/cmd/gsxui" = "5d973c7"
 # Local models: an OpenAI-compatible server on 127.0.0.1:11435.
 "go:github.com/ardanlabs/kronk/cmd/kronk" = "1.32.6"
+# Upgrades go.mod files to match the pins above; see: mise run deps:list.
+"go:github.com/oligot/go-mod-upgrade" = "latest"
+# Release artifacts, signed by goreleaser; the release job adds a packslip
+# manifest with the skill. Folded in from mise.development.toml so `mise tasks`
+# lists the release path per rule zero.
+goreleaser = "latest"
+# Signs the packslip manifest. Same CLI the release job uses, so the manifest
+# can be built and inspected locally before a tag push.
+packslip = "latest"
 
 [hooks]
-postinstall = { task = "skills:sync" }
+postinstall = { task = "dev:skills:sync" }
+
+# Skills the active tools ship themselves (packslip backend) link into
+# .claude/skills alongside the vendored copies from skills.toml. mise preserves
+# real directories, so the two never fight. None of our tools ship one yet;
+# when one does, delete its source from skills.toml and let mise own it.
+[settings.skills]
+auto_sync = true
+prune = true
 
 [env]
 # The deployed Worker; every --worker flag talks to it.
@@ -146,26 +166,69 @@ run = [
   "go vet ./...",
   "GOOS=js GOARCH=wasm go vet ./...",
   "go test ./...",
-  "mise run skills:check",
+  "mise run dev:skills:check",
   "mise run hello:check",
 ]
 
-# --- skills: in this repo, so every Claude Code session here loads them --------
+# --- deps: go.mod follows the mise pins, never the reverse -----------------------
+# Bump the version in [tools] first, then run these so each go.mod follows.
 
-[tasks."skills:sync"]
+[tasks."deps:list"]
+description = "List available Go module upgrades in every module, without changing anything"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+for dir in . spikes/hello-world; do
+  echo "== $dir =="
+  (cd "$dir" && go-mod-upgrade --list)
+done
+'''
+
+[tasks."deps:upgrade"]
+description = "Interactively upgrade Go modules in every module, then check the mise pins still agree"
+raw = true
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+for dir in . spikes/hello-world; do
+  echo "== $dir =="
+  (cd "$dir" && go-mod-upgrade)
+done
+mise run dev:skills:check
+'''
+
+# --- bin/dev: this repo's own tooling, one task per `dev <group> <verb>` -------
+
+[tasks."dev:skills:sync"]
 description = "Put the pinned gsx and Cloudflare skills into .claude/skills (runs automatically after mise install)"
 depends = ["build:dev"]
 run = "bin/dev skills sync"
 
-[tasks."skills:verify"]
+[tasks."dev:skills:verify"]
 description = "Prove a fresh Claude Code session loads the repo's skills (needs a Claude Code login; not run in CI)"
 depends = ["build:dev"]
 run = "bin/dev skills verify"
 
-[tasks."skills:check"]
+[tasks."dev:skills:bump"]
+description = "Move the Cloudflare pin in skills.toml to upstream HEAD, showing what would change first"
+depends = ["build:dev"]
+raw = true
+run = "bin/dev skills bump"
+
+[tasks."dev:skills:check"]
 hide = true
 depends = ["build:dev"]
 run = "bin/dev skills check"
+
+[tasks."dev:browser"]
+description = "Drive an app in a headless Chrome and run its probe script (defaults: the gsx spike, at /?mode=remote)"
+depends = ["hello:build", "build:dev"]
+usage = '''
+arg "[server]" default="spikes/hello-world/bin/hello-world" help="Server binary to serve"
+arg "[probe]" default="spikes/hello-world/tools/browser-check.mjs" help="Node probe script to drive the page with"
+arg "[path]" default="/?mode=remote" help="Path to open in the browser"
+'''
+run = 'bin/dev browser "$usage_server" "$usage_probe" "$usage_path"'
 
 # --- spikes/hello-world: gsx + gsxui, used exactly as gsx documents ------------
 # Scaffolded with `gsx init --yes` (Vite starter) and `gsxui init` (Vite mode).
@@ -203,11 +266,6 @@ dir = "spikes/hello-world"
 raw = true
 run = "bin/hello-world"
 
-[tasks."hello:browser"]
-description = "Drive spikes/hello-world in a headless Chrome: does picking a mode really swap to that mode's models"
-depends = ["hello:build", "build:dev"]
-run = "bin/dev browser spikes/hello-world/bin/hello-world spikes/hello-world/tools/browser-check.mjs '/?mode=remote'"
-
 [tasks."hello:check"]
 description = "Check spikes/hello-world: build, gsx formatting, go vet, a TinyGo wasm build, and the browser round trip"
 depends = ["hello:build"]
@@ -217,7 +275,7 @@ run = [
   "go vet ./...",
   "go test ./...",
   "tinygo build -o /dev/null -target wasm ./cmd/tinygo-render",
-  "mise run hello:browser",
+  "mise run dev:browser",
 ]
 
 [tasks.build]
@@ -280,6 +338,41 @@ mise run status --worker
 [tasks.bench]
 description = "Run the Go and TinyGo Workers locally against the mock and compare status, size and latency"
 run = "tools/bench.sh"
+
+# --- release: versioned CLI artifacts plus a packslip manifest -----------------
+# Pushing a tag runs .github/workflows/release.yml, which calls goreleaser and
+# then signs a packslip bundle shipping skills/grok-oauth-proxy/SKILL.md.
+
+[tasks.release]
+description = "Publish a GitHub Release via GoReleaser (packslip manifest included by the workflow)"
+run = "goreleaser release --clean --config .goreleaser.yml"
+
+[tasks."release:snapshot"]
+description = "Build release artifacts locally without publishing"
+run = "goreleaser release --snapshot --clean --config .goreleaser.yml"
+
+[tasks."release:packslip"]
+description = "Build the packslip manifest for the local snapshot artifacts and verify it (no signing identity locally, so --no-log)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+mise run release:snapshot >/dev/null
+version=$(git describe --tags --always --dirty | sed 's/^v//')
+key=${RUNNER_TEMP:-/tmp}/packslip-test.key
+rm -f "$key" "$key.pub" "$key.b64"
+packslip keygen --out "$key"
+packslip create --project github.com/joeblew999/grok-oauth-proxy --version "$version" \
+  --key "$key" --no-log --out dist \
+  --bin grok-oauth-proxy \
+  --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' \
+  --source-repo https://github.com/joeblew999/grok-oauth-proxy \
+  --commit "$(git rev-parse HEAD)" --tag "$(git describe --tags --always)" \
+  dist/*.tar.gz
+tail -1 "${key%.key}.pub" > "${key}.b64"
+packslip verify dist/packslip.sigstore.json --pubkey "${key}.b64" --allow-unlogged \
+  --artifact "$(ls dist/*.tar.gz | head -1)"
+packslip show dist/packslip.sigstore.json | head -30
+'''
 
 # --- used by wrangler.toml [build]; not for direct use -------------------------
 

@@ -7,7 +7,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write       # Upload the packslip bundle.
+  id-token: write       # Sign the packslip with the workflow's identity.
+  attestations: write   # Publish provenance for the matched files.
 
 jobs:
   release:
@@ -18,15 +20,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+      # SSOT: every tool comes from mise.toml. No setup-go, no goreleaser
+      # action; the release task runs the pinned goreleaser.
+      - name: Install mise
+        uses: jdx/mise-action@v2
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          args: release --clean
+        run: mise run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Signed manifest so mise installs this release with verification, and
+      # ships the skill that matches the installed version.
+      - name: Publish packslip
+        uses: jdx/packslip@v1
+        with:
+          artifacts: dist/*.tar.gz dist/*.zip
+          bin: grok-oauth-proxy
+          resources: |
+            skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy
