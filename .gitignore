@@ -12,3 +12,5 @@ npm/grok-oauth-proxy.exe
 .claude/skills/.mise-skills.json
 .claude/skills/gsx
 .claude/skills/gsxui
+.claude/skills/hk-configure
+.claude/skills/hk-debug
