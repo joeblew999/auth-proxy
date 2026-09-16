@@ -458,7 +458,9 @@ else
     exit 1
   fi
   git tag "$tag"
-  git push origin "$tag"
+  # Push only the tag: pushing main too can advance the remote past the tag
+  # when local main is ahead, and gh then targets the wrong repo state.
+  git push origin "refs/tags/$tag"
   commit="$(git rev-parse HEAD)"
   # goreleaser needs a token env even though gh authenticates from its own
   # keychain; reuse it when set, else ask gh for one.
