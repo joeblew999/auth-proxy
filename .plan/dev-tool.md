@@ -1,7 +1,8 @@
 # Plan: one dev tool for every repo on this stack
 
-**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo: `mise.toml` is 116 lines
-(from 417), a stack half that names nothing of this project and a project half
+**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo: `mise.toml` is one block
+per task, one field per line (never compressed onto one line: the owner rejected
+that as unreadable), a stack half that names nothing of this project and a project half
 that is a grid of four commands by stage; `dev build|run|check DIR` reads a
 command directory and does the rest; every Worker stage takes its directory;
 `cmd/dev` holds nothing project-specific; `mise-tasks/` and the shell helpers
