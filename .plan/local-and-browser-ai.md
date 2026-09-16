@@ -247,7 +247,7 @@ machine.
 |---|---|---|
 | `gsx`, `gsxui` | the packslip releases of the `joeblew999/gsx` and `joeblew999/gsxui` forks, pinned under `[tools]` in `mise.toml`; mise links each skill at the tool's version (`[settings.skills] auto_sync`) | linked. Upstream gsx also ships `templ-to-gsx-migration`; the fork's release does not, and nothing here needs it |
 | `hk-configure`, `hk-debug` | hk's packslip release, the same way | linked |
-| `wrangler`, `durable-objects`, `workers-best-practices`, `cloudflare` | `skills/` in github.com/cloudflare/skills at the commit in `session.toml`, vendored into `.claude/skills` with every file hashed in `SKILLS.lock` | vendored. cloudflare/skills has no releases, which is the one reason `session.toml` exists; `.plan/claude-session.md` has the whole story. On 2026-09-15 they reached this machine only through a stale global plugin, which the generated settings now block |
+| `wrangler`, `durable-objects`, `workers-best-practices`, `cloudflare` | `skills/` in github.com/cloudflare/skills at the commit in `session.toml`, vendored into `.claude/skills` with every file hashed in `SKILLS.lock` | vendored. cloudflare/skills has no releases, which is the one reason `session.toml` exists; `.plan/done/claude-session.md` has the whole story. On 2026-09-15 they reached this machine only through a stale global plugin, which the generated settings now block |
 
 1. **`dev:session:sync`, run by `mise install`** (its `postinstall` hook runs
    `dev:bootstrap`: sync, then `hk install`), vendors the cloudflare skills at
@@ -362,7 +362,7 @@ are untouched). Stage C folds it into the root app.
   are `dev:session:sync|check|verify`; gsx and gsxui come from packslip
   releases carrying their own skills, so `templ-to-gsx-migration` went and
   `gsxui`, `hk-configure` and `hk-debug` arrived; and `verify` holds the whole
-  session against `SESSION.lock`. `.plan/claude-session.md` has that work.
+  session against `SESSION.lock`. `.plan/done/claude-session.md` has that work.
 - **The picker was rebuilt** with the gsx skill loaded and gsxui's own site as
   the pattern source. What changed, beyond looks:
   - **A mode now owns its models** (`Mode.Models`), instead of the model list
@@ -414,8 +414,12 @@ are untouched). Stage C folds it into the root app.
     first deploy on a second account, which nothing here has. The changelog says
     wrangler creates and links the namespace then, and `deploy` prints what it
     created.
-  - A4 (CI on a clean runner): untouched. The only workflow is the tag-triggered
-    release; nothing runs `mise install` + `mise run test` on push.
+  - A4 (CI on a clean runner): **done 2026-09-16**. `.github/workflows/test.yml`
+    runs `mise install` and `mise run test` on every push. Its first runs found
+    two things a clean runner needs that this machine did not show: the
+    packslip tools pinned exactly, and the owner's own forks exempt from mise's
+    24h release wait. The one failure left is hk 2.0.1 being under a day old;
+    that clears at 2026-09-16T18:57Z, and no green run has been seen yet.
 
 ### Stage B: hello world round trip in every topology
 

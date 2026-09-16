@@ -1,12 +1,12 @@
 # Plan: one source for the Claude Code session
 
-**Status: PHASE 1 DONE. Every check now runs without being asked: `check` in
-`mise run test`, `verify` and the MCP health check at pre-push, and the hooks
-themselves installed by `mise install`. Items 1-3 turned out to be impossible
-and are struck out below. Item 9 is the only thing left and it needs a yes.
-2026-09-16. Re-checked at `d7e3136` the same day: every check still passes,
-item 9 is still open, and criteria B, F and G below were brought in line with
-what dropping items 1-3 means.**
+**Status: DONE 2026-09-16. Every check runs without being asked: `check` in
+`mise run test`, `verify` and the MCP health check at pre-push (the latter
+bound there for real in `d707bb8`), and the hooks themselves installed by
+`mise install`. Items 1-3 turned out to be impossible and are struck out below.
+Item 9 is superseded by `.plan/dev-tool.md` and deferred by the owner. Every
+row of "Done means" holds; E since the same day's A3 removed the last account
+and resource ids from committed files.**
 
 ## The question
 

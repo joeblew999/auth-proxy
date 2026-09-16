@@ -1,6 +1,6 @@
 # Plan: TinyGo builds
 
-**Status: WORKING side by side with the standard Go build, minus `/mcp`. `/mcp` is blocked by 8 TinyGo gaps, all reported in [tinygo-org/tinygo#5684](https://github.com/tinygo-org/tinygo/issues/5684). 2026-09-15. Re-checked 2026-09-16: the issue is still open with no reply, 0.42.0 (2026-09-01) is still the latest TinyGo release and the one pinned here, so there is nothing to retest yet.**
+**Status: DONE as far as this repo can go, 2026-09-16. WORKING side by side with the standard Go build, minus `/mcp`, which is blocked by 8 TinyGo gaps, all reported in [tinygo-org/tinygo#5684](https://github.com/tinygo-org/tinygo/issues/5684). The issue is still open with no reply, and 0.42.0 (2026-09-01) is still the latest TinyGo release and the one pinned here. Nothing is left to do here until upstream moves; when a release closes the issue, retest as described under Paths forward.**
 
 ## The question
 

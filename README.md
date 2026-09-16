@@ -125,7 +125,7 @@ The Worker also builds with TinyGo (`mise run build:tinygo`, `mise run bench`).
 That build is about 1.9 MB instead of 15 MB, but serves 501 on `/mcp`, because the
 MCP SDK needs eight things TinyGo 0.42 lacks or gets wrong
 ([tinygo-org/tinygo#5684](https://github.com/tinygo-org/tinygo/issues/5684)).
-Details are in [.plan/tinygo.md](.plan/tinygo.md). Deploy the standard build
+Details are in [.plan/done/tinygo.md](.plan/done/tinygo.md). Deploy the standard build
 until TinyGo fixes them.
 
 ## Development

@@ -97,7 +97,7 @@ now demands three 200s in a row.
   subcommands of the project's own binary where they fit (`bench` could be
   `grok-oauth-proxy bench`), else `cmd/<project>tool`.
 
-This supersedes item 9 of `.plan/claude-session.md`, which moved only
+This supersedes item 9 of `.plan/done/claude-session.md`, which moved only
 sessionpin and rel.
 
 ## Decisions needed

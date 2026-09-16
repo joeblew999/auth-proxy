@@ -135,4 +135,4 @@ Rules that keep the design working:
 - Keep API keys, Grok tokens and `ADMIN_API_KEY` out of source, logs and commits.
 - Cloudflare credentials come from fnox; tasks wrap `fnox exec --`.
 - The TinyGo build has no `/mcp` until TinyGo fixes the gaps in
-  `.plan/tinygo.md` (tinygo-org/tinygo#5684).
+  `.plan/done/tinygo.md` (tinygo-org/tinygo#5684).

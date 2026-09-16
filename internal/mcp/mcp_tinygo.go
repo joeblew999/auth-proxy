@@ -2,7 +2,7 @@
 
 // Package mcp is empty in TinyGo builds: the MCP SDK needs APIs TinyGo 0.42 lacks
 // or gets wrong (https://github.com/tinygo-org/tinygo/issues/5684), so the proxy
-// answers /mcp with 501. See .plan/tinygo.md.
+// answers /mcp with 501. See .plan/done/tinygo.md.
 package mcp
 
 import (
