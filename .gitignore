@@ -8,3 +8,9 @@ npm/grok-oauth-proxy.exe
 sh.d.grok-oauth-proxy.plist
 # wrangler dev local state (KV, cache)
 /.wrangler/
+# mise packslip skill links: each developer's `mise skills sync` creates these
+# from the active tool versions. Never commit them; .claude/skills/ holds only
+# the vendored copies from skills.toml.
+.claude/skills/.mise-skills.json
+.claude/skills/gsx
+.claude/skills/gsxui
