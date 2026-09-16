@@ -1,14 +1,14 @@
-// Command skillpin keeps a repo's Claude Code skills pinned, and keeps the rest
+// Command sessionpin keeps a repo's Claude Code skills pinned, and keeps the rest
 // of the repo's Claude Code session from being decided somewhere else.
 //
-// A repo needs two things to adopt it: a skills.toml naming what it pins, and a
+// A repo needs two things to adopt it: a session.toml naming what it pins, and a
 // way to run this command. Nothing else here is specific to any one repo -- no
 // mise, no task names, no layout. Run it from the repo root:
 //
-//	skillpin sync     write the pinned skills, and the settings skills.toml implies
-//	skillpin check    fail when either has drifted from skills.toml
-//	skillpin verify   ask a fresh Claude Code session what it can actually see
-//	skillpin bump     move github pins to upstream HEAD
+//	sessionpin sync     write the pinned skills, and the settings session.toml implies
+//	sessionpin check    fail when either has drifted from session.toml
+//	sessionpin verify   ask a fresh Claude Code session what it can actually see
+//	sessionpin bump     move github pins to upstream HEAD
 //
 // The point is that one file decides. Marketplace plugins and claude.ai
 // connectors can put skills in a session that no repo file mentions, at
@@ -26,20 +26,20 @@ import (
 )
 
 // syncCmd is how this repo spells "run sync", quoted back in every error that
-// a sync would fix. It defaults to the binary's own name, and skills.toml can
+// a sync would fix. It defaults to the binary's own name, and session.toml can
 // set sync_command when a task runner is the front door instead.
-var syncCmd = "skillpin sync"
+var syncCmd = "sessionpin sync"
 
-const usage = `skillpin: pin a repo's Claude Code skills, plugins and MCP servers to skills.toml.
+const usage = `sessionpin: pin a repo's Claude Code skills, plugins and MCP servers to session.toml.
 
-  skillpin sync     write .claude/skills and the .claude/settings.json keys skills.toml implies
-  skillpin check    fail when either has drifted from skills.toml (run it in CI)
-  skillpin verify [--update]
+  sessionpin sync     write .claude/skills and the .claude/settings.json keys session.toml implies
+  sessionpin check    fail when either has drifted from session.toml (run it in CI)
+  sessionpin verify [--update]
                     hold a fresh Claude Code session against SESSION.lock; --update records it
-  skillpin bump [source]
-                    move github pins in skills.toml to upstream HEAD
+  sessionpin bump [source]
+                    move github pins in session.toml to upstream HEAD
 
-Run from the repo root. See skills.toml for what is pinned.
+Run from the repo root. See session.toml for what is pinned.
 `
 
 func main() {
@@ -76,19 +76,19 @@ func main() {
 
 // defaultSyncCmd names this binary as the user invoked it, so the fix an error
 // suggests is one they can paste. SKILLPIN_SYNC_CMD wins, for a repo that runs
-// it through something else and has no skills.toml to read yet.
+// it through something else and has no session.toml to read yet.
 func defaultSyncCmd() string {
 	if cmd := os.Getenv("SKILLPIN_SYNC_CMD"); cmd != "" {
 		return cmd
 	}
 	name := filepath.Base(os.Args[0])
 	if name == "." || name == string(filepath.Separator) || name == "" {
-		name = "skillpin"
+		name = "sessionpin"
 	}
 	return name + " sync"
 }
 
-// applySyncCommand takes sync_command from skills.toml before anything runs,
+// applySyncCommand takes sync_command from session.toml before anything runs,
 // so that commands which never load the pins -- verify reads only the lock --
 // still name this repo's own way of running a sync. A broken or missing file
 // is not this function's business; whatever runs next reports it properly.

@@ -6,4 +6,4 @@ for dir in . spikes/hello-world; do
   echo "== $dir =="
   (cd "$dir" && go-mod-upgrade)
 done
-mise run dev:skills:check
+mise run dev:session:check

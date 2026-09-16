@@ -34,8 +34,8 @@ pitchfork = "latest"
 postinstall = { task = "dev:bootstrap" }
 
 # Packslip skills link into .claude/skills alongside the vendored copies from
-# skills.toml. mise preserves real directories, so the two never fight. When a
-# tool ships its skill, delete its source from skills.toml and let mise own it.
+# session.toml. mise preserves real directories, so the two never fight. When a
+# tool ships its skill, delete its source from session.toml and let mise own it.
 [settings.skills]
 auto_sync = true
 prune = true
@@ -61,7 +61,7 @@ run = [
   "mise run lint",
   "GOOS=js GOARCH=wasm go vet ./...",
   "go test ./...",
-  "mise run dev:skills:check",
+  "mise run dev:session:check",
   "mise run hello:check",
 ]
 
@@ -107,8 +107,8 @@ run = "go build -o bin/grok-oauth-proxy ."
 hide = true
 run = "go build -o bin/dev ./cmd/dev"
 
-# skillpin is standalone on purpose: any repo can go install it and needs only
-# a skills.toml, so it must not grow a dependency on anything here.
-[tasks."build:skillpin"]
+# sessionpin is standalone on purpose: any repo can go install it and needs only
+# a session.toml, so it must not grow a dependency on anything here.
+[tasks."build:sessionpin"]
 hide = true
-run = "go build -o bin/skillpin ./cmd/skillpin"
+run = "go build -o bin/sessionpin ./cmd/sessionpin"

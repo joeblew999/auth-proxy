@@ -2,7 +2,7 @@
 // their upstreams into .claude/skills, checks that the copy on disk still matches
 // the pins, and proves that a fresh session can actually load them.
 //
-// What is pinned lives in skills.toml; this package only reads it.
+// What is pinned lives in session.toml; this package only reads it.
 package main
 
 import (
@@ -22,7 +22,7 @@ import (
 const (
 	skillsDir = ".claude/skills"
 	lockFile  = "SKILLS.lock"
-	pinsFile  = "skills.toml"
+	pinsFile  = "session.toml"
 )
 
 // skillFiles is a skill set: path relative to the skills directory -> contents.

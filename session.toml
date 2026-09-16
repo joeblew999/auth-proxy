@@ -1,5 +1,5 @@
-# Where the repo's Claude Code skills come from. `mise run dev:skills:sync`
-# writes them into .claude/skills; `mise run dev:skills:bump` moves a github
+# Where the repo's Claude Code skills come from. `mise run dev:session:sync`
+# writes them into .claude/skills; `mise run dev:session:bump` moves a github
 # pin to upstream HEAD. Nothing in cmd/dev/skills names a skill or a pin.
 #
 # Two source kinds:
@@ -12,8 +12,8 @@
 # gsx/gsxui need no source here: they ship skills in their packslip releases,
 # and mise links them via [settings.skills] auto_sync.
 
-# How this repo runs skillpin, quoted back by every error a sync would fix.
-sync_command = "mise run dev:skills:sync"
+# How this repo runs sessionpin, quoted back by every error a sync would fix.
+sync_command = "mise run dev:session:sync"
 
 [source.cloudflare]
 repo = "cloudflare/skills"
@@ -22,7 +22,7 @@ ref = "b052c32bab7dd493513260228a36c88294f343f1"
 skills = ["wrangler", "durable-objects", "workers-best-practices", "cloudflare"]
 
 # The rest of the Claude Code session, generated into .claude/settings.json by
-# `mise run dev:skills:sync`. Named here and nowhere else, for the same reason
+# `mise run dev:session:sync`. Named here and nowhere else, for the same reason
 # the pins above are: two places to look is how the copies drifted.
 [claude]
 # Marketplace plugins that must not load in this repo. Each of these ships a

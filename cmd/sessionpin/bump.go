@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// Bump moves every github source's pin in skills.toml to upstream HEAD. It
+// Bump moves every github source's pin in session.toml to upstream HEAD. It
 // shows the file-level diff first and waits for confirmation, so moving forward
 // is one deliberate command instead of a silent drift. Usage:
 // dev skills bump [source] — one source, or all github sources when omitted.
@@ -115,7 +115,7 @@ func confirm(out io.Writer, prompt string) bool {
 	return answer == "y" || answer == "yes"
 }
 
-// rewriteRefs replaces the ref line of every github source in skills.toml,
+// rewriteRefs replaces the ref line of every github source in session.toml,
 // keeping comments and order.
 func rewriteRefs(path string, p pins) error {
 	data, err := os.ReadFile(path)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Wire a fresh clone: git hooks, then the pinned skills and settings (runs automatically after mise install)"
-#MISE depends=["dev:skills:sync"]
+#MISE depends=["dev:session:sync"]
 set -euo pipefail
 
 # hk owns the checks, but a clone has no git hooks until they are installed, so

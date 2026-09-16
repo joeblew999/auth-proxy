@@ -1,7 +1,7 @@
 // Command dev holds this repo's developer tooling. It is not part of the proxy
 // binary: mise tasks build and run it, so nothing here ships to users.
 //
-// Skills pinning lives in cmd/skillpin, which is standalone so that other repos
+// Skills pinning lives in cmd/sessionpin, which is standalone so that other repos
 // can use it. Each tool here is a package of its own, so what one owns is never
 // entangled with another, and this file does nothing but parse arguments and
 // say what is available.

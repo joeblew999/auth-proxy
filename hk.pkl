@@ -26,13 +26,13 @@ hooks {
     ["check"] { steps = linters }
     ["fix"] { steps = linters }
 
-    // Push time is where the expensive check goes. `dev:skills:verify` starts a
+    // Push time is where the expensive check goes. `dev:session:verify` starts a
     // real Claude Code session and holds it against SESSION.lock, which is the
     // only way to catch a skill that arrived from somewhere no repo file names.
     ["pre-push"] {
         steps {
-            ["skills_verify"] {
-                check = "mise run dev:skills:verify"
+            ["session_verify"] {
+                check = "mise run dev:session:verify"
             }
         }
     }

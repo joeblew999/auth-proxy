@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Prove a fresh Claude Code session loads the repo's skills (needs a Claude Code login; not run in CI)"
-#MISE depends=["build:skillpin"]
-bin/skillpin verify

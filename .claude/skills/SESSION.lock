@@ -1,5 +1,5 @@
 # Every skill a session here is allowed to have, recorded by
-# `mise run dev:skills:verify --update`. Verify fails on anything else,
+# `mise run dev:session:verify --update`. Verify fails on anything else,
 # including skills synced from claude.ai that no setting can block.
 artifact-capabilities
 artifact-design

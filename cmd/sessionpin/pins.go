@@ -11,7 +11,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// pins is everything skills.toml says: named sources, each either a Go module
+// pins is everything session.toml says: named sources, each either a Go module
 // in the local module cache or a GitHub repo at a pinned commit.
 type pins struct {
 	Source map[string]sourcePins `toml:"source"`
@@ -28,7 +28,7 @@ type pins struct {
 type claudePins struct {
 	BlockedPlugins []string `toml:"blocked_plugins"`
 	// ClaudeAIConnectors is a pointer so that leaving it out means "not this
-	// repo's business" rather than "off": a repo adopting skillpin must not
+	// repo's business" rather than "off": a repo adopting sessionpin must not
 	// silently lose its connectors by not mentioning them.
 	ClaudeAIConnectors *bool `toml:"claude_ai_connectors"`
 	ApproveMCPServers  bool  `toml:"approve_mcp_servers"`
@@ -54,7 +54,7 @@ func (s sourcePins) kind() string {
 	return "github"
 }
 
-// loadPins reads skills.toml. Every error names the fix: the file is the only
+// loadPins reads session.toml. Every error names the fix: the file is the only
 // place a skill or a pin is named. Unknown keys fail: a typo must not silently
 // drop a source.
 func loadPins() (pins, error) {
@@ -106,7 +106,7 @@ func (p pins) names() []string {
 
 // checkToolPins fails when a gomod source's go.mod disagrees with its mise pin.
 // mise is the source of truth for the version; the module follows. The module
-// comes from skills.toml; the mise key is whichever go: tool extends it.
+// comes from session.toml; the mise key is whichever go: tool extends it.
 func checkToolPins(out io.Writer) error {
 	p, err := loadPins()
 	if err != nil {

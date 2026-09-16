@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-#MISE hide=true
-#MISE depends=["build:skillpin"]
-bin/skillpin check

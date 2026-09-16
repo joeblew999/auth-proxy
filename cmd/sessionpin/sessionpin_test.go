@@ -70,7 +70,7 @@ func TestDiffFiles(t *testing.T) {
 func TestLoadPins(t *testing.T) {
 	t.Chdir(t.TempDir())
 	content := "[source.a]\nmodule = \"example.com/mod\"\nmodule_dir = \"spike\"\nskills = [\"x\", \"y\"]\n\n[source.b]\nrepo = \"org/repo\"\nref = \"abc123\"\nskills = [\"z\"]\n"
-	if err := writeFile("skills.toml", content); err != nil {
+	if err := writeFile("session.toml", content); err != nil {
 		t.Fatal(err)
 	}
 	p, err := loadPins()
@@ -92,7 +92,7 @@ func TestLoadPins(t *testing.T) {
 
 func TestLoadPinsRejectsUnknownKeys(t *testing.T) {
 	t.Chdir(t.TempDir())
-	if err := writeFile("skills.toml", "[source.a]\nmodule = \"x\"\nmodule_dir = \"y\"\nskills = [\"z\"]\nbogus = 1\n"); err != nil {
+	if err := writeFile("session.toml", "[source.a]\nmodule = \"x\"\nmodule_dir = \"y\"\nskills = [\"z\"]\nbogus = 1\n"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := loadPins(); err == nil {
@@ -102,7 +102,7 @@ func TestLoadPinsRejectsUnknownKeys(t *testing.T) {
 
 func TestLoadPinsRejectsBadSource(t *testing.T) {
 	t.Chdir(t.TempDir())
-	if err := writeFile("skills.toml", "[source.a]\nskills = [\"z\"]\n"); err != nil {
+	if err := writeFile("session.toml", "[source.a]\nskills = [\"z\"]\n"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := loadPins(); err == nil {
@@ -165,22 +165,22 @@ func TestCheckSettingsCatchesHandEdits(t *testing.T) {
 func TestSyncCommandComesFromPins(t *testing.T) {
 	t.Chdir(t.TempDir())
 	defer func(old string) { syncCmd = old }(syncCmd)
-	syncCmd = "skillpin sync"
-	if err := writeFile("skills.toml", "sync_command = \"just skills\"\n[source.a]\nrepo = \"o/r\"\nref = \"abc\"\nskills = [\"z\"]\n"); err != nil {
+	syncCmd = "sessionpin sync"
+	if err := writeFile("session.toml", "sync_command = \"just skills\"\n[source.a]\nrepo = \"o/r\"\nref = \"abc\"\nskills = [\"z\"]\n"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := loadPins(); err != nil {
 		t.Fatal(err)
 	}
 	if syncCmd != "just skills" {
-		t.Errorf("syncCmd = %q; want the one skills.toml names", syncCmd)
+		t.Errorf("syncCmd = %q; want the one session.toml names", syncCmd)
 	}
 }
 
 // A repo with no mise.toml still has to be able to run check.
 func TestCheckToolPinsSkipsWithoutMise(t *testing.T) {
 	t.Chdir(t.TempDir())
-	if err := writeFile("skills.toml", "[source.a]\nrepo = \"o/r\"\nref = \"abc\"\nskills = [\"z\"]\n"); err != nil {
+	if err := writeFile("session.toml", "[source.a]\nrepo = \"o/r\"\nref = \"abc\"\nskills = [\"z\"]\n"); err != nil {
 		t.Fatal(err)
 	}
 	if err := checkToolPins(io.Discard); err != nil {

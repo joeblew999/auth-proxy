@@ -15,12 +15,12 @@ import (
 // left exactly as it was.
 const settingsFile = ".claude/settings.json"
 
-// ownedKeys are the settings generated from skills.toml. A key absent from
-// wantSettings is removed from the file, so turning a pin off in skills.toml
+// ownedKeys are the settings generated from session.toml. A key absent from
+// wantSettings is removed from the file, so turning a pin off in session.toml
 // takes the setting with it.
 var ownedKeys = []string{"enabledPlugins", "disableClaudeAiConnectors", "enableAllProjectMcpServers"}
 
-// wantSettings is what [claude] in skills.toml means in settings.json terms.
+// wantSettings is what [claude] in session.toml means in settings.json terms.
 //
 // enabledPlugins is read user < project < local, so a false here overrides a
 // developer's own true: the repo decides, not whoever installed a marketplace
@@ -76,7 +76,7 @@ func syncSettings(out io.Writer, c claudePins) error {
 	return nil
 }
 
-// checkSettings fails when settings.json has drifted from skills.toml, which
+// checkSettings fails when settings.json has drifted from session.toml, which
 // is what happens when someone edits the settings file by hand.
 func checkSettings(c claudePins) error {
 	have, err := readSettings()
