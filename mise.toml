@@ -154,15 +154,18 @@ run = [
 
 [tasks."skills:sync"]
 description = "Put the pinned gsx and Cloudflare skills into .claude/skills (runs automatically after mise install)"
-run = "tools/sync-skills.sh"
+depends = ["build:dev"]
+run = "bin/dev skills sync"
 
 [tasks."skills:verify"]
 description = "Prove a fresh Claude Code session loads the repo's skills (needs a Claude Code login; not run in CI)"
-run = "tools/verify-skills.sh"
+depends = ["build:dev"]
+run = "bin/dev skills verify"
 
 [tasks."skills:check"]
 hide = true
-run = "tools/sync-skills.sh --check"
+depends = ["build:dev"]
+run = "bin/dev skills check"
 
 # --- spikes/hello-world: gsx + gsxui, used exactly as gsx documents ------------
 # Scaffolded with `gsx init --yes` (Vite starter) and `gsxui init` (Vite mode).
@@ -290,3 +293,7 @@ run = [
 [tasks."build:cli"]
 hide = true
 run = "go build -o bin/grok-oauth-proxy ."
+
+[tasks."build:dev"]
+hide = true
+run = "go build -o bin/dev ./cmd/dev"

@@ -8,5 +8,3 @@ npm/grok-oauth-proxy.exe
 sh.d.grok-oauth-proxy.plist
 # wrangler dev local state (KV, cache)
 /.wrangler/
-# scratch space for repo scripts (tools/sync-skills.sh)
-/.tmp/
