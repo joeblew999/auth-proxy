@@ -7,7 +7,11 @@ import "package://github.com/jdx/hk/releases/download/v2.0.1/hk@2.0.1#/Builtins.
 // golangci-lint, or zizmor: none are pinned in mise.toml.
 local linters = new Mapping {
     ["go_fmt"] = Builtins.go_fmt
-    ["go_vet"] = Builtins.go_vet
+    // cmd/gui embeds dist/, which exists only after its own build, so vetting
+    // it here fails on a fresh clone; hello:check vets it after building.
+    ["go_vet"] = (Builtins.go_vet) {
+        exclude = List("cmd/gui/**")
+    }
     ["gomod_tidy"] = Builtins.gomod_tidy
     // Vendored third-party skills are upstream content; never rewrite them.
     ["trailing_whitespace"] = (Builtins.trailing_whitespace) {

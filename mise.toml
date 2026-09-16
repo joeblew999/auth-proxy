@@ -54,7 +54,7 @@ worker = "cmd/worker"      # a Worker owns its wrangler.toml and its build/; thi
 # --- the stack -----------------------------------------------------------------
 lint = { description = "hk checks: gofmt, vet, tidy, whitespace, secrets", run = "hk check --all" }
 "build:dev" = { hide = true, sources = ["cmd/dev/**", "go.mod", "go.sum"], outputs = ["bin/dev"], run = "go build -o bin/dev ./cmd/dev" }
-"dev:bootstrap" = { description = "wire a fresh clone: skills, settings, git hooks (runs after mise install)", depends = ["dev:session:sync"], run = "hk install" }
+"dev:bootstrap" = { description = "wire a fresh clone: skills, settings, git hooks (runs after mise install)", depends = ["dev:session:sync"], run = ["mise skills sync", "hk install"] }
 "dev:session:sync" = { description = "write .claude/skills and the settings.json keys from session.toml", depends = ["build:dev"], run = "bin/dev session sync" }
 "dev:session:check" = { hide = true, depends = ["build:dev"], run = "bin/dev session check" }
 "dev:session:verify" = { description = "hold a fresh Claude Code session against SESSION.lock (pre-push; --update re-records)", depends = ["build:dev"], usage = 'flag "--update"', run = "bin/dev session verify --update=$usage_update" }
