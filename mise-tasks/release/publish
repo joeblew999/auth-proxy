@@ -2,55 +2,6 @@
 #MISE description="Build artifacts, sign the packslip manifest, publish the GitHub Release (CI uses the workflow identity; locally signs with --key and uploads with gh)"
 #MISE raw=true
 #USAGE arg "[version]" help="Version when running locally (CI uses GITHUB_REF_NAME instead)"
-set -euo pipefail
-slug=$(git remote get-url origin | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#;s#\.git$##')
-if [ -n "${GITHUB_REF_NAME:-}" ]; then
-  # CI: goreleaser publishes the release; packslip signs with the workflow identity.
-  version="${GITHUB_REF_NAME#v}"
-  tag="$GITHUB_REF_NAME"
-  commit="$GITHUB_SHA"
-  goreleaser release --clean --config .goreleaser.yml
-  mise exec -- packslip create --project "github.com/$slug" \
-    --version "$version" --out dist \
-    --bin grok-oauth-proxy \
-    --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' \
-    --source-repo "https://github.com/$slug" \
-    --commit "$commit" --tag "$tag" \
-    dist/*.tar.gz
-  gh release upload "$tag" dist/packslip.sigstore.json --clobber
-else
-  # Local: everything goreleaser + packslip + gh, no workflow. CGO_ENABLED=0
-  # binaries run anywhere, so a local build publishes the same dist CI would.
-  tag="${usage_version:?pass a version: mise run release:publish v1.2.0}"
-  case "$tag" in v*) ;; *) tag="v$tag";; esac
-  version="${tag#v}"
-  if [ -n "$(git status --porcelain)" ]; then
-    echo "working tree is dirty; commit first" >&2
-    exit 1
-  fi
-  git tag "$tag"
-  # Push only the tag: pushing main too can advance the remote past the tag
-  # when local main is ahead, and gh then targets the wrong repo state.
-  git push origin "refs/tags/$tag"
-  commit="$(git rev-parse HEAD)"
-  # goreleaser needs a token env even though gh authenticates from its own
-  # keychain; reuse it when set, else ask gh for one.
-  export GITHUB_TOKEN="${GITHUB_TOKEN:-$(mise exec -- gh auth token 2>/dev/null)}"
-  goreleaser release --clean --config .goreleaser.yml --release-notes <(echo "Release $tag")
-  key=${RUNNER_TEMP:-/tmp}/packslip-local.key
-  rm -f "$key" "$key.pub"
-  packslip keygen --out "$key"
-  packslip create --project "github.com/$slug" --version "$version" \
-    --key "$key" --no-log --out dist \
-    --bin grok-oauth-proxy \
-    --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' \
-    --source-repo "https://github.com/$slug" \
-    --commit "$commit" --tag "$tag" \
-    dist/*.tar.gz
-  if gh release view "$tag" >/dev/null 2>&1; then
-    gh release upload "$tag" dist/*.tar.gz dist/checksums.txt dist/packslip.sigstore.json --clobber
-  else
-    gh release create "$tag" dist/*.tar.gz dist/checksums.txt dist/packslip.sigstore.json --title "$tag" --notes "Release $tag"
-  fi
-  echo "published $tag"
-fi
+go run ./cmd/rel publish --bin grok-oauth-proxy \
+  --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' \
+  --version "$usage_version"
