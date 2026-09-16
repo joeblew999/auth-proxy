@@ -8,7 +8,7 @@ import "package://github.com/jdx/hk/releases/download/v2.0.1/hk@2.0.1#/Builtins.
 local linters = new Mapping {
     ["go_fmt"] = Builtins.go_fmt
     // cmd/gui embeds dist/, which exists only after its own build, so vetting
-    // it here fails on a fresh clone; hello:check vets it after building.
+    // it here fails on a fresh clone; gui:check vets it after building.
     ["go_vet"] = (Builtins.go_vet) {
         exclude = List("cmd/gui/**")
     }

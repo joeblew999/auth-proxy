@@ -10,7 +10,7 @@ compatibility_flags = [
 ]
 
 [build]
-command = "mise run hello:build:worker"
+command = "mise run gui:build:worker"
 
 [observability.logs]
 enabled = true

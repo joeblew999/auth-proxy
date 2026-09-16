@@ -1,5 +1,5 @@
 // Command tinygo-render renders the picker and writes it to stdout. It exists
-// to be built with TinyGo (mise run hello:check), because the browser topology
+// to be built with TinyGo (mise run gui:check), because the browser topology
 // runs this same markup inside a Service Worker: if the components stop
 // compiling under TinyGo, that plan is dead and this is where it shows up.
 //

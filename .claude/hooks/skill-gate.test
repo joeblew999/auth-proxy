@@ -22,7 +22,7 @@ check() {
 }
 
 # Write and Edit always change the file.
-check "gsx gsxui"    Edit  '{"file_path":"spikes/hello-world/x.gsx"}'
+check "gsx gsxui"    Edit  '{"file_path":"cmd/gui/x.gsx"}'
 check "hk-configure" Write '{"file_path":"hk.pkl"}'
 check ""             Edit  '{"file_path":"main.go"}'
 check "wrangler"     Write '{"file_path":"wrangler.toml"}'
@@ -52,7 +52,7 @@ check "" Bash '{"command":"sed -n 1,5p hk.pkl"}'
 check "" Bash '{"command":"git add hk.pkl x.gsx"}'
 check "" Bash '{"command":"git diff hk.pkl"}'
 check "" Bash '{"command":"git commit -F - <<EOF\nRename hk.pkl step, touch x.gsx\nEOF"}'
-check "" Bash '{"command":"ls spikes/hello-world/x.gsx"}'
+check "" Bash '{"command":"ls cmd/gui/x.gsx"}'
 check "" Bash '{"command":"go build ./... && mise run test 2>&1"}'
 check "" Bash '{"command":"hk validate"}'
 check "" Bash '{"command":"cat wrangler.toml"}'

@@ -10,7 +10,7 @@ import (
 )
 
 // The same app as a Cloudflare Worker: wrangler.toml beside this file, built
-// by mise run hello:build:worker, deployed by mise run hello:deploy. The
+// by mise run gui:build:worker, deployed by mise run gui:deploy. The
 // assets are inside the wasm, so the Worker needs no bindings at all.
 func main() {
 	handler, err := newHandler()
