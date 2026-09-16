@@ -33,6 +33,9 @@ goreleaser = "latest"
 # Signs the packslip manifest. Same CLI the release job uses, so the manifest
 # can be built and inspected locally before a tag push.
 packslip = "latest"
+# Creates GitHub releases and uploads assets, so `mise run release` needs no
+# workflow: tag, build, manifest, publish, all from the task.
+gh = "latest"
 
 [hooks]
 postinstall = { task = "dev:skills:sync" }
@@ -340,16 +343,53 @@ description = "Run the Go and TinyGo Workers locally against the mock and compar
 run = "tools/bench.sh"
 
 # --- release: versioned CLI artifacts plus a packslip manifest -----------------
-# Pushing a tag runs .github/workflows/release.yml, which calls goreleaser and
-# then signs a packslip bundle shipping skills/grok-oauth-proxy/SKILL.md.
+# SSOT: the whole release is mise tasks. `mise run release v1.2.0` tags,
+# builds, signs the packslip with the workflow identity, and publishes.
+# .github/workflows/release.yml does the same on a tag push for CI.
 
 [tasks.release]
-description = "Publish a GitHub Release via GoReleaser (packslip manifest included by the workflow)"
-run = "goreleaser release --clean --config .goreleaser.yml"
+description = "Cut a release: tag <version> and push; CI builds, signs, publishes (needs gh auth)"
+usage = 'arg "<version>" help="Version to release, e.g. v1.2.0"'
+raw = true
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+version="$usage_version"
+case "$version" in v*) tag="$version";; *) tag="v$version";; esac
+if git rev-parse "$tag" >/dev/null 2>&1; then
+  echo "tag $tag already exists" >&2
+  exit 1
+fi
+if [ -n "$(git status --porcelain)" ]; then
+  echo "working tree is dirty; commit first" >&2
+  exit 1
+fi
+git tag "$tag"
+git push origin "$tag" main
+echo "tagged $tag; CI builds and publishes. Watch with: mise exec -- gh run list --limit 3"
+'''
 
 [tasks."release:snapshot"]
 description = "Build release artifacts locally without publishing"
 run = "goreleaser release --snapshot --clean --config .goreleaser.yml"
+
+[tasks."release:publish"]
+description = "Build artifacts, sign the packslip manifest with the workflow identity, publish the GitHub Release (CI; locally use mise run release <version>)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+goreleaser release --clean --config .goreleaser.yml
+slug=$(git remote get-url origin | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#;s#\.git$##')
+mise exec -- packslip create --project "github.com/$slug" \
+  --version "${GITHUB_REF_NAME#v}" \
+  --out dist \
+  --bin grok-oauth-proxy \
+  --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' \
+  --source-repo "https://github.com/$slug" \
+  --commit "$GITHUB_SHA" --tag "$GITHUB_REF_NAME" \
+  dist/*.tar.gz
+gh release upload "$GITHUB_REF_NAME" dist/packslip.sigstore.json --clobber
+'''
 
 [tasks."release:packslip"]
 description = "Build the packslip manifest for the local snapshot artifacts and verify it (no signing identity locally, so --no-log)"
@@ -361,11 +401,12 @@ version=$(git describe --tags --always --dirty | sed 's/^v//')
 key=${RUNNER_TEMP:-/tmp}/packslip-test.key
 rm -f "$key" "$key.pub" "$key.b64"
 packslip keygen --out "$key"
-packslip create --project github.com/joeblew999/grok-oauth-proxy --version "$version" \
+slug=$(git remote get-url origin | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#;s#\.git$##')
+packslip create --project "github.com/$slug" --version "$version" \
   --key "$key" --no-log --out dist \
   --bin grok-oauth-proxy \
   --resource 'skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy' \
-  --source-repo https://github.com/joeblew999/grok-oauth-proxy \
+  --source-repo "https://github.com/$slug" \
   --commit "$(git rev-parse HEAD)" --tag "$(git describe --tags --always)" \
   dist/*.tar.gz
 tail -1 "${key%.key}.pub" > "${key}.b64"

@@ -25,17 +25,10 @@ jobs:
       - name: Install mise
         uses: jdx/mise-action@v2
 
-      - name: Run GoReleaser
-        run: mise run release
+      # Same tasks a developer runs locally; the workflow only provides the
+      # signing identity that packslip needs.
+      - name: Build, sign, publish
+        run: |
+          mise run release:publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Signed manifest so mise installs this release with verification, and
-      # ships the skill that matches the installed version.
-      - name: Publish packslip
-        uses: jdx/packslip@v1
-        with:
-          artifacts: dist/*.tar.gz dist/*.zip
-          bin: grok-oauth-proxy
-          resources: |
-            skill/grok-oauth-proxy=repo:skills/grok-oauth-proxy
