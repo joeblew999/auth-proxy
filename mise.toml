@@ -46,6 +46,17 @@ postinstall = { task = "dev:bootstrap" }
 auto_sync = true
 prune = true
 
+# mise waits minimum_release_age (24h) before it will install a release, and
+# for packslip it refuses to bypass that even for an exact pin. The wait is
+# there so someone else's bad release gets noticed first; for this owner's own
+# forks there is no one else, so they are exempt. Third-party pins (hk, fnox)
+# keep the wait: a CI run within a day of their release fails until it passes.
+[settings]
+minimum_release_age_excludes = [
+  "packslip:github.com/joeblew999/gsx",
+  "packslip:github.com/joeblew999/gsxui",
+]
+
 # The deployed Worker URLs (PROXY_URL, PROXY_URL_TINYGO) differ per Cloudflare
 # account, so they live in gitignored mise.local.toml, written once per clone by
 # `mise run setup:url`. Every --worker flag reads them from there.
