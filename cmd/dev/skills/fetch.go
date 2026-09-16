@@ -92,6 +92,8 @@ func download(url string) ([]byte, error) {
 }
 
 // readDir reads a skills directory; a missing directory is an empty set.
+// Symlinks mise made (packslip skills) and mise's own state file are skipped:
+// mise owns those, not sync.
 func readDir(dir string) (skillFiles, error) {
 	files := skillFiles{}
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
@@ -102,6 +104,17 @@ func readDir(dir string) (skillFiles, error) {
 			return err
 		}
 		if d.IsDir() {
+			if p != dir {
+				if isSymlink(p) {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+		if isSymlink(p) {
+			return nil
+		}
+		if filepath.Base(p) == ".mise-skills.json" {
 			return nil
 		}
 		rel, err := filepath.Rel(dir, p)
@@ -116,6 +129,12 @@ func readDir(dir string) (skillFiles, error) {
 		return nil
 	})
 	return files, err
+}
+
+// isSymlink reports whether p itself is a symlink, without following it.
+func isSymlink(p string) bool {
+	info, err := os.Lstat(p)
+	return err == nil && info.Mode()&os.ModeSymlink != 0
 }
 
 func run(dir, name string, args ...string) error {

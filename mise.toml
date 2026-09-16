@@ -16,12 +16,11 @@ node = "24"
 tinygo = "0.42.0"
 # TinyGo shells out to wasm-opt for every wasm build.
 "aqua:WebAssembly/binaryen" = "121"
-# GUI toolchain, used the way gsx and gsxui document: gsx's Vite starter, with
-# Tailwind through Vite (npm, from the node pinned above). The gsx CLI scaffolds
-# (gsx init); inside the module, builds use go.mod's tool pin (go tool gsx), which
-# must stay the same version. gsxui has no releases, so it is pinned by commit.
-"go:github.com/gsxhq/gsx/cmd/gsx" = "v0.1.1"
-"go:github.com/gsxhq/gsxui/cmd/gsxui" = "5d973c7"
+# GUI toolchain from our own forks, via packslip: verified binaries plus
+# version-matched skills. Inside the module, builds use go.mod's tool pin
+# (go tool gsx); the fork tracks upstream, so the versions agree.
+"packslip:github.com/joeblew999/gsx" = "latest"
+"packslip:github.com/joeblew999/gsxui" = "latest"
 # Local models: an OpenAI-compatible server on 127.0.0.1:11435.
 "go:github.com/ardanlabs/kronk/cmd/kronk" = "1.32.6"
 # Upgrades go.mod files to match the pins above; see: mise run deps:list.

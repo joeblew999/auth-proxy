@@ -16,14 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       # SSOT: every tool comes from mise.toml. No setup-go, no goreleaser
       # action; the release task runs the pinned goreleaser.
       - name: Install mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4.3.0
 
       # Same tasks a developer runs locally; the workflow only provides the
       # signing identity that packslip needs.

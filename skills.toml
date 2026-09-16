@@ -8,12 +8,9 @@
 #   kind defaults to "gomod" when module is set.
 #   [source.<name>] with repo + ref: skills extracted from a GitHub tarball
 #   at a pinned commit. kind defaults to "github" when repo is set.
-
-[source.gsx]
-# The module the skills are read out of, and the go.mod that pins it.
-module = "github.com/gsxhq/gsx"
-module_dir = "spikes/hello-world"
-skills = ["gsx"]
+#
+# gsx/gsxui need no source here: they ship skills in their packslip releases,
+# and mise links them via [settings.skills] auto_sync.
 
 [source.cloudflare]
 repo = "cloudflare/skills"
