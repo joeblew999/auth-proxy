@@ -63,7 +63,7 @@ saying what to change.
 | Where | Start | Base URL |
 |---|---|---|
 | Locally | `mise run dev` | `http://127.0.0.1:56121/v1` |
-| Locally, no real keys | `mise run dev:mock` | `http://127.0.0.1:56121/v1` |
+| Locally, no real keys | `mise run server:mock` | `http://127.0.0.1:56121/v1` |
 | Cloudflare | `mise run deploy` | what `mise run url` prints, plus `/v1` |
 
 Clients use the base URL with the client key (`ADMIN_API_KEY`, created by
@@ -121,7 +121,7 @@ Everything except `/health` and the local login requires the client key, sent as
 
 ## TinyGo
 
-The Worker also builds with TinyGo (`mise run build:tinygo`, `mise run bench`).
+The Worker also builds with TinyGo (`mise run worker:build --env tinygo`, `mise run bench`).
 That build is about 1.9 MB instead of 15 MB, but serves 501 on `/mcp`, because the
 MCP SDK needs eight things TinyGo 0.42 lacks or gets wrong
 ([tinygo-org/tinygo#5684](https://github.com/tinygo-org/tinygo/issues/5684)).

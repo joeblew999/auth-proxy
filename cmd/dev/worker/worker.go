@@ -1,7 +1,8 @@
-// Package worker is the Cloudflare Worker side of the developer workflow: this
-// clone's Worker URL, a deploy that leaves no personal value in git, secrets,
-// and waiting for a Worker to come online. It runs as `dev url` and
-// `dev worker ...` through cmd/dev.
+// Package worker is the Cloudflare Worker side of the developer workflow: a
+// Worker's URL for this clone, a deploy that leaves no personal value in git,
+// its logs, its secrets, a smoke round trip on workerd, and waiting for it to
+// come online. Every command takes the Worker's directory, the one holding
+// its wrangler.toml, so a second Worker is a second directory and nothing else.
 //
 // Nothing here knows the project's providers or secrets. Names arrive on the
 // command line or stdin; values only ever pass through fnox and wrangler.
@@ -17,34 +18,33 @@ import (
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/internal/cli"
 )
 
-const usage = `Every command takes --dir DIR: the Worker's directory, holding its
-wrangler.toml (default "."). mise.local.toml stays in the current directory,
-the repo root, because the account is the repo's, not one Worker's.
-
-dev url [--worker[=BOOL]] [--dir DIR] [--env NAME] [--local URL] [--refresh]
-    print the URL to talk to: the deployed Worker when --worker, else --local
+const usage = `dev url DIR [--worker[=BOOL]] [--env NAME] [--local URL] [--refresh]
+    print the URL to talk to: the Worker in DIR when --worker, else --local
     (default empty). The account's workers.dev subdomain is read once with the
     credentials in fnox and kept in gitignored mise.local.toml; --refresh asks
     again, for after switching accounts.
-
-dev worker deploy [--dir DIR] [--env NAME]
-    deploy from a throwaway copy of wrangler.toml, so the ids wrangler writes
-    back into its config never reach git, then say what was created or that
-    the deployed Worker's bindings were inherited
-dev worker wait URL [--timeout DURATION]
-    wait until URL answers 200 (a first deploy's hostname takes a while)
-dev worker smoke [--dir DIR] [--env NAME] [--path P] [--expect TEXT] [--timeout DURATION]
+dev deploy DIR [--env NAME] [--wait PATH]
+    deploy from a throwaway copy of DIR/wrangler.toml, so the ids wrangler
+    writes back never reach git; say what was created or inherited; with
+    --wait, wait until the Worker answers 200 at PATH
+dev logs DIR [--env NAME]
+    stream the deployed Worker's logs (wrangler tail)
+dev smoke DIR [--env NAME] [--path P] [--expect TEXT] [--timeout DURATION]
     run the Worker on local workerd with wrangler dev, request P (default /),
     and fail unless it answers 200 with TEXT in the body
-dev worker keys set NAME [--dir DIR] [--generate] [--if-missing] [--env NAME]
+dev wait URL [--timeout DURATION]
+    wait until URL answers 200 steadily
+dev keys set DIR NAME|OWNER [--names LIST] [--generate] [--if-missing] [--env NAME]
     store a secret in fnox and push it to the Worker; --generate makes a random
-    value instead of prompting, --if-missing leaves an existing one alone
-dev worker keys push [--dir DIR] [--env NAME] [--fix TEMPLATE]
-    read "NAME<TAB>PROVIDER" lines on stdin and push each secret from fnox to
-    the Worker; a missing one prints TEMPLATE with {provider} filled in, and
-    any problem makes the exit code 1
+    value instead of prompting, --if-missing leaves an existing one alone. With
+    --names, the project's "NAME<TAB>OWNER" lines, an owner such as a provider
+    name resolves to its secret
+dev keys push DIR [--env NAME] [--fix TEMPLATE]
+    read "NAME<TAB>OWNER" lines on stdin and push each secret from fnox to the
+    Worker; a missing one prints TEMPLATE with {provider} filled in, and any
+    problem makes the exit code 1
 
-Run from the repo root. Needs wrangler.toml, fnox and wrangler.
+Run from the repo root. Needs fnox and wrangler.
 `
 
 // UsageError means the arguments were wrong; cmd/dev prints usage on it.
@@ -65,111 +65,125 @@ func flags(name string, stderr io.Writer) *flag.FlagSet {
 	return fs
 }
 
-func dirFlag(fs *flag.FlagSet) *string {
-	return fs.String("dir", ".", "the Worker's directory, holding its wrangler.toml")
+// dirAnd parses "DIR [flags]" from args: the directory first, then flags.
+func dirAnd(fs *flag.FlagSet, args []string, positional int) (dir string, rest []string, err error) {
+	if len(args) == 0 || args[0] == "" || args[0][0] == '-' {
+		return "", nil, usageErr("%s: the Worker's directory comes first", fs.Name())
+	}
+	if err := fs.Parse(args[1:]); err != nil {
+		return "", nil, usageErr("%s: %v", fs.Name(), err)
+	}
+	if fs.NArg() != positional {
+		return "", nil, usageErr("%s: wrong arguments", fs.Name())
+	}
+	return args[0], fs.Args(), nil
 }
 
-// RunURL is `dev url`.
-func RunURL(args []string, stdout, stderr io.Writer) error {
-	fs := flags("url", stderr)
-	dir := dirFlag(fs)
-	var worker, refresh cli.Bool
-	fs.Var(&worker, "worker", "the deployed Worker's URL; otherwise --local")
-	fs.Var(&refresh, "refresh", "ask the API again instead of reading mise.local.toml")
-	env := fs.String("env", "", "wrangler environment; its Worker is <name>-<env> unless it sets a name")
-	local := fs.String("local", "", "what to print when not --worker")
-	if err := fs.Parse(args); err != nil {
-		return usageErr("url: %v", err)
-	}
-	if fs.NArg() != 0 {
-		return usageErr("url takes no arguments")
-	}
-	u, err := URL(*dir, *env, bool(worker), *local, bool(refresh))
-	if err != nil {
-		return err
-	}
-	fmt.Fprintln(stdout, u)
-	return nil
-}
-
-// Run is `dev worker ...`. Args are everything after "worker".
-func Run(args []string, stdout, stderr io.Writer) error {
-	if len(args) == 0 {
-		return usageErr("worker: missing subcommand")
-	}
-	switch args[0] {
+// Run dispatches the Worker commands. Args are everything after the verb,
+// which is passed as verb.
+func Run(verb string, args []string, stdout, stderr io.Writer) error {
+	switch verb {
+	case "url":
+		fs := flags("url", stderr)
+		var asWorker, refresh cli.Bool
+		fs.Var(&asWorker, "worker", "the deployed Worker's URL; otherwise --local")
+		fs.Var(&refresh, "refresh", "ask the API again instead of reading mise.local.toml")
+		env := fs.String("env", "", "wrangler environment; its Worker is <name>-<env> unless it sets a name")
+		local := fs.String("local", "", "what to print when not --worker")
+		dir, _, err := dirAnd(fs, args, 0)
+		if err != nil {
+			return err
+		}
+		u, err := URL(dir, *env, bool(asWorker), *local, bool(refresh))
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(stdout, u)
+		return nil
 	case "deploy":
-		fs := flags("worker deploy", stderr)
-		dir := dirFlag(fs)
+		fs := flags("deploy", stderr)
 		env := fs.String("env", "", "wrangler environment to deploy")
-		if err := fs.Parse(args[1:]); err != nil {
-			return usageErr("worker deploy: %v", err)
+		wait := fs.String("wait", "", "path to wait for a 200 on after deploying, e.g. /health")
+		dir, _, err := dirAnd(fs, args, 0)
+		if err != nil {
+			return err
 		}
-		if fs.NArg() != 0 {
-			return usageErr("worker deploy takes no arguments")
+		if err := Deploy(stdout, dir, *env); err != nil {
+			return err
 		}
-		return Deploy(stdout, *dir, *env)
-	case "wait":
-		fs := flags("worker wait", stderr)
-		timeout := fs.Duration("timeout", 2*time.Minute, "how long to keep trying")
-		if err := fs.Parse(args[1:]); err != nil {
-			return usageErr("worker wait: %v", err)
+		if *wait == "" {
+			return nil
 		}
-		if fs.NArg() != 1 {
-			return usageErr("worker wait needs exactly one URL")
+		u, err := URL(dir, *env, true, "", false)
+		if err != nil {
+			return err
 		}
-		return Wait(stdout, fs.Arg(0), *timeout)
+		return Wait(stdout, u+*wait, 2*time.Minute)
+	case "logs":
+		fs := flags("logs", stderr)
+		env := fs.String("env", "", "wrangler environment")
+		dir, _, err := dirAnd(fs, args, 0)
+		if err != nil {
+			return err
+		}
+		return Logs(dir, *env)
 	case "smoke":
-		fs := flags("worker smoke", stderr)
-		dir := dirFlag(fs)
+		fs := flags("smoke", stderr)
 		env := fs.String("env", "", "wrangler environment to run")
 		path := fs.String("path", "/", "what to request")
 		expect := fs.String("expect", "", "text the body must contain")
 		timeout := fs.Duration("timeout", 3*time.Minute, "how long wrangler dev may take to start")
-		if err := fs.Parse(args[1:]); err != nil {
-			return usageErr("worker smoke: %v", err)
+		dir, _, err := dirAnd(fs, args, 0)
+		if err != nil {
+			return err
 		}
-		if fs.NArg() != 0 {
-			return usageErr("worker smoke takes no arguments")
+		return Smoke(stdout, dir, *env, *path, *expect, *timeout)
+	case "wait":
+		fs := flags("wait", stderr)
+		timeout := fs.Duration("timeout", 2*time.Minute, "how long to keep trying")
+		if err := fs.Parse(args); err != nil {
+			return usageErr("wait: %v", err)
 		}
-		return Smoke(stdout, *dir, *env, *path, *expect, *timeout)
+		if fs.NArg() != 1 {
+			return usageErr("wait needs exactly one URL")
+		}
+		return Wait(stdout, fs.Arg(0), *timeout)
 	case "keys":
-		return runKeys(args[1:], stdout, stderr)
+		return runKeys(args, stdout, stderr)
 	}
-	return usageErr("worker: unknown subcommand %q", args[0])
+	return usageErr("unknown command %q", verb)
 }
 
 func runKeys(args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
-		return usageErr("worker keys: missing subcommand")
+		return usageErr("keys: set or push")
 	}
 	switch args[0] {
 	case "set":
-		fs := flags("worker keys set", stderr)
-		dir := dirFlag(fs)
+		fs := flags("keys set", stderr)
 		var generate, ifMissing cli.Bool
 		fs.Var(&generate, "generate", "make a random 64-hex-character value instead of prompting")
 		fs.Var(&ifMissing, "if-missing", "do nothing when fnox already has the secret")
 		env := fs.String("env", "", "wrangler environment to push to")
-		if err := fs.Parse(args[1:]); err != nil {
-			return usageErr("worker keys set: %v", err)
+		names := fs.String("names", "", "the project's NAME<TAB>OWNER lines, so an owner resolves to its secret")
+		dir, rest, err := dirAnd(fs, args[1:], 1)
+		if err != nil {
+			return err
 		}
-		if fs.NArg() != 1 || fs.Arg(0) == "" {
-			return usageErr("worker keys set needs exactly one secret name")
+		name, err := Resolve(*names, rest[0])
+		if err != nil {
+			return err
 		}
-		return KeysSet(os.Stdin, stdout, stderr, fs.Arg(0), bool(generate), bool(ifMissing), *dir, *env)
+		return KeysSet(os.Stdin, stdout, stderr, name, bool(generate), bool(ifMissing), dir, *env)
 	case "push":
-		fs := flags("worker keys push", stderr)
-		dir := dirFlag(fs)
+		fs := flags("keys push", stderr)
 		env := fs.String("env", "", "wrangler environment to push to")
 		fix := fs.String("fix", "mise run keys:set {provider}", "what to run for a secret fnox does not have")
-		if err := fs.Parse(args[1:]); err != nil {
-			return usageErr("worker keys push: %v", err)
+		dir, _, err := dirAnd(fs, args[1:], 0)
+		if err != nil {
+			return err
 		}
-		if fs.NArg() != 0 {
-			return usageErr("worker keys push reads its list on stdin and takes no arguments")
-		}
-		return KeysPush(os.Stdin, stdout, *dir, *env, *fix)
+		return KeysPush(os.Stdin, stdout, dir, *env, *fix)
 	}
-	return usageErr("worker keys: unknown subcommand %q", args[0])
+	return usageErr("keys: unknown subcommand %q", args[0])
 }

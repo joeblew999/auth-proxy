@@ -40,7 +40,7 @@ check "hk-configure" Bash '{"command":"cp /tmp/hk.bak hk.pkl"}'
 check "hk-configure" Bash '{"command":"cp /tmp/hk.bak hk.pkl && rm /tmp/hk.bak"}'
 check "hk-configure" Bash '{"command":"git checkout -- hk.pkl"}'
 check "hk-configure" Bash '{"command":"tee hk.pkl <<EOF\nx\nEOF"}'
-check "gsx gsxui"    Bash '{"command":"sed -i \"\" \"s/a/b/\" spikes/x.gsx && go build ./..."}'
+check "gsx gsxui"    Bash '{"command":"sed -i \"\" \"s/a/b/\" cmd/gui/x.gsx && go build ./..."}'
 check "gsx gsxui hk-configure" Bash '{"command":"cp a.gsx b.gsx; cp c hk.pkl"}'
 check "wrangler"     Bash '{"command":"sed -i \"\" \"s/a/b/\" wrangler.toml"}'
 

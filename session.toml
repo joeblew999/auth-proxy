@@ -1,6 +1,6 @@
 # Where the repo's Claude Code skills come from. `mise run dev:session:sync`
 # writes them into .claude/skills; `mise run dev:session:bump` moves a github
-# pin to upstream HEAD. Nothing in cmd/dev/skills names a skill or a pin.
+# pin to upstream HEAD. Nothing in cmd/dev/sessionpin names a skill or a pin.
 #
 # Two source kinds:
 #   [source.<name>] with module + module_dir: skills read out of a Go module

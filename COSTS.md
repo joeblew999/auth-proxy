@@ -90,6 +90,6 @@ Sources:
   to a working endpoint, and it needs no SuperGrok commitment.
 - **Or pay nothing at all.** Providers are configured in providers.toml, so the proxy
   is not tied to xAI: any OpenAI-compatible provider works, including a local one
-  with `auth = "none"`. `mise run dev --mock` exercises the whole path for **$0**, and a local
+  with `auth = "none"`. `mise run dev:mock` exercises the whole path for **$0**, and a local
   Ollama/llama.cpp or a free-tier hosted provider costs nothing to run. See
   `.plan/done/any-provider-support.md`.

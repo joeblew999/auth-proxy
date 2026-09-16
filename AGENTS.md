@@ -6,12 +6,13 @@
 
 - **Every workflow is a mise task.** `mise tasks` lists them. Do not document or
   rely on raw `go`, `wrangler` or `fnox` commands; if a workflow is missing, add a
-  task. **A task orchestrates, `dev` computes:** a task is a line or two in
-  `mise.toml` (what runs, `depends`, and for a build the `sources` and `outputs`
-  that let mise skip it when nothing changed); anything with a branch, a loop, a
-  parse or an API call is a subcommand of `cmd/dev`, with a test. No shell
-  scripts behind tasks; the Claude Code hook in `.claude/hooks/` is the one
-  script left, because it has to work before anything is built.
+  task. **A task names a stage of a command, `dev` does it:** `bin/dev build|run|
+  check|deploy|url|logs DIR` reads the directory and knows what a Go main, a
+  package.json, gsx sources and a wrangler.toml need. A task is one line in
+  `mise.toml`; anything with a branch, a loop, a parse or an API call is in
+  `cmd/dev`, with a test. No shell scripts behind tasks; the Claude Code hook in
+  `.claude/hooks/` is the one script left, because it has to work before anything
+  is built.
 - **Every error names its fix.** A config error names the setting, a missing key
   prints `mise run keys:set <provider>`, and so on. Keep it that way in new code.
 - **Providers live only in `providers.toml`.** Secret values live only in fnox
@@ -60,31 +61,36 @@ at least once.
 
 ## Tasks
 
+Four commands, a stage each, and `bin/dev <stage> <dir>` reads the directory
+and does the rest. `mise tasks` lists everything; these are the ones to know.
+
 | Task | Purpose |
 |---|---|
-| `mise run dev` / `dev:mock` | local proxy on `127.0.0.1:56121` (real providers, or the bundled mock) |
-| `mise run svc:start [proxy\|proxy-mock]` / `svc:stop` / `svc:status` / `svc:logs` | the same proxy as pitchfork daemons, so `dev` never blocks the terminal |
-| `mise run status` / `status --worker` | every provider's readiness, with the fix for each problem |
-| `mise run url` / `url --env tinygo` | this clone's deployed Worker URL, from the account in fnox (read once into gitignored `mise.local.toml`) |
-| `mise run models` / `chat <model> [prompt]` | list models, stream a prompt (`--worker` for the deployed Worker) |
-| `mise run login` / `login --worker` | SuperGrok login for `auth = "xai-oauth"` providers |
-| `mise run keys:set <provider>` / `keys:push` | store a key in fnox and push it; push everything |
-| `mise run lint` | hk checks: gofmt, vet, tidy, whitespace, secrets |
-| `mise run test` | lint, wasm vet, all tests, skills check, spike check |
-| `mise run dev:session:sync` / `dev:session:verify` / `dev:session:bump` | re-sync the repo's pinned Claude Code skills; hold a fresh session against `SESSION.lock` (`--update` re-records it); move github pins to upstream HEAD |
-| `mise run dev:bootstrap` / `dev:mcp` | install the git hooks and sync skills (runs after `mise install`); check every declared MCP server connects |
-| `mise run dev:browser` | drive an app in a headless Chrome and run its probe script |
-| `mise run gui:*` | the gsx + gsxui spike: `dev`, `build`, `serve`, `check`, and as a Worker `workerd`, `smoke`, `deploy`, `url` |
-| `mise run deps:list` / `deps:upgrade` | list / interactively apply Go module upgrades in every module |
-| `mise run build` / `build:tinygo` | local binary and Worker; both Workers plus sizes |
-| `mise run deploy` / `deploy:tinygo` | validate `providers.toml`, then deploy from a throwaway copy of `wrangler.toml` |
-| `mise run release` / `release:snapshot` | publish a GitHub Release (packslip manifest included by the workflow); build the artifacts locally |
-| `mise run logs`, `setup`, `bench` | Worker logs, one-time setup, Go vs TinyGo comparison |
+| `mise run server:run` (alias `dev`) / `server:mock` | the proxy on `127.0.0.1:56121` with real providers, or against the bundled mock |
+| `mise run worker:deploy` (alias `deploy`) / `worker:deploy:tinygo` | validate `providers.toml`, then deploy the proxy Worker; or its TinyGo build as the `-tinygo` Worker |
+| `mise run worker:url` (alias `url`) / `worker:logs` (alias `logs`) / `worker:run` | this clone's proxy Worker URL, its live logs, the Worker on local workerd |
+| `mise run gui:run` / `gui:dev` / `gui:workerd` / `gui:deploy` / `gui:url` | the GUI natively, with live reload, on local workerd, deployed, its URL |
+| `mise run status` / `models` / `chat <model> [prompt]` / `login` | the proxy CLI against the local proxy; `--worker` for the deployed one |
+| `mise run setup` | one-time: Worker URL, client key if missing, every key pushed, what is still missing |
+| `mise run keys:set <name\|provider\|admin>` / `keys:push` | store a secret in fnox and push it; push everything the project's `secrets` task lists |
+| `mise run build` / `<cmd>:build` | every command, or one; a Worker's wasm per environment (`--env tinygo`) |
+| `mise run check` / `<cmd>:check` | the project's checks, or one command's: gsx fmt, vet, test, the workerd round trip, the browser probe |
+| `mise run test` / `lint` | lint, the session and hook checks, then `check`; hk alone |
+| `mise run bench` | Go vs TinyGo proxy Worker in local workerd against the mock |
+| `mise run svc:start <daemon>` / `svc:stop` / `svc:status` / `svc:logs <daemon>` | the daemons in `pitchfork.toml` (`proxy`, `proxy-mock`, `mock`), so nothing blocks a terminal |
+| `mise run dev:session:sync` / `dev:session:verify` / `dev:session:bump` | re-sync the pinned Claude Code skills; hold a fresh session against `SESSION.lock` (`--update` re-records); move github pins to upstream HEAD |
+| `mise run dev:bootstrap` / `dev:mcp` / `dev:hooks:check` / `dev:browser` | wire a fresh clone (runs after `mise install`); every MCP server connects; the skill hook fires right; drive an app in a headless Chrome |
+| `mise run deps:list` / `deps:upgrade` | Go module upgrades in every module |
+| `mise run release <version>` / `release:snapshot` | publish a GitHub Release fully locally; build the artifacts only |
 
-Every task is in `mise.toml`, one or two lines each; the builds carry
-`sources` and `outputs`, so a second `mise run build` is a no-op. What a task
-cannot say in a line it hands to `bin/dev` (`cmd/dev`). Run `mise run lint`
-after every Go change, `mise run test` before committing.
+Every task is one line in `mise.toml`. The file has two halves: **the stack**,
+which names nothing of this project and is meant to be identical in every repo
+on it, reaching the project only through `[vars]` and three tasks the project
+supplies (`check`, what `test` runs; `validate`, what `deploy` runs first;
+`secrets`, the `NAME<TAB>OWNER` lines `keys:*` work from); and **this
+project**, a line per command and stage. What a line cannot say it hands to
+`bin/dev` (`cmd/dev`). Run `mise run lint` after every Go change, `mise run
+test` before committing.
 
 ## Code layout
 
@@ -99,7 +105,7 @@ after every Go change, `mise run test` before committing.
 | `cmd/server` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
 | `cmd/worker` | the proxy as a Cloudflare Worker: entry point (fetch client, KV token store), **its own `wrangler.toml`** and its gitignored `build/`. A Worker owns everything about itself; nothing of it lives at the root |
 | `cmd/gui` | separate module: the GUI spike, a native server and a Cloudflare Worker from one handler, with its own `wrangler.toml` (`mise run gui:*`); see its README |
-| `cmd/dev` | the stack's developer tool, not shipped and not project-specific: `url`, `worker` (deploy, wait, keys; every one takes `--dir`), `session`, `browser`, `sizes`, `deps`, `mcp`, `release`. Each is a package with tests; a mise task that drives one is named after it (`dev:browser`, `dev:session:sync`) |
+| `cmd/dev` | the stack's developer tool, not shipped and not project-specific: the stages `build`, `run`, `check` (package `app`, which reads a command directory) and `deploy`, `url`, `logs`, `smoke`, `wait`, `keys` (package `worker`, every one taking the Worker's directory), plus `session`, `browser`, `sizes`, `deps`, `mcp`, `release`. Each is a package with tests |
 | `cmd/bench` | this proxy's Go vs TinyGo comparison in local workerd; project code, so not in `cmd/dev` |
 | `internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `cmd/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
@@ -124,9 +130,10 @@ Rules that keep the design working:
 - **Check Worker behaviour in workerd, not only with `go test`.** `mise run bench`
   runs both Worker builds locally against the mock.
 - **A Worker owns its `wrangler.toml` and its `build/`**, in its own directory
-  (`cmd/worker`, `cmd/gui`). Tasks and `dev` reach it through `--dir`, so a
-  second Worker is another directory and a few one-line tasks, not another set
-  of tooling.
+  (`cmd/worker`, `cmd/gui`). Every `dev` stage takes the directory, so a second
+  Worker is another directory and a few one-line tasks, not another set of
+  tooling. An environment whose `main` lives under `build/tinygo` is built with
+  TinyGo; any other with Go.
 - **`wrangler.toml` names no account and no resource id.** The account is
   `CLOUDFLARE_ACCOUNT_ID` from fnox, the KV namespace is provisioned per account
   on the first deploy and stays linked, and `deploy` runs wrangler on a throwaway

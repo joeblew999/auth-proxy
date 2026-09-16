@@ -314,7 +314,7 @@ successful install.
 #### A1 result, 2026-09-15: done and validated
 
 Stages A and B are built in **`cmd/gui/`** (`spikes/hello-world/` until
-`c762bd6`; its tasks were `hello:*` until they became `gui:*` on 2026-09-16), a separate Go module in this repo (the root module and its tests
+`c762bd6`), a separate Go module in this repo (the root module and its tests
 are untouched). Stage C folds it into the root app.
 
 - **Scaffolded the documented way:** `gsx init hello-world --module … --yes` (Vite
@@ -340,10 +340,10 @@ are untouched). Stage C folds it into the root app.
     run the documented order.
   - A `go get -tool` run by hand had bumped `golang.org/x/tools` in the root
     module; the root `go.mod` was restored.
-- **mise tasks** (`mise tasks | grep hello`): `hello:dev`, `hello:build`,
-  `hello:serve`, `hello:check` (build, `gsx fmt -l`, `go vet`, TinyGo wasm), and
-  hidden `hello:install` (`npm ci`, skipped when the lockfile is unchanged).
-  `mise run test` runs `hello:check`. Each task was run through mise, from a
+- **mise tasks** (`mise tasks | grep gui`): `gui:dev`, `gui:build`,
+  `gui:serve`, `gui:check` (build, `gsx fmt -l`, `go vet`, TinyGo wasm), and
+  hidden `gui:install` (`npm ci`, skipped when the lockfile is unchanged).
+  `mise run test` runs `gui:check`. Each task was run through mise, from a
   fresh-clone state, with nothing left running.
 - **Still open, moved to A2:** nothing yet keeps the mise gsx pin and the spike's
   go.mod tool pin in step, and no skills are installed. The picker was written
@@ -355,9 +355,9 @@ are untouched). Stage C folds it into the root app.
   `wrangler`, `durable-objects`, `workers-best-practices`) are in
   `.claude/skills`, pinned in `SKILLS.lock`, synced by the mise `postinstall`
   hook, drift-checked by `mise run test`, and proven loadable by
-  `mise run skills:verify` (a headless `claude -p` session lists all six). The
+  `mise run dev:session:verify` (a headless `claude -p` session lists all six). The
   tooling is Go (`cmd/dev`) with tests, after the shell version mis-parsed `ps`
-  output twice. `skills:check` warns when a Claude Code session predates the
+  output twice. `dev:session:check` warns when a Claude Code session predates the
   skills, since a session only reads them at startup. Since then: the tasks
   are `dev:session:sync|check|verify`; gsx and gsxui come from packslip
   releases carrying their own skills, so `templ-to-gsx-migration` went and
@@ -386,13 +386,13 @@ are untouched). Stage C folds it into the root app.
   - **The page buffers its render.** The gsx scaffold renders straight to the
     `ResponseWriter`, so a failure part way through logged "superfluous
     WriteHeader" and served half a page.
-- **`mise run dev:browser`** (`hello:browser` when it landed) is the new check:
+- **`mise run dev:browser`** is the new check:
   `bin/dev browser` serves the app on a free port, starts a headless Chrome, and
   a probe drives it over the
   DevTools protocol (Node's built-in WebSocket, no dependency). It proves the
   thing curl cannot: clicking a mode really swaps to that mode's models, one
   panel at a time, and the Vite-bundled JS runs with no console errors. It is
-  part of `hello:check`, so `mise run test` runs it. Without Chrome it says so
+  part of `gui:check`, so `mise run test` runs it. Without Chrome it says so
   loudly and passes; `CHROME=/path/to/chrome` points it at one. gsxui tests its
   own behaviour modules with Playwright — if these checks grow past a handful,
   switch to that rather than growing the probe.

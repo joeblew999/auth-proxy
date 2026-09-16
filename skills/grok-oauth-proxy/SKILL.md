@@ -15,7 +15,7 @@ ever hold one key.
 Run everything through mise from the repo root; `mise tasks` lists it all.
 
 - `mise run dev` — proxy locally on `http://127.0.0.1:56121/v1`
-- `mise run dev --mock` — same, against the bundled mock, no real keys
+- `mise run server:mock` — same, against the bundled mock, no real keys
 - `mise run status` — every provider's readiness, with the fix for each problem
 - `mise run models` / `chat <model> [prompt]` — list models, stream a prompt
 - `mise run login` — SuperGrok login for `auth = "xai-oauth"` providers

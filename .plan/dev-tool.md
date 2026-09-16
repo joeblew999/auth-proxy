@@ -1,9 +1,11 @@
 # Plan: one dev tool for every repo on this stack
 
-**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo: every task is a line in
-`mise.toml` (172 lines, from 417), every piece of logic is a `dev` subcommand
-with a test, `cmd/dev` holds nothing project-specific, each Worker owns its
-`wrangler.toml`, and `mise-tasks/` and the shell helpers are gone. Step 3 is DEFERRED by the owner
+**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo: `mise.toml` is 116 lines
+(from 417), a stack half that names nothing of this project and a project half
+that is a grid of four commands by stage; `dev build|run|check DIR` reads a
+command directory and does the rest; every Worker stage takes its directory;
+`cmd/dev` holds nothing project-specific; `mise-tasks/` and the shell helpers
+are gone. Step 3 is DEFERRED by the owner
 the same day: this repo first, made right on this stack, and nothing extracted
 until it is. Not `joeblew999/.github` (the fleet task library: nu bodies in
 TOML includes, reusable workflows) and not the go-htmx4 way (a template repo
@@ -60,10 +62,23 @@ generic part must be one released tool, pinned like fnox and hk.
 | `dev/mcp`: `grep -i` over `claude mcp list` | `dev mcp check` |
 | sizes in `printf` arithmetic, twice | `dev sizes` |
 
-`cmd/dev` is now: `url`, `worker` (deploy, wait, keys), `session`, `browser`,
-`bench`, `sizes`, `deps`, `mcp`, `release`. Each is a package; the new ones have
-tests (`worker` 8, the rest 1 each). `golang.org/x/term` was added for the
-hidden prompt.
+`cmd/dev` is now: `url`, `worker` (deploy, wait, smoke, keys), `session`,
+`browser`, `sizes`, `deps`, `mcp`, `release`, `proc`. Each is a package with
+tests. `golang.org/x/term` was added for the hidden prompt.
+
+**The shape that makes step 3 a copy, not a port (2026-09-16):** the owner's
+rule, "a handful of commands, a task per stage of each, the dev tooling does
+the rest". `dev build|run|check DIR` reads a command directory (Go main,
+package.json, gsx sources, wrangler.toml) and knows what each needs; the Worker
+stages take the directory too. So the project half of `mise.toml` is a grid,
+one line per command and stage, and `mise.toml` has a stack half and a project
+half. The stack half names nothing of this
+project. It reaches the project through `[vars]` (`app`, `worker`) and three
+tasks the project must supply: `check` (what `test` runs after the stack's own
+checks), `validate` (what `deploy` runs first) and `secrets` (`NAME<TAB>OWNER`
+lines; `keys:push` pipes them to `dev worker keys push`, `keys:set` resolves a
+provider name or `admin` against them). `dev init` will write the stack half
+verbatim and stub the three.
 
 **Proved by running**, not by reading: `status`, `status --worker`,
 `models --worker`, `url`, `url --env tinygo`, `build` twice, `build:tinygo`,

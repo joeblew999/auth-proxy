@@ -1,4 +1,4 @@
-# Two providers backed by the same local mock (mise run dev --mock), so routing,
+# Two providers backed by the same local mock (mise run dev:mock), so routing,
 # prefixes and both auth modes can be exercised without real keys.
 default = "mock"
 

@@ -294,3 +294,18 @@ func TestHasBindings(t *testing.T) {
 		t.Fatal("an env binding was not seen")
 	}
 }
+
+func TestResolveMapsOwnersToSecrets(t *testing.T) {
+	names := "ADMIN_API_KEY\tadmin\nXAI_API_KEY\txai\n"
+	for arg, want := range map[string]string{"admin": "ADMIN_API_KEY", "xai": "XAI_API_KEY", "XAI_API_KEY": "XAI_API_KEY"} {
+		if got, err := Resolve(names, arg); err != nil || got != want {
+			t.Errorf("%q: got %q, %v", arg, got, err)
+		}
+	}
+	if _, err := Resolve(names, "groq"); err == nil || !strings.Contains(err.Error(), "the secrets are: ADMIN_API_KEY, XAI_API_KEY") {
+		t.Fatalf("unknown owner: %v", err)
+	}
+	if got, _ := Resolve("", "ANY"); got != "ANY" {
+		t.Fatalf("no list: got %q", got)
+	}
+}

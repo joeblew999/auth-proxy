@@ -9,11 +9,10 @@ Run everything through mise from the repo root; nothing here needs remembering.
 | Task | What it does |
 |---|---|
 | `mise run gui:dev` | Vite plus the Go server with live reload, on http://localhost:5173 |
-| `mise run gui:serve` | build and run the binary on http://localhost:7777 |
-| `mise run gui:build` | `vite build` → `gsx generate` → `go build` (that order: `vite build` empties `dist/`, which the binary embeds) |
-| `mise run gui:check` | formatting, vet, tests, a TinyGo wasm build, the browser check and the workerd check — also run by `mise run test` |
+| `mise run gui:run` | build and run the binary on http://localhost:7777 |
+| `mise run gui:build` | `dev build cmd/gui`: `npm ci` when stale, `vite build`, `gsx generate`, `go build` to `bin/gui`, and the Worker's wasm (that order: `vite build` empties `dist/`, which the binary embeds) |
+| `mise run gui:check` | `dev check cmd/gui`: gsx formatting, vet, tests, the workerd round trip and the browser probe; `gui:tinygo` proves the components compile under TinyGo. `mise run test` runs both |
 | `mise run gui:workerd` | the same app as a Cloudflare Worker on local workerd (`wrangler dev`) |
-| `mise run gui:smoke` | build the Worker, start it on workerd, request one page and check it |
 | `mise run gui:deploy` | deploy it as `grok-oauth-proxy-gui` and wait for its page; `gui:url` prints where |
 | `mise run dev:browser` | drive the page in a headless Chrome and check the picker actually works (this spike is what it defaults to) |
 

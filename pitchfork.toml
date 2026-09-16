@@ -10,17 +10,17 @@
 #   mise run svc:stop         stop everything this project started
 
 [daemons.mock]
-run = "mise run dev:mock-server"
+run = "mise run mock:run"
 port = 18080
 ready_http = { url = "http://127.0.0.1:18080/v1/models", timeout = "15s" }
 
 [daemons.proxy]
-run = "mise run dev"
+run = "mise run server:run"
 port = 56121
 ready_http = { url = "http://127.0.0.1:56121/health", timeout = "15s" }
 
 [daemons.proxy-mock]
-run = "mise run dev:mock"
+run = "mise run server:mock"
 port = 56121
 ready_http = { url = "http://127.0.0.1:56121/health", timeout = "15s" }
 depends = ["mock"]

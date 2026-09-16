@@ -12,6 +12,28 @@ import (
 	"golang.org/x/term"
 )
 
+// Resolve turns what the developer typed into a secret name, given the
+// project's list of "NAME<TAB>OWNER" lines: an owner (a provider, "admin")
+// maps to its name, a name maps to itself, anything else is an error naming
+// what exists.
+func Resolve(names, arg string) (string, error) {
+	var known []string
+	for _, line := range strings.Split(names, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		known = append(known, fields[0])
+		if fields[0] == arg || (len(fields) > 1 && fields[1] == arg) {
+			return fields[0], nil
+		}
+	}
+	if strings.TrimSpace(names) == "" {
+		return arg, nil
+	}
+	return "", fmt.Errorf("%q is not a secret or an owner this project knows; the secrets are: %s", arg, strings.Join(known, ", "))
+}
+
 // KeysSet stores one secret in fnox and pushes it to the Worker. The value is
 // generated, or read hidden from a terminal, or read as one line from a pipe;
 // it is never an argument, so it is never in a process list or a shell history.
