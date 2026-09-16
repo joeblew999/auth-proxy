@@ -76,8 +76,7 @@ fi
 
 # --- svc: the same proxy as pitchfork daemons, for `mise run dev` without -----
 # blocking the terminal. pitchfork.toml supervises; these tasks are the commands
-# it runs and the controls around it. Replaces install-launchagent.sh for the
-# dev loop (launchd stays only if boot persistence is needed).
+# it runs and the controls around it.
 
 [tasks."dev:serve"]
 description = "Serve the proxy in the foreground (real providers; pitchfork runs this as the proxy daemon)"
