@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-#MISE description="gsx dev loop for spikes/hello-world: Vite + Go server with live reload on http://localhost:5173"
+#MISE description="gsx dev loop for cmd/gui: Vite + Go server with live reload on http://localhost:5173"
 #MISE depends=["hello:install"]
-#MISE dir="spikes/hello-world"
+#MISE dir="cmd/gui"
 #MISE raw=true
 npm run dev

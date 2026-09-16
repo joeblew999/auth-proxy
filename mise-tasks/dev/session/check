@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 #MISE hide=true
-#MISE depends=["build:sessionpin"]
-bin/sessionpin check
+#MISE depends=["build:dev"]
+bin/dev session check

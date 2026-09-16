@@ -2,7 +2,7 @@
 #MISE description="Build the local binary (bin/) and the Worker (build/go); --tinygo also builds the TinyGo Worker and compares sizes"
 #USAGE flag "--tinygo" help="Also build build/tinygo and print both sizes"
 set -euo pipefail
-go build -o bin/grok-oauth-proxy .
+go build -o bin/grok-oauth-proxy ./cmd/server
 mise run build:worker
 if [ "${usage_tinygo:-false}" = "true" ]; then
   mise run build:worker-tinygo

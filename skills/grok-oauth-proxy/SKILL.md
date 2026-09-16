@@ -42,10 +42,11 @@ key = "GROQ_API_KEY"   # the secret's name, never its value
 ## Code layout
 
 - `internal/proxy` — the HTTP handler both runtimes share. Never add
-  runtime-specific proxy logic to `main.go` or `worker.go`.
+  runtime-specific proxy logic to `cmd/server` or `cmd/worker`.
 - `internal/config` — the only code that reads the environment.
 - `internal/router` — model name to provider, no I/O.
 - `internal/xaiauth` — the Grok login (browser PKCE, device flow, refresh).
-- `main.go` — local CLI. `worker.go` — Worker entry point.
+- `cmd/server` — local CLI. `cmd/worker` — Worker entry point. `cmd/gui` — GUI (separate module).
+- `internal/bootstrap` — which providers file is used (`--config`, `PROVIDERS_TOML`, or the built-in one).
 
 Run `mise run test` after every Go change.

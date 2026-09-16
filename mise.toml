@@ -25,7 +25,7 @@ pitchfork = "latest"
 # 4.97's local runtime rejects wrangler.toml's compatibility_date.
 "npm:wrangler" = "4.131.1"
 
-# Go tools. Inside spikes/hello-world, builds use go.mod's tool pin
+# Go tools. Inside cmd/gui, builds use go.mod's tool pin
 # (go tool gsx); the fork tracks upstream, so the versions agree.
 "go:github.com/ardanlabs/kronk/cmd/kronk" = "1.32.6"   # local models on 127.0.0.1:11435
 "go:github.com/oligot/go-mod-upgrade" = "latest"   # see: mise run deps:list
@@ -73,7 +73,7 @@ run = [
 # --- bin/dev: this repo's own tooling, one task per `dev <group> <verb>` -------
 # File tasks in mise-tasks/dev/ (skills/*, browser).
 
-# --- spikes/hello-world: gsx + gsxui, used exactly as gsx documents ------------
+# --- cmd/gui: gsx + gsxui, used exactly as gsx documents ------------
 # Scaffolded with `gsx init --yes` (Vite starter) and `gsxui init` (Vite mode).
 # Order matters: `vite build` empties dist/, and the Go binary embeds dist/, so
 # the npm build must run before any Go build or vet. File tasks in
@@ -90,26 +90,20 @@ run = [
 hide = true
 run = [
   "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/go",
-  "GOOS=js GOARCH=wasm go build -o build/go/app.wasm .",
+  "GOOS=js GOARCH=wasm go build -o build/go/app.wasm ./cmd/worker",
 ]
 
 [tasks."build:worker-tinygo"]
 hide = true
 run = [
   "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=tinygo -o build/tinygo",
-  "tinygo build -o build/tinygo/app.wasm -target wasm -no-debug .",
+  "tinygo build -o build/tinygo/app.wasm -target wasm -no-debug ./cmd/worker",
 ]
 
 [tasks."build:cli"]
 hide = true
-run = "go build -o bin/grok-oauth-proxy ."
+run = "go build -o bin/grok-oauth-proxy ./cmd/server"
 
 [tasks."build:dev"]
 hide = true
 run = "go build -o bin/dev ./cmd/dev"
-
-# sessionpin is standalone on purpose: any repo can go install it and needs only
-# a session.toml, so it must not grow a dependency on anything here.
-[tasks."build:sessionpin"]
-hide = true
-run = "go build -o bin/sessionpin ./cmd/sessionpin"

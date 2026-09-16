@@ -82,28 +82,28 @@ before committing.
 
 | Path | Owns |
 |---|---|
-| `providers.toml` | the providers, built into every binary and the Worker |
+| `internal/bootstrap/providers.toml` (`providers.toml` symlinks to it) | the providers, built into every binary and the Worker |
 | `internal/config` | parsing and validating providers, resolving secrets; **the only code that reads the environment** (through the `getenv` it is given) |
 | `internal/router` | model name → provider, URL joining, model rewriting, merged `/v1/models`; no I/O |
 | `internal/proxy` | the HTTP handler used by **both** runtimes: client key, routing, provider auth, streaming, admin routes |
 | `internal/xaiauth` | the Grok login: browser PKCE, device flow, refresh, token stores |
 | `internal/mcp` | MCP tools `ask` and `list_models` (excluded from TinyGo builds) |
-| `main.go` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
-| `worker.go` | Worker entry point: fetch client, KV token store |
-| `config.go` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
+| `cmd/server` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
+| `cmd/worker` | Worker entry point: fetch client, KV token store |
+| `cmd/gui` | separate module: the GUI (`mise run hello:*`); see its README |
+| `cmd/dev` | developer tooling, not shipped: `browser`, `session`, `release` subcommands. Every mise task that drives it is named after the command (`dev:browser`) |
+| `internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `tools/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
-| `cmd/sessionpin` | the skills/plugins/MCP pinner. `sync` writes `.claude/skills` and the `.claude/settings.json` keys; `check` compares both to the pins; `verify` holds a real session against `.claude/skills/SESSION.lock`, which lists every skill the session is allowed — the only way to catch one arriving from a marketplace plugin or from claude.ai. Tool versions come from `mise ls`, never from parsing `mise.toml` |
-| `cmd/dev` | developer tooling, not shipped. `cmd/dev/main.go` only parses arguments; `cmd/dev/browser` holds the code. Every mise task that drives it is named after the command (`dev:browser`) |
 | `mise-tasks/` | every task as a file: groups are directories (`svc/`, `hello/`, `keys/`, `deps/`, `release/`, `dev/skills/`), top-level scripts sit at the root |
-| `session.toml` | what this repo pins: `[source.*]` blocks (gomod or github) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). The only place a skill, a pin or a plugin is *named*; `mise run dev:session:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |
+| `cmd/dev/rel` | release tooling behind `dev release ...` (`snapshot`, `packslip`, `publish`) |
 | `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike. Written by `mise run dev:session:verify --update`, checked at pre-push. It is what catches a skill arriving from a marketplace plugin or from claude.ai — the latter cannot be blocked by any project setting, only noticed |
 | `skills/` | the skill this repo's releases ship via packslip |
-| `spikes/hello-world` | separate module: the GUI toolchain spike (`mise run hello:*`); see its README |
+| `session.toml` + `cmd/dev/sessionpin` | what this repo pins: `[source.*]` blocks (gomod or github) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). `mise run dev:session:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |
 
 Rules that keep the design working:
 
-- **One handler.** Never add runtime-specific proxy logic to `main.go` or
-  `worker.go`; they only supply an HTTP client and a token store. The Worker and
+- **One handler.** Never add runtime-specific proxy logic to `cmd/server` or
+  `cmd/worker`; they only supply an HTTP client and a token store. The Worker and
   the local proxy drifted apart before this layout existed.
 - **No package globals and no env reads outside `internal/config`.** Tests build a
   `config.Config` with `config.Load` and a fake `getenv`.

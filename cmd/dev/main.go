@@ -1,23 +1,27 @@
 // Command dev holds this repo's developer tooling. It is not part of the proxy
 // binary: mise tasks build and run it, so nothing here ships to users.
 //
-// Skills pinning lives in cmd/sessionpin, which is standalone so that other repos
-// can use it. Each tool here is a package of its own, so what one owns is never
-// entangled with another, and this file does nothing but parse arguments and
-// say what is available.
+// Each tool is a package of its own, so what one owns is never entangled with
+// another, and this file does nothing but parse arguments and say what is
+// available.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/browser"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/rel"
+	"github.com/joeblew999/grok-oauth-proxy/cmd/dev/sessionpin"
 )
 
 const usage = `dev: developer tooling for this repo (run through mise).
 
   dev browser <server> <probe> [path]   serve an app, drive it in a headless Chrome, run the probe
+  dev session sync|check|verify|bump    pin Claude Code skills to session.toml
+  dev release snapshot|packslip|publish publish a GitHub Release fully locally
 `
 
 func main() {
@@ -30,6 +34,18 @@ func main() {
 			path = args[3]
 		}
 		err = browser.Check(os.Stdout, args[1], args[2], path)
+	case len(args) >= 1 && args[0] == "session":
+		err = sessionpin.Run(args[1:], os.Stdout, os.Stderr)
+		var uerr *sessionpin.UsageError
+		if errors.As(err, &uerr) {
+			fail(args)
+		}
+	case len(args) >= 1 && args[0] == "release":
+		err = rel.Run(args[1:], os.Stdout, os.Stderr)
+		var uerr *rel.UsageError
+		if errors.As(err, &uerr) {
+			fail(args)
+		}
 	default:
 		fail(args)
 	}

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 #MISE description="Hold a fresh Claude Code session against SESSION.lock; --update re-records it (needs a Claude Code login; runs at pre-push)"
-#MISE depends=["build:sessionpin"]
-bin/sessionpin verify
+#MISE depends=["build:dev"]
+bin/dev session verify

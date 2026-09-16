@@ -4,7 +4,7 @@ project_name: grok-oauth-proxy
 
 builds:
   - id: grok-oauth-proxy
-    main: .
+    main: ./cmd/server
     binary: grok-oauth-proxy
     env:
       - CGO_ENABLED=0

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="List available Go module upgrades in every module, without changing anything"
 set -euo pipefail
-for dir in . spikes/hello-world; do
+for dir in . cmd/gui; do
   echo "== $dir =="
   (cd "$dir" && go-mod-upgrade --list)
 done

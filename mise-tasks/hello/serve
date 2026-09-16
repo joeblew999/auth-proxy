@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-#MISE description="Build and run spikes/hello-world natively on http://localhost:7777"
+#MISE description="Build and run cmd/gui natively on http://localhost:7777"
 #MISE depends=["hello:build"]
-#MISE dir="spikes/hello-world"
+#MISE dir="cmd/gui"
 #MISE raw=true
 bin/hello-world
