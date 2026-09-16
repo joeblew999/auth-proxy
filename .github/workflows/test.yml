@@ -1,0 +1,32 @@
+name: Test
+
+# Proves the repo works on a machine nobody set up: mise install, then the
+# same test task a developer runs. Needs no secrets, so it stops before deploy.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      # SSOT: every tool comes from mise.toml. mise install also runs the
+      # postinstall bootstrap: skills synced, git hooks installed.
+      - name: Install mise and every tool
+        uses: jdx/mise-action@v4.3.0
+
+      - name: Test
+        run: mise run test
