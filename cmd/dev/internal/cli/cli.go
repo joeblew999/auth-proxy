@@ -49,9 +49,16 @@ func DirAnd(fs *flag.FlagSet, args []string, positional int) (dir string, rest [
 }
 
 // ParseInterleaved parses flags wherever they appear and returns the
-// positionals.
+// positionals. Everything after a bare "--" is positional, verbatim: that is
+// how `dev run DIR -- serve --config FILE` hands flags to the program it runs.
 func ParseInterleaved(fs *flag.FlagSet, args []string) ([]string, error) {
-	var positionals []string
+	var positionals, tail []string
+	for i, a := range args {
+		if a == "--" {
+			args, tail = args[:i], args[i+1:]
+			break
+		}
+	}
 	for len(args) > 0 {
 		if err := fs.Parse(args); err != nil {
 			return nil, err
@@ -62,5 +69,5 @@ func ParseInterleaved(fs *flag.FlagSet, args []string) ([]string, error) {
 			args = args[1:]
 		}
 	}
-	return positionals, nil
+	return append(positionals, tail...), nil
 }

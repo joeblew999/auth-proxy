@@ -18,3 +18,12 @@ func TestDirAndTakesFlagsAnywhere(t *testing.T) {
 		t.Fatal("a flag before the directory was accepted")
 	}
 }
+
+func TestParseInterleavedPassesEverythingAfterDoubleDash(t *testing.T) {
+	fs := flag.NewFlagSet("run", flag.ContinueOnError)
+	env := fs.String("env", "", "")
+	got, err := ParseInterleaved(fs, []string{"--env", "x", "--", "serve", "--config", "f.toml"})
+	if err != nil || *env != "x" || strings.Join(got, " ") != "serve --config f.toml" {
+		t.Fatalf("got %q %v env=%q", got, err, *env)
+	}
+}
