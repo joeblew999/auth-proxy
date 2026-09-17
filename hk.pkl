@@ -30,19 +30,10 @@ hooks {
     ["check"] { steps = linters }
     ["fix"] { steps = linters }
 
-    // Push time is where the expensive check goes. `session:verify` starts a
-    // real Claude Code session and holds it against SESSION.lock, which is the
-    // only way to catch a skill that arrived from somewhere no repo file names.
-    ["pre-push"] {
-        steps {
-            ["session_verify"] {
-                check = "mise run session:verify"
-            }
-            // Every MCP server .mcp.json declares must connect on a fresh
-            // clone. It needs the claude CLI, so it belongs here, not in check.
-            ["mcp_check"] {
-                check = "mise run session:mcp"
-            }
-        }
-    }
+    // No pre-push hook. `session:verify` ran here: it starts a real Claude
+    // Code session and holds it against SESSION.lock, so every push waited on
+    // a login and a model, and ordinary changes failed it — bumping a pin
+    // moves a skill, and the lock calls that drift. Run it by hand when the
+    // session is the thing you are working on: `mise run session:verify`,
+    // `mise run session:mcp`.
 }
