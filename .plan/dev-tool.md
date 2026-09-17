@@ -251,6 +251,50 @@ fresh repo with the history pushed. Not started.
 - **Owner's acts left:** the fork network; the hand-made namespace; and the
   `upstream` remote of this clone once the fork is detached.
 
+## 2026-09-17, the gaps, closed
+
+Asked "gaps?" and then "close ALL of them", the same day.
+
+- **Fly, for real.** With `FLY_API_TOKEN` in fnox (the owner's, org-wide):
+  `DEPLOY_SUFFIX=probe mise run site:deploy --wait /` in the gsxui fork
+  created `gsxui-site-probe` (Fly app names are global and upstream owns the
+  committed one, so `dev deploy` now creates a missing app, `FLY_ORG` naming
+  the org), built the image on Fly's builder, deployed, answered 200 with
+  the site, and `mise run site:delete --yes` destroyed it; the account is
+  empty again. Secrets on Fly (`flyctl secrets import` on stdin) remain
+  proven only through the tool's seam, since the site needs none.
+- **The on-demand release workflow, run.** `gh workflow run release.yml -f
+  version=0.4.3` on the tool tagged, built, signed with the key from the
+  Actions secret and published; 0.4.3 installed here from it.
+- **A scaffolded repo, pushed.** `github.com/joeblew999/hello-stack` is
+  `dev init` from the released 0.4.4 and nothing else: `mise install`,
+  `mise run test` green, its first push recorded `SESSION.lock` at pre-push
+  (verify records instead of refusing when no lock exists yet), the lock
+  committed, CI green. It is the stack's reference hello world.
+- **The forks are on the whole stack**, not only the tool: hk, session
+  pinning with the Cloudflare plugin blocked, the skill hook and its test,
+  the test workflow, the stack tasks; `check` is upstream's own test (gsx:
+  `go test`, gsxui: `make check` after `npm ci`, with ripgrep for its
+  audit). hk leaves upstream's docs, fixtures, generated and vendored files
+  alone. Both released key-signed (gsx 0.1.3, gsxui 0.1.1) and pinned here
+  with the public key; every repo pins dev 0.4.4.
+- **Key rotation** is `dev release . --keygen --rotate`, which replaces the
+  key everywhere it lives and prints what every consumer must do.
+- **The token step** is documented in every AGENTS.md and the template:
+  `mise settings set github.credential_command "gh auth token"`, once per
+  machine, since gh keeps its token in the keyring and mise cannot read it
+  there; proven with the setting as an environment variable.
+- **The scaffold's pins** resolve to the releases mise knows at init time.
+- **Personal values** are out of the plan history; the `upstream` remote is
+  gone from this clone; the clone directory is `auth-proxy`.
+
+Still open, each for a reason outside the tools: the hand-made `GROK_AUTH`
+namespace (an agent here may not delete storage; `wrangler kv namespace
+delete` by the owner); leaving the fork network (GitHub's UI only); the two
+Grok logins (interactive); and the provenance trade-off of key-signed
+releases against the workflow's identity, which is the price of local
+releases and stays as long as they do.
+
 ## Decisions needed
 
 | # | Question | Recommendation |
