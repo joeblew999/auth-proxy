@@ -17,19 +17,66 @@ package main
 
 import (
 	"crypto/sha256"
+	_ "embed"
 	"encoding/json"
-	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/joeblew999/dev/cli"
 )
 
-func main() {
-	addr := flag.String("addr", "127.0.0.1:18080", "address to listen on")
-	flag.Parse()
+// app is the whole command: its verb, and the manual rendered from it. Being
+// a cli.Command is what gives it `mock-upstream skill`, so its manual is
+// written from the verb rather than kept by hand, and `dev build
+// cmd/mock-upstream` keeps it current.
+var app = cli.Command{
+	Name:    "mock-upstream",
+	Default: "serve",
+	Verbs:   map[string]cli.Verb{"serve": {Run: serve, Usage: usage}},
+	Head:    head,
+	Tail:    tail,
+}
 
+// usage, head and tail are the manual: the verb's own usage, and the prose
+// around it. Markdown files beside this one, not string constants, because a
+// Go raw string is backtick-delimited and so cannot hold inline code.
+
+//go:embed usage.md
+var usage string
+
+//go:embed head.md
+var head string
+
+//go:embed tail.md
+var tail string
+
+func main() { cli.Main(app) }
+
+// serve is `mock-upstream serve`, the default verb: the mock upstream itself.
+func serve(verb string, args []string, stdout, stderr io.Writer) error {
+	fs := cli.Flags(verb, stderr)
+	addr := fs.String("addr", "127.0.0.1:18080", "address to listen on")
+	rest, err := cli.ParseInterleaved(fs, args)
+	if err != nil {
+		return cli.Usagef("%s: %v", verb, err)
+	}
+	if len(rest) > 0 {
+		return cli.Usagef("%s takes no arguments", verb)
+	}
+	logf("mock upstream listening on http://%s/v1", *addr)
+	if err := http.ListenAndServe(*addr, handler()); err != nil {
+		return fmt.Errorf("listen on %s: %v (another process holds the port, or pass --addr)", *addr, err)
+	}
+	return nil
+}
+
+// handler is the one HTTP handler, so a test can exercise the mock without
+// binding a port.
+func handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/models", handleModels)
 	mux.HandleFunc("/v1/chat/completions", handleChat)
@@ -40,15 +87,10 @@ func main() {
 
 	// Log every request before dispatch so the upstream credential the proxy
 	// chose is visible even for requests that fail.
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logf("%s %s auth=%s", r.Method, r.URL.Path, describeAuth(r))
 		mux.ServeHTTP(w, r)
 	})
-
-	logf("mock upstream listening on http://%s/v1", *addr)
-	if err := http.ListenAndServe(*addr, handler); err != nil {
-		log.Fatal(err)
-	}
 }
 
 func logf(format string, args ...any) {
