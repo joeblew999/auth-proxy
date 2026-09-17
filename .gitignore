@@ -20,5 +20,6 @@ wrangler.deploy.toml
 .claude/skills/dev
 .claude/skills/gsx
 .claude/skills/gsxui
+.claude/skills/templ-to-gsx-migration
 .claude/skills/hk-configure
 .claude/skills/hk-debug

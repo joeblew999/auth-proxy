@@ -225,7 +225,7 @@ is a task or a hook, never a README instruction. CI proves it on a fresh machine
 ### 5.1 No personal values in the repo
 
 Checked 2026-09-15: the repo hard-coded the owner's account ID and KV namespace
-ID in `wrangler.toml` and the owner's `*.gedw99.workers.dev` URLs in `mise.toml`.
+ID in `wrangler.toml` and the owner's `*.<subdomain>.workers.dev` URLs in `mise.toml`.
 **Gone since 2026-09-16 (A3).** What replaced each:
 
 | Value | From now on |

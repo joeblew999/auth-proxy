@@ -33,6 +33,7 @@ run
 schedule
 security-review
 simplify
+templ-to-gsx-migration
 update-config
 workers-best-practices
 workflow-authoring

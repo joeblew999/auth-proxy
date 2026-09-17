@@ -223,7 +223,7 @@ A localhost mock is unreachable from a Worker, so the mock was itself deployed a
 second Worker (`e2e-mock-provider/`) and the real proxy was pointed at it. This
 closes the last open line in the plan, still at $0.
 
-Result, through the deployed Worker at `grok-oauth-proxy.gedw99.workers.dev`:
+Result, through the deployed Worker at `grok-oauth-proxy.<subdomain>.workers.dev`:
 
 | Check | Result |
 |---|---|

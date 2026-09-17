@@ -56,7 +56,7 @@ undefined. Building the package path fixes it.
 
 | Field | Value |
 |---|---|
-| Email | `gedw99@gmail.com` |
+| Email | `<owner email>` |
 | Account ID | `7384af54e33b8a54ff240371ea368440` |
 | Auth | Wrangler OAuth token, working |
 
@@ -130,7 +130,7 @@ with no credentials and reports the status code plus raw response.
 **Direct Workers egress to `api.x.ai` works. The VPC tunnel is not required.**
 
 Probe: the throwaway Worker in `egress-test/`, deployed to
-`https://grok-egress-test.gedw99.workers.dev` with **no** `vpc_networks` binding
+`https://grok-egress-test.<subdomain>.workers.dev` with **no** `vpc_networks` binding
 (`bindingPresent: false`).
 
 | Target | Via | Status | Body |
@@ -219,7 +219,7 @@ mise run cf_deploy       # wraps: fnox exec -- wrangler deploy
 mise run cf_deploy_dry   # same, with --dry-run, no upload
 ```
 
-Deployed to **https://grok-oauth-proxy.gedw99.workers.dev**, version
+Deployed to **https://grok-oauth-proxy.<subdomain>.workers.dev**, version
 `d9dd8cc1-9e00-4fcd-b1ac-bc74a7e2ce0a`, with `env.GROK_AUTH` as the only binding.
 
 `mise run cf_deploy` needs no `depends` chain: `wrangler.toml`'s
@@ -263,7 +263,7 @@ deliberately absent from the repo, `mise.toml`, and this plan.
 ### 5.4 Authenticate against xAI (device flow) — IN PROGRESS
 
 ```bash
-BASE_URL="https://grok-oauth-proxy.gedw99.workers.dev"
+BASE_URL="https://grok-oauth-proxy.<subdomain>.workers.dev"
 curl -X POST "$BASE_URL/admin/auth/start" -H "Authorization: Bearer $ADMIN_API_KEY"
 ```
 
@@ -314,7 +314,7 @@ times over: unauthenticated probe, OAuth device handshake, authenticated model l
 (200), and these entitlement rejections.
 
 The blocker has moved from infrastructure to account entitlement — and is now
-**confirmed**. The xAI account page for `gedw99@gmail.com` offers "Get SuperGrok",
+**confirmed**. The xAI account page for `<owner email>` offers "Get SuperGrok",
 so that account holds no subscription. That, not a spending-limit artefact, is the
 cause of `personal-team-blocked:spending-limit`.
 
@@ -322,7 +322,7 @@ cause of `personal-team-blocked:spending-limit`.
 |---|---|
 | No SuperGrok subscription on the authorising account | **Confirmed — this is the cause** |
 | Credits exhausted, or a spending limit of 0 on a personal team | Ruled out — there is no plan to hold a limit |
-| Wrong xAI account authorised during the device flow | Ruled out — `gedw99@gmail.com` is the intended account |
+| Wrong xAI account authorised during the device flow | Ruled out — `<owner email>` is the intended account |
 
 The cheap escape is already built: buy **API credits** instead of subscribing, then
 set `UPSTREAM_API_KEY` on the Worker (`mise run cf_secret_upstream_key`) so the proxy

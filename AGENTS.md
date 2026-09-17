@@ -48,6 +48,11 @@ at least once.
   developer.
 - **It must work for every developer**, who all use mise and fnox. No personal
   account IDs, URLs or paths in committed files.
+- **One-time, per machine:** mise lists a packslip tool's releases through
+  GitHub's API, anonymously unless it has a token, and gh keeps its token in
+  the keyring where mise cannot read it. Tell mise once, in your own global
+  settings (a project may not):
+  `mise settings set github.credential_command "gh auth token"`.
 - **Test for real before saying done:** run the actual tasks locally, in workerd,
   and on Cloudflare, and say plainly what could not be exercised.
 - **Prove a hello world round trip in every topology** before building on it.
