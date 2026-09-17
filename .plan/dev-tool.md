@@ -1,10 +1,8 @@
 # Plan: one dev tool for every repo on this stack
 
-**Status: STEPS 1 AND 2 DONE 2026-09-16 in this repo. STEP 3 IN PROGRESS the
-same evening on the owner's "do it all": the tool lives at
-`github.com/joeblew999/dev` (local clone beside this repo, two commits,
-`mise run test` green, a signed snapshot release proven). Blocked on one act
-only the owner can approve: creating the public GitHub repo (see step 3).**
+**Status: DONE 2026-09-17. The tool is `github.com/joeblew999/dev`, released
+by packslip and pinned here under `[tools]`; `cmd/dev` is gone. Step (d),
+`dev init`, is not started.**
 
 ## The question
 
@@ -150,14 +148,22 @@ Sequence (a) and the local half of (b) are done; (c) waits on the repo.
 - **A snapshot before the first tag** derived a bare commit as the version,
   which packslip rejects; fixed (`0.0.0-<commit>`), and the snapshot now signs
   and verifies with the skill in the manifest.
-- **(b) blocked:** creating the public repo (`gh repo create joeblew999/dev
-  --public --source=. --remote=origin --push`) is an act the agent's
-  permissions refuse; the owner creates it or approves it. Then: tag v0.1.0,
-  the release workflow publishes, and (c) follows here: pin
-  `packslip:github.com/joeblew999/dev = "0.1.0"`, tasks call `dev`, `cmd/dev`
-  and `dev:build` go, `--worker` becomes `--deployed` and `WORKER_SUFFIX`
-  `DEPLOY_SUFFIX` in the tasks and docs, `session:verify --update` admits the
-  `dev` skill, `mise run test` and CI green.
+- **(b) and (c) done 2026-09-17.** The public repo exists; the release
+  workflow publishes on a tag. Three releases in an hour, each for a real
+  defect the pin found: v0.1.0's manifest had no download URLs (packslip
+  infers none from `--source-repo`; the official action passes `--url-base`,
+  so `dev release` now does too); a bare `--update` parsed as false, so
+  `session:verify --update` refused the change it was asked to record. v0.1.2
+  is pinned. `mise install` puts `dev` on PATH and links `.claude/skills/dev`;
+  the skill shows up in a session; `mise run test` is green with it, the
+  proxy deployed for real through it and answered its status check.
+- **Two things a developer may hit.** mise reads GitHub's API to list a
+  packslip tool's releases, anonymously by default; a machine that has used
+  its 60 requests an hour gets a 403 until the hour turns, and mise caches
+  that failure (`mise cache clear`). A token in `GITHUB_TOKEN` or
+  `MISE_GITHUB_TOKEN` lifts both; CI has one from mise-action. No repo secret
+  is involved anywhere: a release signs with the workflow's own identity and
+  uploads with the token every run has.
 
 ## Later, per the owner (2026-09-16)
 

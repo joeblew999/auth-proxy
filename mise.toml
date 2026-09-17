@@ -13,6 +13,7 @@ tinygo = "0.42.0"   # must match TINYGO_VERSION in workers-go's Makefile
 "packslip:github.com/joeblew999/gsx" = "0.1.2"
 "packslip:github.com/joeblew999/gsxui" = "0.1.0"
 "packslip:github.com/jdx/hk" = "2.0.1"
+"packslip:github.com/joeblew999/dev" = "0.1.2"   # the stack's developer tool; `dev` lists its verbs, its skill is .claude/skills/dev
 jq = "latest"   # .claude/hooks/skill-gate reads the tool payload with it
 goreleaser = "latest"
 packslip = "latest"
@@ -45,7 +46,7 @@ minimum_release_age_excludes = ["packslip:*"]
 
 # ------------------------------------------------------------------------------
 # Tasks. `<cmd>:<stage>[:variant]`, or a stack verb; the short names the README
-# uses are aliases. `bin/dev <stage> <dir>` reads the
+# uses are aliases. `dev <stage> <dir>` reads the
 # directory (Go main, package.json, .gsx, wrangler.toml) and does the rest.
 # Anything typed after a task name goes to the command, so flags need no
 # declaring: `mise run proxy:build --env tinygo`, `mise run secrets:set admin
@@ -75,13 +76,6 @@ run = [
   "mise run check",
 ]
 
-[tasks."dev:build"]
-hide = true
-dir = "cmd/dev"
-sources = ["**/*.go", "go.mod"]
-outputs = ["../../bin/dev"]
-run = "go build -o ../../bin/dev ."
-
 [tasks.bootstrap]
 description = "wire a fresh clone: skills, settings, git hooks (runs after mise install)"
 depends = ["session:sync"]
@@ -92,24 +86,20 @@ run = [
 
 [tasks."session:sync"]
 description = "write .claude/skills and the settings.json keys from session.toml"
-depends = ["dev:build"]
-run = "bin/dev session sync"
+run = "dev session sync"
 
 [tasks."session:check"]
 hide = true
-depends = ["dev:build"]
-run = "bin/dev session check"
+run = "dev session check"
 
 [tasks."session:verify"]
 description = "hold a fresh Claude Code session against SESSION.lock (pre-push; --update re-records)"
-depends = ["dev:build"]
-run = "bin/dev session verify"
+run = "dev session verify"
 
 [tasks."session:bump"]
 description = "move a pin in session.toml to upstream HEAD (one source, or all)"
-depends = ["dev:build"]
 raw = true
-run = "bin/dev session bump"
+run = "dev session bump"
 
 [tasks."hooks:check"]
 description = "prove the Claude Code skill hook fires on every write and no read"
@@ -117,35 +107,25 @@ run = ".claude/hooks/skill-gate.test"
 
 [tasks."session:mcp"]
 description = "every MCP server .mcp.json declares connects"
-depends = ["dev:build"]
-run = "bin/dev session mcp"
-
-[tasks."dev:check"]
-description = "vet and test the dev tool itself"
-depends = ["dev:build"]
-run = "bin/dev check cmd/dev"
+run = "dev session mcp"
 
 [tasks."deps:list"]
 description = "Go module upgrades available, in every module"
-depends = ["dev:build"]
-run = "bin/dev deps list"
+run = "dev deps list"
 
 [tasks."deps:upgrade"]
 description = "upgrade Go modules interactively, in every module"
-depends = ["dev:build"]
 raw = true
-run = "bin/dev deps upgrade"
+run = "dev deps upgrade"
 
 [tasks."secrets:set"]
 description = "store a secret in fnox and push it: <name|provider|admin> [--generate] [--if-missing]"
-depends = ["dev:build"]
 raw = true
-run = 'bin/dev secrets set {{vars.worker}} --names "$(mise run secrets:list)"'
+run = 'dev secrets set {{vars.worker}} --names "$(mise run secrets:list)"'
 
 [tasks."secrets:push"]
 description = "push every secret the project needs from fnox, naming any missing [--env tinygo]"
-depends = ["dev:build"]
-run = "mise run secrets:list | bin/dev secrets push {{vars.worker}}"
+run = "mise run secrets:list | dev secrets push {{vars.worker}}"
 
 [tasks."svc:start"]
 description = "start a daemon from pitchfork.toml, so nothing blocks a terminal: <daemon>"
@@ -167,14 +147,12 @@ run = "pitchfork logs --tail"
 
 [tasks.release]
 description = "publish a GitHub Release of the proxy: <version> locally, the pushed tag in CI"
-depends = ["dev:build"]
 raw = true
-run = "bin/dev release cmd/proxy"
+run = "dev release cmd/proxy"
 
 [tasks."release:snapshot"]
 description = "build the release, sign and verify its manifest, publish nothing"
-depends = ["dev:build"]
-run = "bin/dev release cmd/proxy --snapshot"
+run = "dev release cmd/proxy --snapshot"
 
 # ==============================================================================
 # This project: four commands, the same stages for each
@@ -184,68 +162,62 @@ run = "bin/dev release cmd/proxy --snapshot"
 
 [tasks."proxy:build"]
 description = "bin/proxy"
-depends = ["dev:build"]
 sources = ["cmd/proxy/**/*.go", "cmd/proxy/**/*.toml", "cmd/proxy/go.mod"]
 outputs = ["bin/proxy"]
-run = "bin/dev build cmd/proxy"
+run = "dev build cmd/proxy"
 
 [tasks."proxy:wasm"]
 description = "the proxy Worker's wasm [--env tinygo]; wrangler runs this before dev and deploy"
-depends = ["dev:build"]
-run = "bin/dev wasm cmd/proxy"
+run = "dev wasm cmd/proxy"
 
 [tasks."proxy:run"]
 alias = "dev"
 description = "the proxy on http://127.0.0.1:56121/v1 with real providers (pitchfork's proxy daemon)"
 depends = ["proxy:build"]
 raw = true
-run = "bin/dev run cmd/proxy -- serve"
+run = "dev run cmd/proxy -- serve"
 
 [tasks."proxy:run:mock"]
 description = "the proxy against the mock, no real keys (the mock: mise run svc:start proxy-mock)"
 depends = ["proxy:build"]
 raw = true
 env = { MOCK_API_KEY = "mock-key" }
-run = "bin/dev run cmd/proxy -- serve --config cmd/mock-upstream/providers.toml"
+run = "dev run cmd/proxy -- serve --config cmd/mock-upstream/providers.toml"
 
 [tasks."proxy:workerd"]
 description = "the proxy Worker on local workerd (wrangler dev)"
-depends = ["dev:build"]
 raw = true
-run = "bin/dev workerd cmd/proxy"
+run = "dev workerd cmd/proxy"
 
 [tasks."proxy:check"]
 description = "vet native and wasm, test, and prove the Worker answers on local workerd"
-depends = ["dev:build"]
-run = "bin/dev check cmd/proxy --path /health"
+run = "dev check cmd/proxy --path /health"
 
 [tasks."proxy:deploy"]
 alias = "deploy"
 description = "validate providers.toml, then deploy the proxy Worker"
-depends = ["validate", "dev:build"]
-run = "bin/dev deploy cmd/proxy"
+depends = ["validate"]
+run = "dev deploy cmd/proxy"
 
 [tasks."proxy:deploy:tinygo"]
 description = "deploy the TinyGo build as the -tinygo Worker (no /mcp), push its keys, wait"
-depends = ["validate", "dev:build"]
+depends = ["validate"]
 run = [
-  "bin/dev deploy cmd/proxy --env tinygo --wait /health",
+  "dev deploy cmd/proxy --env tinygo --wait /health",
   "mise run secrets:push --env tinygo",
 ]
 
 [tasks."proxy:url"]
 alias = "url"
 description = "this clone's proxy Worker URL [--env tinygo] [--refresh, after switching accounts]"
-depends = ["dev:build"]
 quiet = true
-run = "bin/dev url cmd/proxy --worker"
+run = "dev url cmd/proxy --deployed"
 
 [tasks."proxy:logs"]
 alias = "logs"
 description = "live logs from the deployed proxy Worker"
-depends = ["dev:build"]
 raw = true
-run = "bin/dev logs cmd/proxy"
+run = "dev logs cmd/proxy"
 
 # The proxy CLI: against the local proxy, and (proxy:*) against the deployed Worker.
 
@@ -253,61 +225,60 @@ run = "bin/dev logs cmd/proxy"
 alias = "status"
 description = "every provider's readiness and the fix for each problem"
 depends = ["proxy:build"]
-run = "bin/dev run cmd/proxy -- status"
+run = "dev run cmd/proxy -- status"
 
 [tasks."proxy:models"]
 alias = "models"
 description = "model IDs across all providers, from the local proxy (mise run dev)"
 depends = ["proxy:build"]
-run = "bin/dev run cmd/proxy -- models"
+run = "dev run cmd/proxy -- models"
 
 [tasks."proxy:chat"]
 alias = "chat"
 description = "send a prompt through the local proxy and stream the answer: <model> [prompt]"
 depends = ["proxy:build"]
-run = "bin/dev run cmd/proxy -- chat"
+run = "dev run cmd/proxy -- chat"
 
 [tasks."proxy:login"]
 alias = "login"
 description = "log in to a SuperGrok subscription for auth = \"xai-oauth\" providers"
 depends = ["proxy:build"]
 raw = true
-run = "bin/dev run cmd/proxy -- login"
+run = "dev run cmd/proxy -- login"
 
 [tasks."proxy:status:worker"]
 description = "every provider's readiness on the deployed Worker"
 depends = ["proxy:build"]
-run = 'bin/dev run cmd/proxy -- status --url "$(bin/dev url cmd/proxy --worker)"'
+run = 'dev run cmd/proxy -- status --url "$(dev url cmd/proxy --deployed)"'
 
 [tasks."proxy:models:worker"]
 description = "model IDs from the deployed Worker"
 depends = ["proxy:build"]
-run = 'bin/dev run cmd/proxy -- models --url "$(bin/dev url cmd/proxy --worker)"'
+run = 'dev run cmd/proxy -- models --url "$(dev url cmd/proxy --deployed)"'
 
 [tasks."proxy:chat:worker"]
 description = "send a prompt through the deployed Worker: <model> [prompt]"
 depends = ["proxy:build"]
-run = 'bin/dev run cmd/proxy -- chat --url "$(bin/dev url cmd/proxy --worker)"'
+run = 'dev run cmd/proxy -- chat --url "$(dev url cmd/proxy --deployed)"'
 
 [tasks."proxy:login:worker"]
 description = "log the deployed Worker in with a device code"
 depends = ["proxy:build"]
 raw = true
-run = 'bin/dev run cmd/proxy -- login --url "$(bin/dev url cmd/proxy --worker)"'
+run = 'dev run cmd/proxy -- login --url "$(dev url cmd/proxy --deployed)"'
 
 # --- cmd/gui: the GUI, a native server and a Worker from one handler (gsx, gsxui, Vite)
 
 [tasks."gui:build"]
 description = "npm ci when stale, vite build, gsx generate, bin/gui"
-depends = ["dev:build"]
 sources = ["cmd/gui/*.go", "cmd/gui/*.gsx", "cmd/gui/views/**", "cmd/gui/ui/**", "cmd/gui/web/**", "cmd/gui/public/**", "cmd/gui/package.json", "cmd/gui/vite.config.ts", "cmd/gui/go.mod"]
 outputs = ["bin/gui"]
-run = "bin/dev build cmd/gui"
+run = "dev build cmd/gui"
 
 [tasks."gui:wasm"]
 description = "the GUI Worker's wasm; wrangler runs this before dev and deploy"
 depends = ["gui:build"]
-run = "bin/dev wasm cmd/gui"
+run = "dev wasm cmd/gui"
 
 [tasks."gui:run:dev"]
 description = "gsx dev loop with live reload on http://localhost:5173"
@@ -320,18 +291,17 @@ run = "npm run dev"
 description = "the GUI natively on http://localhost:7777"
 depends = ["gui:build"]
 raw = true
-run = "bin/dev run cmd/gui"
+run = "dev run cmd/gui"
 
 [tasks."gui:workerd"]
 description = "the GUI Worker on local workerd (wrangler dev)"
-depends = ["dev:build"]
 raw = true
-run = "bin/dev workerd cmd/gui"
+run = "dev workerd cmd/gui"
 
 [tasks."gui:check"]
 description = "gsx formatting, vet native and wasm, tests, the workerd round trip, the browser probe"
 depends = ["gui:build"]
-run = "bin/dev check cmd/gui --path '/?mode=remote' --expect 'Pick a model'"
+run = "dev check cmd/gui --path '/?mode=remote' --expect 'Pick a model'"
 
 [tasks."gui:check:tinygo"]
 description = "the GUI's components compile under TinyGo, which the Service Worker topology needs"
@@ -340,58 +310,51 @@ run = "tinygo build -o /dev/null -target wasm ./cmd/tinygo-render"
 
 [tasks."gui:deploy"]
 description = "deploy the GUI Worker (grok-oauth-proxy-gui) and wait for its page"
-depends = ["dev:build"]
-run = "bin/dev deploy cmd/gui --wait /healthz"
+run = "dev deploy cmd/gui --wait /healthz"
 
 [tasks."gui:url"]
 description = "this clone's GUI Worker URL"
-depends = ["dev:build"]
 quiet = true
-run = "bin/dev url cmd/gui --worker"
+run = "dev url cmd/gui --deployed"
 
 [tasks."gui:logs"]
 description = "live logs from the deployed GUI Worker"
-depends = ["dev:build"]
 raw = true
-run = "bin/dev logs cmd/gui"
+run = "dev logs cmd/gui"
 
 # --- cmd/mock-upstream: an OpenAI-compatible mock; cmd/bench: Go vs TinyGo in workerd
 
 [tasks."mock:build"]
 description = "bin/mock-upstream"
-depends = ["dev:build"]
 sources = ["cmd/mock-upstream/**"]
 outputs = ["bin/mock-upstream"]
-run = "bin/dev build cmd/mock-upstream"
+run = "dev build cmd/mock-upstream"
 
 [tasks."mock:check"]
 description = "vet and test the mock"
-depends = ["dev:build"]
-run = "bin/dev check cmd/mock-upstream"
+run = "dev check cmd/mock-upstream"
 
 [tasks."mock:run"]
 description = "the mock upstream on 127.0.0.1:18080 (pitchfork's mock daemon)"
 depends = ["mock:build"]
 raw = true
-run = "bin/dev run cmd/mock-upstream -- -addr 127.0.0.1:18080"
+run = "dev run cmd/mock-upstream -- -addr 127.0.0.1:18080"
 
 [tasks."bench:build"]
 description = "bin/bench"
-depends = ["dev:build"]
-sources = ["cmd/bench/**", "cmd/dev/**"]
+sources = ["cmd/bench/**"]
 outputs = ["bin/bench"]
-run = "bin/dev build cmd/bench"
+run = "dev build cmd/bench"
 
 [tasks."bench:check"]
 description = "vet and test the bench"
-depends = ["dev:build"]
-run = "bin/dev check cmd/bench"
+run = "dev check cmd/bench"
 
 [tasks."bench:run"]
 alias = "bench"
 description = "Go vs TinyGo proxy Worker in local workerd against the mock (RUNS=n)"
 depends = ["mock:build", "bench:build"]
-run = "bin/dev run cmd/bench"
+run = "dev run cmd/bench"
 
 # --- the whole project, and what the stack asks of it ------------------------------
 
@@ -402,7 +365,6 @@ depends = ["proxy:build", "proxy:wasm", "gui:build", "gui:wasm", "mock:build", "
 [tasks.check]
 description = "what test runs here: every command's check"
 run = [
-  "mise run dev:check",
   "mise run proxy:check",
   "mise run gui:check",
   "mise run gui:check:tinygo",
@@ -423,9 +385,8 @@ run = "bin/proxy secrets"
 
 [tasks.setup]
 description = "one-time: Worker URL, client key if missing, every key pushed, what is still missing"
-depends = ["dev:build"]
 run = [
-  "bin/dev url cmd/proxy --worker",
+  "dev url cmd/proxy --deployed",
   "mise run secrets:set admin --generate --if-missing",
   "mise run secrets:push",
   "mise run proxy:status:worker",

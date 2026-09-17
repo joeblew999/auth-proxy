@@ -3,7 +3,6 @@ bin
 # what a bare `go build` in a command directory leaves behind; dev build goes to bin/
 /cmd/proxy/proxy
 /cmd/gui/gui
-/cmd/dev/dev
 /cmd/mock-upstream/mock-upstream
 /cmd/bench/bench
 /dist/
@@ -18,6 +17,7 @@ wrangler.deploy.toml
 # from the active tool versions. Never commit them; .claude/skills/ holds only
 # the vendored copies from session.toml.
 .claude/skills/.mise-skills.json
+.claude/skills/dev
 .claude/skills/gsx
 .claude/skills/gsxui
 .claude/skills/hk-configure

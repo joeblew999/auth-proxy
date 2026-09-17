@@ -136,7 +136,7 @@ mise run test     # lint, wasm vet, all tests, skills + spike checks
 mise run bench    # both Worker builds in local workerd against the mock
 ```
 
-Working on the Worker beside someone? `mise set --file mise.local.toml WORKER_SUFFIX=<you>`
+Working on the Worker beside someone? `mise set --file mise.local.toml DEPLOY_SUFFIX=<you>`
 once, and every Worker you deploy gets that suffix, URL, logs and secrets included;
 unset means the shared one.
 

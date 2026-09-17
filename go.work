@@ -2,7 +2,6 @@ go 1.27.1
 
 use (
 	./cmd/bench
-	./cmd/dev
 	./cmd/gui
 	./cmd/mock-upstream
 	./cmd/proxy

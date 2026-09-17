@@ -1,6 +1,6 @@
 # Where the repo's vendored Claude Code skills come from. `mise run session:sync`
 # writes them into .claude/skills; `mise run session:bump` moves a pin to
-# upstream HEAD. Nothing in cmd/dev/session names a skill or a pin.
+# upstream HEAD. Nothing in the dev tool names a skill or a pin.
 #
 # A source is a GitHub repo at a pinned commit, and the skills taken from its
 # skills/ directory. This is only for an upstream that ships no releases: a tool

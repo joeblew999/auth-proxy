@@ -6,11 +6,12 @@
 
 - **Every workflow is a mise task.** `mise tasks` lists them. Do not document or
   rely on raw `go`, `wrangler` or `fnox` commands; if a workflow is missing, add a
-  task. **A task names a stage of a command, `dev` does it:** `bin/dev build|run|
+  task. **A task names a stage of a command, `dev` does it:** `dev build|run|
   check|deploy|url|logs DIR` reads the directory and knows what a Go main, a
-  package.json, gsx sources and a wrangler.toml need. A task is one line in
-  `mise.toml`; anything with a branch, a loop, a parse or an API call is in
-  `cmd/dev`, with a test. No shell scripts behind tasks; the Claude Code hook in
+  package.json, gsx sources, a wrangler.toml and a fly.toml need. A task is one
+  line in `mise.toml`; anything with a branch, a loop, a parse or an API call is
+  in the `dev` tool (`github.com/joeblew999/dev`, pinned under `[tools]`), with
+  a test. No shell scripts behind tasks; the Claude Code hook in
   `.claude/hooks/` is the one script left, because it has to work before anything
   is built.
 - **Every error names its fix.** A config error names the setting, a missing key
@@ -61,7 +62,7 @@ at least once.
 
 ## Tasks
 
-Four commands, a stage each, and `bin/dev <stage> <dir>` reads the directory
+Four commands, a stage each, and `dev <stage> <dir>` reads the directory
 and does the rest. `mise tasks` lists everything; these are the ones to know.
 
 | Task | Purpose |
@@ -89,7 +90,9 @@ on it, reaching the project only through `[vars]` and three tasks the project
 supplies (`check`, what `test` runs; `validate`, what `deploy` runs first;
 `secrets`, the `NAME<TAB>OWNER` lines `keys:*` work from); and **this
 project**, a line per command and stage. What a line cannot say it hands to
-`bin/dev` (`cmd/dev`). Run `mise run lint` after every Go change, `mise run
+`dev`, the stack's tool, pinned like fnox and hk (`github.com/joeblew999/dev`;
+`dev` alone lists every verb, and its skill is linked into `.claude/skills/dev`
+by `mise install`). Run `mise run lint` after every Go change, `mise run
 test` before committing.
 
 ## Code layout
@@ -105,15 +108,15 @@ test` before committing.
 | `cmd/proxy` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
 | `cmd/proxy` | the proxy, its own Go module: `main.go` is the CLI (`serve`, `status`, `models`, `chat`, `login`, `keys`), `worker.go` the Cloudflare Worker (fetch client, KV token store), **its own `wrangler.toml`**, its gitignored `build/`, and `internal/` with everything the two share. A command owns everything about itself; nothing of it lives at the root |
 | `cmd/gui` | the GUI spike, its own Go module: a native server and a Cloudflare Worker from one handler, with its own `wrangler.toml` (`mise run gui:*`); see its README |
-| `cmd/dev` | the stack's developer tool, its own Go module, not shipped and not project-specific. One package per thing, named as the tasks name it: `stage` (`build`, `wasm`, `check`, `run`, `workerd`, from what a command directory holds; the browser probe lives here), `worker` (`deploy`, `url`, `logs`, `smoke`, `wait`, each taking the Worker's directory), `secrets`, `session` (the Claude Code session, MCP servers included), `release`, `deps`, `fnox` (the one way to a secret). Every verb has the one shape in `internal/cli`; each package has tests |
-| `cmd/bench` | this proxy's Go vs TinyGo comparison in local workerd; its own module, project code, so not in `cmd/dev` |
-| `go.work` | the one file at the root that knows Go: it lists the five modules, so a build or test in any of them sees the others |
+| `dev` (pinned tool, `github.com/joeblew999/dev`) | the stack's developer tool, not this repo's code: `stage` (`build`, `wasm`, `check`, `run`, `workerd`, from what a command directory holds), `app` (`deploy`, `url`, `logs`, `smoke`, `wait`, to Cloudflare Workers or Fly by whether the directory holds a `wrangler.toml` or a `fly.toml`), `secrets`, `session` (the Claude Code session, MCP servers included), `release`, `deps`. Every verb has one shape; each package has tests; `dev skill` renders its skill from the verbs' own usage. A fix to it is a release there and a pin bump here |
+| `cmd/bench` | this proxy's Go vs TinyGo comparison in local workerd; its own module, project code, so not in the `dev` tool |
+| `go.work` | the one file at the root that knows Go: it lists the four modules, so a build or test in any of them sees the others |
 | `cmd/proxy/internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
 | `cmd/mock-upstream` | OpenAI-compatible mock plus its two-provider config |
-| `cmd/dev/release` | `dev release DIR [VERSION] [--snapshot]`: goreleaser, packslip, gh, from conventions (binary named after the repo, every `skills/*` shipped, goreleaser config generated) |
+| `dev release` | `dev release DIR [VERSION] [--snapshot]`: goreleaser, packslip, gh, from conventions (binary named after the repo, every `skills/*` shipped, goreleaser config generated) |
 | `.claude/skills/SESSION.lock` | every skill a session here is allowed to have, this repo's and Claude Code's alike, and which Claude Code recorded it. Written by `mise run session:verify --update`, checked at pre-push. A Claude Code upgrade changes the built-ins, so verify re-records the lock for it and says what moved; anything arriving without an upgrade fails: a marketplace plugin, or a skill synced from claude.ai, which no project setting can block, only notice |
 | `skills/` | the skill this repo's releases ship via packslip |
-| `session.toml` + `cmd/dev/session` | what this repo pins: `[source.*]` blocks (a GitHub repo at a commit, for an upstream that ships no releases) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). `mise run session:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |
+| `session.toml` + `dev session` | what this repo pins: `[source.*]` blocks (a GitHub repo at a commit, for an upstream that ships no releases) and `[claude]` (blocked marketplace plugins, connectors, MCP approval). `mise run session:sync` generates `.claude/skills` and the `.claude/settings.json` keys from it |
 
 Rules that keep the design working:
 
@@ -135,7 +138,7 @@ Rules that keep the design working:
   Worker is another directory and a few one-line tasks, not another set of
   tooling. An environment whose `main` lives under `build/tinygo` is built with
   TinyGo; any other with Go.
-- **Deploying beside someone:** `mise set --file mise.local.toml WORKER_SUFFIX=<you>`
+- **Deploying beside someone:** `mise set --file mise.local.toml DEPLOY_SUFFIX=<you>`
   once, and every Worker you deploy is `<name>-<you>`, with its URL, logs and
   secrets following. Unset, as in CI and on the shared production deploy, means
   the committed name. Nothing personal reaches a committed file.
