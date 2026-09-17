@@ -68,46 +68,26 @@ description = "hk checks: gofmt, vet, tidy, whitespace, secrets"
 run = "hk check --all"
 
 [tasks.test]
-description = "lint, the session and hook checks, then the project's own check"
+description = "lint, the hook check, then the project's own check"
 run = [
   "mise run lint",
-  "mise run session:check",
   "mise run hooks:check",
   "mise run check",
 ]
 
 [tasks.bootstrap]
 description = "wire a fresh clone: skills, settings, git hooks (runs after mise install)"
-depends = ["session:sync"]
+# No session:sync: dev parked that verb, so nothing writes .claude/skills
+# from session.toml any more. mise links what this repo pins, and the
+# vendored skills are committed, so a fresh clone still has them all.
 run = [
   "mise skills sync",
   "hk install",
 ]
 
-[tasks."session:sync"]
-description = "write .claude/skills and the settings.json keys from session.toml"
-run = "dev session sync"
-
-[tasks."session:check"]
-hide = true
-run = "dev session check"
-
-[tasks."session:verify"]
-description = "hold a fresh Claude Code session against SESSION.lock (pre-push; --update re-records)"
-run = "dev session verify"
-
-[tasks."session:bump"]
-description = "move a pin in session.toml to upstream HEAD (one source, or all)"
-raw = true
-run = "dev session bump"
-
 [tasks."hooks:check"]
 description = "prove the Claude Code skill hook fires on every write and no read"
 run = ".claude/hooks/skill-gate.test"
-
-[tasks."session:mcp"]
-description = "every MCP server .mcp.json declares connects"
-run = "dev session mcp"
 
 [tasks."deps:list"]
 description = "Go module upgrades available, in every module"
