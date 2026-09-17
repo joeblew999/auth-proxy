@@ -245,9 +245,11 @@ fresh repo with the history pushed. Not started.
   a version input, running the same task with the same key; nothing runs on
   a tag push. The tool, this repo, the scaffold and both forks have that
   workflow.
-- **Owner's acts left:** `mise run secrets:ci PACKSLIP_SIGNING_KEY` here and
-  in both forks, so their on-demand workflow can sign (an agent here may not
-  write a secret store); the fork network; the hand-made namespace.
+- **The Actions secret is set** here and in both forks (`mise run secrets:ci
+  PACKSLIP_SIGNING_KEY`; v0.4.2 tells gh which repo, since this clone also
+  has the upstream remote), so the on-demand workflow can sign.
+- **Owner's acts left:** the fork network; the hand-made namespace; and the
+  `upstream` remote of this clone once the fork is detached.
 
 ## Decisions needed
 
