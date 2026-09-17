@@ -208,9 +208,14 @@ fresh repo with the history pushed. Not started.
 - **This repo is `auth-proxy`.** Renamed on GitHub (the old URL redirects),
   the module paths, both Workers (`auth-proxy`, `auth-proxy-tinygo`,
   `auth-proxy-gui`), the skill and the docs renamed, the Workers deployed
-  under the new names with their secrets, the old ones deleted. The Grok
-  login tokens lived in the old Worker's KV, so `mise run login --worker`
-  once. The local token dir is `~/.config/auth-proxy` now, so `mise run
+  under the new names with their secrets. **The old Workers and their KV
+  namespaces are still on the account:** deleting them is an irreversible
+  act an agent here is not allowed, so the owner does it once, from
+  `cmd/proxy`: `fnox exec -- wrangler delete --name grok-oauth-proxy
+  --force`, the same for `grok-oauth-proxy-tinygo` and
+  `grok-oauth-proxy-gui`, then `wrangler kv namespace list` and delete the
+  three namespaces named for them. The Grok login tokens lived in the old
+  Worker's KV, so `mise run login --worker` once. The local token dir is `~/.config/auth-proxy` now, so `mise run
   login` once too. Leaving the fork network is a button GitHub gives no API
   for: Settings, Danger Zone, "Leave fork network".
 
