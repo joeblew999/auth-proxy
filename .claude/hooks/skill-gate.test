@@ -10,8 +10,19 @@ cd "$(dirname "$0")/../.."
 gate=.claude/hooks/skill-gate
 fail=0
 
+# The gate loads only skills the repo has, so a case expects only those: a
+# repo without gsx or wrangler pinned stays silent on .gsx and wrangler.toml.
+installed() {
+  local name out=""
+  for name in $1; do
+    [ -f ".claude/skills/$name/SKILL.md" ] && out+="${out:+ }$name"
+  done
+  printf '%s' "$out"
+}
+
 check() {
-  local want=$1 tool=$2 input=$3 got
+  local want tool=$2 input=$3 got
+  want=$(installed "$1")
   got=$(printf '{"tool_name":"%s","tool_input":%s}' "$tool" "$input" | "$gate" \
     | jq -r '.hookSpecificOutput.additionalContext // ""' \
     | grep -oE '^--- [a-z-]+ ---$' | sed 's/^--- //; s/ ---$//' | paste -sd ' ' - || true)
