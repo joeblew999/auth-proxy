@@ -71,9 +71,11 @@ and does the rest. `mise tasks` lists everything; these are the ones to know.
 | `mise run proxy:deploy` (alias `deploy`) / `proxy:deploy:tinygo` | validate `providers.toml`, then deploy the proxy Worker; or its TinyGo build as the `-tinygo` Worker |
 | `mise run proxy:url` (alias `url`) / `proxy:logs` (alias `logs`) / `proxy:workerd` | this clone's proxy Worker URL, its live logs, the Worker on local workerd |
 | `mise run gui:run` / `gui:run:dev` / `gui:workerd` / `gui:deploy` / `gui:url` | the GUI natively, with live reload, on local workerd, deployed, its URL |
+| `mise run proxy:delete` / `gui:delete` (`--name OLD`, `--yes`) | remove a deployed Worker and the KV namespace wrangler provisioned for it: a developer's suffixed copy, or one a rename left behind |
 | `mise run status` / `models` / `chat <model> [prompt]` / `login` | the proxy CLI against the local proxy; `proxy:status:worker` and the rest against the deployed Worker |
 | `mise run setup` | one-time: Worker URL, client key if missing, every key pushed, what is still missing |
 | `mise run secrets:set <name\|provider\|admin> [--generate]` / `secrets:push [--env tinygo]` | store a secret in fnox and push it; push everything the project's `secrets` task lists |
+| `mise run secrets:ci <name>...` | give this repo's GitHub Actions a secret from fnox (`PACKSLIP_SIGNING_KEY`, so the on-demand release signs with the same key) |
 | `mise run build` / `<cmd>:build` | every command, or one; a Worker's wasm per environment (`--env tinygo`) |
 | `mise run check` / `<cmd>:check` | the project's checks, or one command's: gsx fmt, vet, test, the workerd round trip, the browser probe |
 | `mise run test` / `lint` | lint, the session and hook checks, then `check`; hk alone |
@@ -82,7 +84,7 @@ and does the rest. `mise tasks` lists everything; these are the ones to know.
 | `mise run session:sync` / `session:verify` / `session:bump` | re-sync the pinned Claude Code skills; hold a fresh session against `SESSION.lock` (`--update` re-records); move github pins to upstream HEAD |
 | `mise run bootstrap` / `session:mcp` / `hooks:check` | wire a fresh clone (runs after `mise install`); every MCP server connects; the skill hook fires right |
 | `mise run deps:list` / `deps:upgrade` | Go module upgrades in every module |
-| `mise run release <version>` / `release:snapshot` | publish a GitHub Release of the proxy (in CI, the pushed tag); or build, sign and verify without publishing |
+| `mise run release <version>` / `release:snapshot` | publish a GitHub Release of the proxy from this machine, signed with the key in fnox (`release --keygen` makes it once); or build, sign and verify without publishing. The release workflow runs the same on demand, for a large body of work |
 
 Every task is one line in `mise.toml`. The file has two halves: **the stack**,
 which names nothing of this project and is meant to be identical in every repo
@@ -108,7 +110,7 @@ test` before committing.
 | `cmd/proxy` | local CLI: `serve`, `status`, `models`, `chat`, `login`, `keys` |
 | `cmd/proxy` | the proxy, its own Go module: `main.go` is the CLI (`serve`, `status`, `models`, `chat`, `login`, `keys`), `worker.go` the Cloudflare Worker (fetch client, KV token store), **its own `wrangler.toml`**, its gitignored `build/`, and `internal/` with everything the two share. A command owns everything about itself; nothing of it lives at the root |
 | `cmd/gui` | the GUI spike, its own Go module: a native server and a Cloudflare Worker from one handler, with its own `wrangler.toml` (`mise run gui:*`); see its README |
-| `dev` (pinned tool, `github.com/joeblew999/dev`) | the stack's developer tool, not this repo's code: `stage` (`build`, `wasm`, `check`, `run`, `workerd`, from what a command directory holds), `app` (`deploy`, `url`, `logs`, `smoke`, `wait`, to Cloudflare Workers or Fly by whether the directory holds a `wrangler.toml` or a `fly.toml`), `secrets`, `session` (the Claude Code session, MCP servers included), `release`, `deps`. Every verb has one shape; each package has tests; `dev skill` renders its skill from the verbs' own usage. A fix to it is a release there and a pin bump here |
+| `dev` (pinned tool, `github.com/joeblew999/dev`) | the stack's developer tool, not this repo's code: `stage` (`build`, `wasm`, `check`, `run`, `workerd`, from what a command directory holds), `app` (`deploy`, `url`, `logs`, `smoke`, `wait`, `delete`, to Cloudflare Workers or Fly by whether the directory holds a `wrangler.toml` or a `fly.toml`), `secrets`, `session` (the Claude Code session, MCP servers included), `release`, `deps`. Every verb has one shape; each package has tests; `dev skill` renders its skill from the verbs' own usage. A fix to it is a release there and a pin bump here |
 | `cmd/bench` | this proxy's Go vs TinyGo comparison in local workerd; its own module, project code, so not in the `dev` tool |
 | `go.work` | the one file at the root that knows Go: it lists the four modules, so a build or test in any of them sees the others |
 | `cmd/proxy/internal/bootstrap` | which providers file is used: `--config`, `PROVIDERS_TOML`, or the built-in one |
@@ -152,6 +154,11 @@ Rules that keep the design working:
 
 ## Rules
 
+- **Releases are local and signed with one long-lived key.** The key lives in
+  fnox as `PACKSLIP_SIGNING_KEY` and in the repo's Actions secrets; its public
+  half is what a consumer pins (`pubkey` on the packslip tool). mise remembers
+  a project's signer the way SSH remembers hosts, so a change of signer is
+  refused until `mise packslip forget <project>` says so, once per machine.
 - Keep API keys, Grok tokens and `ADMIN_API_KEY` out of source, logs and commits.
 - Cloudflare credentials come from fnox; tasks wrap `fnox exec --`.
 - The TinyGo build has no `/mcp` until TinyGo fixes the gaps in

@@ -13,7 +13,7 @@ tinygo = "0.42.0"   # must match TINYGO_VERSION in workers-go's Makefile
 "packslip:github.com/joeblew999/gsx" = "0.1.2"
 "packslip:github.com/joeblew999/gsxui" = "0.1.0"
 "packslip:github.com/jdx/hk" = "2.0.1"
-"packslip:github.com/joeblew999/dev" = "0.2.0"   # the stack's developer tool; `dev` lists its verbs, its skill is .claude/skills/dev
+"packslip:github.com/joeblew999/dev" = { version = "0.4.1", pubkey = "RWQnLlj1BaHu39oBhUFxM3zEscQHqhxihLeTGyDAlavNFAOSTxQEHfoq" }   # the stack's developer tool; `dev` lists its verbs, its skill is .claude/skills/dev
 jq = "latest"   # .claude/hooks/skill-gate reads the tool payload with it
 goreleaser = "latest"
 packslip = "latest"
@@ -123,6 +123,11 @@ description = "store a secret in fnox and push it: <name|provider|admin> [--gene
 raw = true
 run = 'dev secrets set {{vars.worker}} --names "$(mise run secrets:list)"'
 
+[tasks."secrets:ci"]
+description = "give this repo's GitHub Actions a secret from fnox: <name>... (PACKSLIP_SIGNING_KEY for signed releases)"
+raw = true
+run = "dev secrets ci"
+
 [tasks."secrets:push"]
 description = "push every secret the project needs from fnox, naming any missing [--env tinygo]"
 run = "mise run secrets:list | dev secrets push {{vars.worker}}"
@@ -146,7 +151,7 @@ raw = true
 run = "pitchfork logs --tail"
 
 [tasks.release]
-description = "publish a GitHub Release of the proxy: <version> locally, the pushed tag in CI"
+description = "publish a GitHub Release of the proxy: <version>, signed with the key in fnox (--keygen makes it)"
 raw = true
 run = "dev release cmd/proxy"
 
@@ -212,6 +217,11 @@ alias = "url"
 description = "this clone's proxy Worker URL [--env tinygo] [--refresh, after switching accounts]"
 quiet = true
 run = "dev url cmd/proxy --deployed"
+
+[tasks."proxy:delete"]
+description = "remove the deployed proxy Worker and its KV namespace [--env tinygo] [--name OLD] [--yes]"
+raw = true
+run = "dev delete cmd/proxy"
 
 [tasks."proxy:logs"]
 alias = "logs"
@@ -316,6 +326,11 @@ run = "dev deploy cmd/gui --wait /healthz"
 description = "this clone's GUI Worker URL"
 quiet = true
 run = "dev url cmd/gui --deployed"
+
+[tasks."gui:delete"]
+description = "remove the deployed GUI Worker [--name OLD] [--yes]"
+raw = true
+run = "dev delete cmd/gui"
 
 [tasks."gui:logs"]
 description = "live logs from the deployed GUI Worker"

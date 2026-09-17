@@ -32,3 +32,7 @@ jobs:
           mise run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The same signing key a local release uses (dev secrets ci sets
+          # it), so consumers pin one public key. Unset: the workflow's own
+          # identity signs instead.
+          PACKSLIP_SIGNING_KEY: ${{ secrets.PACKSLIP_SIGNING_KEY }}

@@ -208,16 +208,46 @@ fresh repo with the history pushed. Not started.
 - **This repo is `auth-proxy`.** Renamed on GitHub (the old URL redirects),
   the module paths, both Workers (`auth-proxy`, `auth-proxy-tinygo`,
   `auth-proxy-gui`), the skill and the docs renamed, the Workers deployed
-  under the new names with their secrets. **The old Workers and their KV
-  namespaces are still on the account:** deleting them is an irreversible
-  act an agent here is not allowed, so the owner does it once, from
-  `cmd/proxy`: `fnox exec -- wrangler delete --name grok-oauth-proxy
-  --force`, the same for `grok-oauth-proxy-tinygo` and
-  `grok-oauth-proxy-gui`, then `wrangler kv namespace list` and delete the
-  three namespaces named for them. The Grok login tokens lived in the old
-  Worker's KV, so `mise run login --worker` once. The local token dir is `~/.config/auth-proxy` now, so `mise run
-  login` once too. Leaving the fork network is a button GitHub gives no API
-  for: Settings, Danger Zone, "Leave fork network".
+  under the new names with their secrets, and the old ones deleted through
+  `dev delete` (below). The hand-made `GROK_AUTH` namespace the first Worker
+  used stays; it is the owner's. The Grok login tokens lived in the old
+  Worker's KV, so `mise run login --worker` once. Leaving the fork network
+  is a button GitHub gives no API for: Settings, Danger Zone, "Leave fork
+  network".
+
+## 2026-09-17, later still: delete, and how a release is signed
+
+- **`dev delete DIR [--env] [--name] [--yes]` (v0.3.0).** The owner, on
+  seeing the old Workers left behind: the tool needs to delete on
+  Cloudflare. A Worker goes with the KV namespaces wrangler provisioned for
+  it, found by the title wrangler gives them, `<worker>-<binding>` in
+  lowercase, so a namespace made by hand is never touched; a Fly app goes
+  with `flyctl apps destroy`. It says what will go and asks unless `--yes`.
+  Tasks `proxy:delete` and `gui:delete`; the three old Workers went through
+  them, with the one namespace wrangler had provisioned.
+- **Releases are local now, and the signing had to change for it.** A local
+  release first signed with a throwaway key, unlogged: mise refused (no
+  transparency log entry). Logged, mise still refused: a key-signed bundle
+  needs its key pinned, and a throwaway key would need a new pin every
+  release. So there is one long-lived key: `dev release --keygen` makes it
+  once, into fnox as `PACKSLIP_SIGNING_KEY` and into the repo's Actions
+  secrets (`dev secrets ci`, gh on stdin), its public half committed as
+  `packslip.pub`. Every release signs with it; consumers pin
+  `pubkey = "..."` on the tool, and `dev init` writes that pin from the
+  public key baked into the binary. mise pins a project's signer the way SSH
+  pins hosts: the switch from the workflow's identity to the key was refused
+  until `mise packslip forget packslip:github.com/joeblew999/dev`, once per
+  machine that had installed an earlier release.
+- **A release is published exactly once.** Pushing the tag of a local
+  release also ran the CI release, which rebuilt and re-published the same
+  version seconds later; a consumer that had fetched the first manifest then
+  failed on the second's assets. The release workflow is on demand now, with
+  a version input, running the same task with the same key; nothing runs on
+  a tag push. The tool, this repo, the scaffold and both forks have that
+  workflow.
+- **Owner's acts left:** `mise run secrets:ci PACKSLIP_SIGNING_KEY` here and
+  in both forks, so their on-demand workflow can sign (an agent here may not
+  write a secret store); the fork network; the hand-made namespace.
 
 ## Decisions needed
 
