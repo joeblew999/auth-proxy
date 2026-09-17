@@ -5,8 +5,8 @@ package views
 import (
 	"github.com/gsxhq/gsx"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/gui/ui"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/gui/ui/icon"
+	"github.com/joeblew999/auth-proxy/cmd/gui/ui"
+	"github.com/joeblew999/auth-proxy/cmd/gui/ui/icon"
 )
 
 // One routing rule decides everything: a model ID carries a provider prefix,

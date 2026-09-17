@@ -309,7 +309,7 @@ dir = "cmd/gui"
 run = "tinygo build -o /dev/null -target wasm ./cmd/tinygo-render"
 
 [tasks."gui:deploy"]
-description = "deploy the GUI Worker (grok-oauth-proxy-gui) and wait for its page"
+description = "deploy the GUI Worker (auth-proxy-gui) and wait for its page"
 run = "dev deploy cmd/gui --wait /healthz"
 
 [tasks."gui:url"]

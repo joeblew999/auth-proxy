@@ -1,8 +1,8 @@
 # Plan: one dev tool for every repo on this stack
 
-**Status: DONE 2026-09-17. The tool is `github.com/joeblew999/dev`, released
-by packslip and pinned here under `[tools]`; `cmd/dev` is gone. Step (d),
-`dev init`, is not started.**
+**Status: DONE 2026-09-17, step (d) included. The tool is
+`github.com/joeblew999/dev`, released by packslip and pinned here and in the
+two gsx forks; `dev init` scaffolds a new repo, proven on an empty one.**
 
 ## The question
 
@@ -174,6 +174,46 @@ path in five `go.mod` files, the `name` in two `wrangler.toml`, the skill
 directory, and the docs. Detaching a fork is a GitHub support request or a
 fresh repo with the history pushed. Not started.
 
+## 2026-09-17, later: (d) init, the forks, local releases
+
+- **`dev init` (v0.2.0).** Writes the stack into a new repo from templates
+  embedded in the binary: each is the file this repo proved (mise.toml with
+  the tools pinned and the stack tasks, hk.pkl, session.toml, .mcp.json, the
+  Claude Code settings and skill hook with its test, the two workflows,
+  .gitignore, AGENTS.md, CLAUDE.md, README.md) plus a first command,
+  `cmd/<name>` answering `/health`, its module and go.work. The module path
+  comes from the git remote. Existing files are left alone and named. It pins
+  the version of the `dev` that ran it. **Proven on an empty repo:** `mise x
+  packslip:github.com/joeblew999/dev@0.2.0 -- dev init`, `mise install`,
+  `mise run test` green (lint, session check, hook test, the command's vet
+  and tests), `/health` answering. Its CI run was not exercised: that needs a
+  repo created for it, which is the one act these sessions cannot do.
+- **Two defects the proof found and the tool fixed:** the session check
+  refused a repo that vendors no skills (an empty `SKILLS.lock` is now
+  fine), and the hook test expected gsx and wrangler skills a new repo does
+  not have (it now expects only the skills the repo has; this repo's copy is
+  the template's source and changed the same way).
+- **The forks.** `joeblew999/gsx` and `joeblew999/gsxui` pin the tool.
+  `mise run release` is `dev release .`, which names every binary their own
+  `.goreleaser.yml` builds (gsx and gsx-typebundle; gsxui and stylegen) in the
+  manifest, with their skill; snapshots proven for both. The playground and
+  the site deploy to Fly through `dev deploy` from the repo root, as
+  upstream's workflows do; the URLs compose, and a deploy without a login
+  fails naming its fix. Upstream's Makefiles and workflows are untouched.
+- **Releases are local now** (owner, the same evening: GitHub's workflow
+  quota makes CI releases slow; a GitHub-run release is for a large body of
+  work). `mise run release <version>` tags, builds, signs with a throwaway
+  key and uploads. Whether mise installs from a key-signed, unlogged
+  manifest is proven the first time one is pinned.
+- **This repo is `auth-proxy`.** Renamed on GitHub (the old URL redirects),
+  the module paths, both Workers (`auth-proxy`, `auth-proxy-tinygo`,
+  `auth-proxy-gui`), the skill and the docs renamed, the Workers deployed
+  under the new names with their secrets, the old ones deleted. The Grok
+  login tokens lived in the old Worker's KV, so `mise run login --worker`
+  once. The local token dir is `~/.config/auth-proxy` now, so `mise run
+  login` once too. Leaving the fork network is a button GitHub gives no API
+  for: Settings, Danger Zone, "Leave fork network".
+
 ## Decisions needed
 
 | # | Question | Recommendation |
@@ -181,7 +221,7 @@ fresh repo with the history pushed. Not started.
 | 0 | When? | Decided 2026-09-16 evening: now ("do it all"). Every improvement to the tool lands in its repo and is proven here by the pin |
 | 1 | The tool's name and repo | `joeblew999/dev`, proposed and not objected to. The binary and the repo share the name, which `release` handles (the binary is named after the repo) |
 | 2 | Does `bench` move? | No. It knows this proxy's endpoints |
-| 3 | `dev init` overwrites nothing or refuses on an existing file? | Refuses, and names the file |
+| 3 | `dev init` overwrites nothing or refuses on an existing file? | Refuses, and names the file. Done: it writes what is missing, keeps and names what exists |
 
 ## Done means
 

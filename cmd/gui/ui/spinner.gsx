@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/gsxhq/gsx"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/gui/ui/icon"
+	"github.com/joeblew999/auth-proxy/cmd/gui/ui/icon"
 )
 
 // Spinner is the shadcn/ui Spinner. shadcn renders lucide-react's

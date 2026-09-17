@@ -1,4 +1,4 @@
-name = "grok-oauth-proxy"
+name = "auth-proxy"
 main = "build/go/worker.mjs"
 compatibility_date = "2026-09-07"
 # No account_id: wrangler takes CLOUDFLARE_ACCOUNT_ID from the environment,
@@ -34,7 +34,7 @@ invocation_logs = true
 persist = true
 
 # The same Worker built with TinyGo (mise run proxy:deploy:tinygo), deployed as
-# grok-oauth-proxy-tinygo. It serves 501 on /mcp; see .plan/done/tinygo.md. Its
+# auth-proxy-tinygo. It serves 501 on /mcp; see .plan/done/tinygo.md. Its
 # main lives under build/tinygo, which is how `dev build` knows to use TinyGo.
 # kv_namespaces is not inherited by environments, so it is repeated. Being a
 # separate Worker, it is provisioned its own namespace: its Grok login is its own.

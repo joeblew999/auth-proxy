@@ -11,7 +11,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/gui/views"
+	"github.com/joeblew999/auth-proxy/cmd/gui/views"
 )
 
 func main() {

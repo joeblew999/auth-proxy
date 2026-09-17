@@ -2,7 +2,7 @@ amends "package://github.com/jdx/hk/releases/download/v2.0.1/hk@2.0.1#/Config.pk
 import "package://github.com/jdx/hk/releases/download/v2.0.1/hk@2.0.1#/Builtins.pkl"
 // Using a coding agent? See https://hk.jdx.dev/agents
 
-// hk checks for grok-oauth-proxy. Only builtins whose executables come from
+// hk checks for auth-proxy. Only builtins whose executables come from
 // this repo's mise toolchain (go) or are shell builtins. No actionlint,
 // golangci-lint, or zizmor: none are pinned in mise.toml.
 local linters = new Mapping {

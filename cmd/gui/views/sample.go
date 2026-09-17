@@ -1,6 +1,6 @@
 package views
 
-import "github.com/joeblew999/grok-oauth-proxy/cmd/gui/ui/icon"
+import "github.com/joeblew999/auth-proxy/cmd/gui/ui/icon"
 
 // SampleModes stands in for what the proxy will report once the three runtimes
 // are wired up. The shapes are the real ones the GUI will be handed; the values

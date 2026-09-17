@@ -1,5 +1,5 @@
 bin
-/grok-oauth-proxy
+/auth-proxy
 # what a bare `go build` in a command directory leaves behind; dev build goes to bin/
 /cmd/proxy/proxy
 /cmd/gui/gui

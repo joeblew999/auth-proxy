@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/config"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/xaiauth"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/config"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/xaiauth"
 )
 
 const clientKey = "client-key"

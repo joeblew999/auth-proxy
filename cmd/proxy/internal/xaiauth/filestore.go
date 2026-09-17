@@ -13,13 +13,13 @@ type FileStore struct {
 	Dir string
 }
 
-// DefaultFileStore stores tokens in ~/.config/grok-oauth-proxy.
+// DefaultFileStore stores tokens in ~/.config/auth-proxy.
 func DefaultFileStore() (FileStore, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return FileStore{}, err
 	}
-	return FileStore{Dir: filepath.Join(home, ".config", "grok-oauth-proxy")}, nil
+	return FileStore{Dir: filepath.Join(home, ".config", "auth-proxy")}, nil
 }
 
 // TokensPath is where tokens are written.

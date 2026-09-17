@@ -16,10 +16,10 @@ import (
 	"github.com/syumai/workers-go/cloudflare/fetch"
 	"github.com/syumai/workers-go/cloudflare/kv"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/bootstrap"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/mcp"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/proxy"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/xaiauth"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/bootstrap"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/mcp"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/proxy"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/xaiauth"
 )
 
 const (

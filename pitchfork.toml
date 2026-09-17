@@ -1,6 +1,6 @@
 #:schema https://pitchfork.jdx.dev/schema.json
 
-# Local daemons for grok-oauth-proxy. Commands stay mise tasks (SSOT);
+# Local daemons for auth-proxy. Commands stay mise tasks (SSOT);
 # pitchfork only supervises: start, readiness, logs, stop.
 #
 #   mise run svc:start proxy      build and start the proxy (real providers)

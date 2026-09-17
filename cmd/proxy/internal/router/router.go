@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/config"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/config"
 )
 
 // Route is a resolved request target.

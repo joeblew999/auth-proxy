@@ -1,4 +1,4 @@
-- Repo: joeblew999/grok-oauth-proxy
+- Repo: joeblew999/auth-proxy
 
 # Development instructions
 

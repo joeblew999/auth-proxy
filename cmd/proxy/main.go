@@ -1,6 +1,6 @@
 //go:build !js || !wasm
 
-// Command grok-oauth-proxy is an OpenAI-compatible proxy for many providers.
+// Command auth-proxy is an OpenAI-compatible proxy for many providers.
 // The same handler also runs as a Cloudflare Worker (cmd/worker).
 package main
 
@@ -21,11 +21,11 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/bootstrap"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/config"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/mcp"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/proxy"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/xaiauth"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/bootstrap"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/config"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/mcp"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/proxy"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/xaiauth"
 )
 
 const (
@@ -35,7 +35,7 @@ const (
 	redirectURI = localURL + "/callback"
 )
 
-const usage = `grok-oauth-proxy: one OpenAI-compatible endpoint for many model providers.
+const usage = `auth-proxy: one OpenAI-compatible endpoint for many model providers.
 
 Commands (usually run through mise; see "mise tasks"):
   serve  [--config FILE] [--addr ADDR]      run the proxy locally (default command)

@@ -10,7 +10,7 @@ import (
 
 	"github.com/gsxhq/vite"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/gui/views"
+	"github.com/joeblew999/auth-proxy/cmd/gui/views"
 )
 
 // A first visit has chosen nothing, so start on the first mode's first model.

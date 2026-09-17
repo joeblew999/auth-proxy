@@ -1,4 +1,4 @@
-module github.com/joeblew999/grok-oauth-proxy/cmd/gui
+module github.com/joeblew999/auth-proxy/cmd/gui
 
 go 1.27.0
 

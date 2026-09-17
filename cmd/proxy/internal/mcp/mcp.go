@@ -18,8 +18,8 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/proxy"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/proxy/internal/router"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/proxy"
+	"github.com/joeblew999/auth-proxy/cmd/proxy/internal/router"
 )
 
 const (

@@ -4,8 +4,8 @@ import (
 	"github.com/gsxhq/gsx"
 	"github.com/gsxhq/vite"
 
-	"github.com/joeblew999/grok-oauth-proxy/cmd/gui/ui"
-	"github.com/joeblew999/grok-oauth-proxy/cmd/gui/views"
+	"github.com/joeblew999/auth-proxy/cmd/gui/ui"
+	"github.com/joeblew999/auth-proxy/cmd/gui/views"
 )
 
 component Layout(title string, children gsx.Node) {

@@ -1,4 +1,4 @@
-# grok-oauth-proxy
+# auth-proxy
 
 One OpenAI-compatible endpoint for many model providers. Clients pick the provider
 through the model name: `xai/grok-4.3`, `groq/llama-3.3-70b-versatile`,
