@@ -13,7 +13,7 @@ tinygo = "0.42.0"   # must match TINYGO_VERSION in workers-go's Makefile
 "packslip:github.com/joeblew999/gsx" = { version = "0.1.3", pubkey = "RWQnLlj1BaHu39oBhUFxM3zEscQHqhxihLeTGyDAlavNFAOSTxQEHfoq" }
 "packslip:github.com/joeblew999/gsxui" = { version = "0.1.1", pubkey = "RWQnLlj1BaHu39oBhUFxM3zEscQHqhxihLeTGyDAlavNFAOSTxQEHfoq" }
 "packslip:github.com/jdx/hk" = "2.0.1"
-"packslip:github.com/joeblew999/dev" = { version = "0.5.0", pubkey = "RWQnLlj1BaHu39oBhUFxM3zEscQHqhxihLeTGyDAlavNFAOSTxQEHfoq" }   # the stack's developer tool; `dev` lists its verbs, its skill is .claude/skills/dev
+"packslip:github.com/joeblew999/dev" = { version = "1.3.0", pubkey = "RWQnLlj1BaHu39oBhUFxM3zEscQHqhxihLeTGyDAlavNFAOSTxQEHfoq" }   # the stack's developer tool; `dev` lists its verbs, its skill is .claude/skills/dev
 jq = "latest"   # .claude/hooks/skill-gate reads the tool payload with it
 goreleaser = "latest"
 packslip = "latest"

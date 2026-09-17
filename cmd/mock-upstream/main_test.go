@@ -36,3 +36,7 @@ func TestSkill(t *testing.T) { cli.CheckSkill(t, app) }
 // reads, and catches a `<placeholder>` written without the backticks that
 // stop a renderer eating it as an HTML tag.
 func TestUsage(t *testing.T) { cli.CheckUsage(t, app) }
+
+// TestDescribed ties every verb to a description and stops the prose listing
+// verbs that are rendered under it.
+func TestDescribed(t *testing.T) { cli.CheckDescribed(t, app) }

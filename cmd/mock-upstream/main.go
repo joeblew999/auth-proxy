@@ -19,8 +19,8 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/json"
+	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -36,40 +36,48 @@ import (
 var app = cli.Command{
 	Name:    "mock-upstream",
 	Default: "serve",
-	Verbs:   map[string]cli.Verb{"serve": {Run: serve, Usage: usage}},
-	Head:    head,
-	Tail:    tail,
+	Verbs: map[string]cli.Verb{
+		"serve": {
+			Run:   serve,
+			Flags: serveFlags,
+			Desc:  "answer /v1/models and /v1/chat/completions, deterministically and at no cost",
+			Usage: usage,
+		},
+	},
+	Skill: skillDoc,
 }
 
-// usage, head and tail are the manual: the verb's own usage, and the prose
-// around it. Markdown files beside this one, not string constants, because a
-// Go raw string is backtick-delimited and so cannot hold inline code.
+// usage is the prose for this command's one group of verbs; skill.md is the
+// manual around them, with a marker where the rendered verbs go. Markdown
+// beside the code, not Go string constants, because a Go raw string is
+// backtick-delimited and so cannot hold inline code.
 
 //go:embed usage.md
 var usage string
 
-//go:embed head.md
-var head string
-
-//go:embed tail.md
-var tail string
+//go:embed skill.md
+var skillDoc string
 
 func main() { cli.Main(app) }
 
 // serve is `mock-upstream serve`, the default verb: the mock upstream itself.
-func serve(verb string, args []string, stdout, stderr io.Writer) error {
-	fs := cli.Flags(verb, stderr)
-	addr := fs.String("addr", "127.0.0.1:18080", "address to listen on")
-	rest, err := cli.ParseInterleaved(fs, args)
-	if err != nil {
-		return cli.Usagef("%s: %v", verb, err)
+// serveFlags is what `serve` takes. cli renders the signature from it and
+// serve registers the same ones, so the manual cannot name a flag this does
+// not have.
+func serveFlags(fs *flag.FlagSet) {
+	fs.String("addr", "127.0.0.1:18080", "the `HOST:PORT` to listen on")
+}
+
+// serve is `mock-upstream serve`, the default verb. cli has parsed the flags
+// before this is reached, so what is left is the server.
+func serve(c cli.Call) error {
+	if len(c.Args) > 0 {
+		return c.Usagef("takes no arguments")
 	}
-	if len(rest) > 0 {
-		return cli.Usagef("%s takes no arguments", verb)
-	}
-	logf("mock upstream listening on http://%s/v1", *addr)
-	if err := http.ListenAndServe(*addr, handler()); err != nil {
-		return fmt.Errorf("listen on %s: %v (another process holds the port, or pass --addr)", *addr, err)
+	addr := c.Value("addr")
+	logf("mock upstream listening on http://%s/v1", addr)
+	if err := http.ListenAndServe(addr, handler()); err != nil {
+		return fmt.Errorf("listen on %s: %v (another process holds the port, or pass --addr)", addr, err)
 	}
 	return nil
 }

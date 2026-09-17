@@ -23,3 +23,9 @@ wrangler.deploy.toml
 .claude/skills/templ-to-gsx-migration
 .claude/skills/hk-configure
 .claude/skills/hk-debug
+# written per developer by the tool, so it keeps them out of git
+.agents/skills/gsx
+.agents/skills/gsxui
+.agents/skills/hk-configure
+.agents/skills/hk-debug
+.agents/skills/templ-to-gsx-migration
