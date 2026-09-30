@@ -2,7 +2,7 @@
 # Providers live in providers.toml, secret values in fnox (mise run secrets:set).
 
 [tools]
-node = "24"
+node = "24.19.0"
 tinygo = "0.42.0"   # must match TINYGO_VERSION in workers-go's Makefile
 "aqua:WebAssembly/binaryen" = "121"   # wasm-opt, for TinyGo
 # packslip: a verified manifest plus version-matched skills when the publisher
