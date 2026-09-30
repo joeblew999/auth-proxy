@@ -13,14 +13,14 @@ tinygo = "0.42.0"   # must match TINYGO_VERSION in workers-go's Makefile
 "packslip:github.com/joeblew999/gsxui" = { version = "0.1.1", pubkey = "RWQnLlj1BaHu39oBhUFxM3zEscQHqhxihLeTGyDAlavNFAOSTxQEHfoq" }
 "packslip:github.com/jdx/hk" = "2.0.1"
 "packslip:github.com/joeblew999/dev" = { version = "1.3.0", pubkey = "RWQnLlj1BaHu39oBhUFxM3zEscQHqhxihLeTGyDAlavNFAOSTxQEHfoq" }   # the stack's developer tool; `dev` lists its verbs, its skill is .claude/skills/dev
-jq = "latest"   # .claude/hooks/skill-gate reads the tool payload with it
-goreleaser = "latest"
-packslip = "latest"
-gh = "latest"
-pitchfork = "latest"
+jq = "1.8.2"   # .claude/hooks/skill-gate reads the tool payload with it
+goreleaser = "2.18.2"
+packslip = "1.4.0"
+gh = "2.101.0"
+pitchfork = "2.29.0"
 "npm:wrangler" = "4.131.1"   # 4.97's local runtime rejects wrangler.toml's compatibility_date
 "go:github.com/ardanlabs/kronk/cmd/kronk" = "1.32.6"   # local models on 127.0.0.1:11435
-"go:github.com/oligot/go-mod-upgrade" = "latest"   # mise run deps:list
+"go:github.com/oligot/go-mod-upgrade" = "0.12.0"   # mise run deps:list
 # cmd/gui builds with its own go.mod tool pin (go tool gsx, upstream gsxhq/gsx
 # v0.1.1), not the packslip gsx above, whose 0.1.2 is that code plus release
 # wiring. Nothing checks they stay the same; see .plan/local-and-browser-ai.md.
