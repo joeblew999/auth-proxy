@@ -2,10 +2,7 @@
   "disableClaudeAiConnectors": true,
   "enableAllProjectMcpServers": true,
   "enabledPlugins": {
-    "claude-code@claude-skills": false,
-    "cloudflare@cloudflare": false,
-    "itp@cc-skills": false,
-    "mise@cc-skills": false
+    "cloudflare@cloudflare": false
   },
   "hooks": {
     "PreToolUse": [
